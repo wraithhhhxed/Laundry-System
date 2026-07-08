@@ -1,0 +1,15 @@
+SUMMARY
+gross,after_discount,vat,final,total_discount,appointments
+3175,2595.81,311.49,2907.3,579.19,5
+
+PER BRANCH
+branch,appointments,gross,vat,final
+Selfie Wash BGC,5,3175,311.49,2907.3
+
+KG REVENUE
+total_kg_revenue,total_kg,avg_kg_charge
+1480,0,296
+
+PROMO CODES
+code,type,value,times_used,total_discount,total_final
+SAVETHIRTY,percent,30.01,3,579.19,1688.74
