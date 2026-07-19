@@ -101,6 +101,15 @@ model Appointment {
   weightConfirmedAt DateTime?
   weightConfirmedBy String?
 
+  // Overweight (>7kg) decision flow — client must choose "split" (2nd load, full price)
+  // or "trim" (cap at 7kg). Auto-cancels if unresolved by end of day cutoff.
+  overweightStatus     String    @default("none")  // "none" | "pending_decision" | "resolved"
+  overweightExcessKg   Float?
+  overweightNotifiedAt DateTime?
+  overweightDeadline   DateTime?
+  overweightResolution String?                        // "split" | "trim"
+  overweightResolvedAt DateTime?
+
   preferredPaymentMethod String    @default("cash")
   paymentStatus          String    @default("unpaid")
   paymentMethod          String?
