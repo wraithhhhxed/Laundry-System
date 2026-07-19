@@ -8,7 +8,11 @@ const getModel = async (role) => {
     const { default: m } = await import('../../models/branchModel.js')
     return m
   }
-  // admin + client both live in userModel
+  if (role === 'admin') {
+    const { default: m } = await import('../../models/adminModel.js')
+    return m
+  }
+  // client lives in userModel
   const { default: m } = await import('../../models/userModel.js')
   return m
 }

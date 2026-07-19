@@ -7,7 +7,7 @@ const Banner = () => {
 
   return (
     <div
-      className="relative overflow-hidden bg-violet-600 px-6 md:px-16 my-20"
+      className="relative overflow-hidden bg-blue-600 px-6 md:px-16 my-20"
       style={{ fontFamily: "'Georgia', serif" }}
     >
       {/* glow from top */}
@@ -25,7 +25,7 @@ const Banner = () => {
         className="absolute bottom-0 left-0 w-full pointer-events-none"
         style={{
           height: '40%',
-          background: 'linear-gradient(to top, rgba(91,33,182,0.5) 0%, transparent 100%)',
+          background: 'linear-gradient(to top, rgba(30,64,175,0.5) 0%, transparent 100%)',
         }}
       />
 
@@ -38,7 +38,8 @@ const Banner = () => {
               Get Started Today
             </span>
             <h2
-              className="leading-none text-white"
+              
+  className="leading-none text-white"
               style={{
                 fontSize: 'clamp(36px, 6vw, 80px)',
                 fontWeight: 700,
@@ -58,12 +59,12 @@ const Banner = () => {
                 navigate('/login', { state: { tab: 'register' } })
                 window.scrollTo(0, 0)
               }}
-              className="group relative overflow-hidden bg-white text-violet-700 px-10 py-4 font-sans text-sm tracking-widest uppercase font-bold inline-flex items-center gap-3"
+              className="group relative overflow-hidden bg-orange-500 text-white px-10 py-4 font-sans text-sm tracking-widest uppercase font-bold inline-flex items-center gap-3"
               style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}
             >
               <span className="relative z-10">Create Account</span>
               <span className="relative z-10 group-hover:translate-x-1 transition-transform duration-300">→</span>
-              <div className="absolute inset-0 bg-violet-100 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+              <div className="absolute inset-0 bg-orange-600 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
             </button>
           </div>
         </div>

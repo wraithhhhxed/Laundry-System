@@ -1,61 +1,83 @@
-// src/repositories/InventoryRepository.js
-import Inventory from '../../models/inventoryModel.js'
+// backend/src/repositories/InventoryRepository.js
+import prisma from '../config/prismaClient.js';
 
 class InventoryRepository {
   async findByBranch(branchId) {
-    return Inventory.find({ branchId })
-      .populate('productId', 'name description price category image isActive')
-      .sort({ createdAt: -1 })
+    return await prisma.inventory.findMany({
+      where: { branchId },
+      include: { product: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findByBranchAndProduct(branchId, productId) {
-    return Inventory.findOne({ branchId, productId })
-      .populate('productId', 'name description price category image isActive')
+    return await prisma.inventory.findUnique({
+      where: { branchId_productId: { branchId, productId } },
+      include: { product: true },
+    });
   }
 
   async findAll() {
-    return Inventory.find()
-      .populate('branchId', 'name')
-      .populate('productId', 'name description price category image isActive')
-      .sort({ createdAt: -1 })
+    return await prisma.inventory.findMany({
+      include: {
+        branch: { select: { name: true } },
+        product: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async upsert(branchId, productId, quantity, lowStockThreshold) {
-    return Inventory.findOneAndUpdate(
-      { branchId, productId },
-      { quantity, lowStockThreshold },
-      { upsert: true, new: true }
-    ).populate('productId', 'name description price category image isActive')
+    return await prisma.inventory.upsert({
+      where: { branchId_productId: { branchId, productId } },
+      update: { quantity, lowStockThreshold },
+      create: { branchId, productId, quantity, lowStockThreshold },
+      include: { product: true },
+    });
   }
 
+  // ─── ATOMIC: conditional decrement gamit ang transaction + optimistic
+  // concurrency check (parehong pattern gaya ng PromoCodeRepository.reserveUse) ──
   async deduct(branchId, productId, qty) {
-    return Inventory.findOneAndUpdate(
-      { branchId, productId, quantity: { $gte: qty } },
-      { $inc: { quantity: -qty } },
-      { new: true }
-    )
+    return await prisma.$transaction(async (tx) => {
+      const inv = await tx.inventory.findUnique({ where: { branchId_productId: { branchId, productId } } });
+      if (!inv || inv.quantity < qty) return null;
+
+      const result = await tx.inventory.updateMany({
+        where: { branchId, productId, quantity: inv.quantity },
+        data: { quantity: { decrement: qty } },
+      });
+
+      if (result.count === 0) return null; // may nauna nang caller — natalo sa race
+
+      return await tx.inventory.findUnique({ where: { branchId_productId: { branchId, productId } } });
+    });
   }
 
   async restock(branchId, productId, qty) {
-    return Inventory.findOneAndUpdate(
-      { branchId, productId },
-      { $inc: { quantity: qty } },
-      { new: true }
-    )
+    return await prisma.inventory.update({
+      where: { branchId_productId: { branchId, productId } },
+      data: { quantity: { increment: qty } },
+    });
   }
 
+  // NOTE: si Prisma ay walang built-in na paraan para i-compare ang dalawang
+  // column (quantity vs lowStockThreshold) diretso sa `where` nang walang raw
+  // SQL — kaya kinukuha muna natin lahat ng records ng branch, tapos
+  // fini-filter sa JavaScript. Sapat na 'to sa laki ng datos natin.
   async findLowStock(branchId) {
-    return Inventory.aggregate([
-      { $match: { branchId: new mongoose.Types.ObjectId(branchId) } },
-      { $match: { $expr: { $lte: ['$quantity', '$lowStockThreshold'] } } },
-    ]).then(res =>
-      Inventory.populate(res, { path: 'productId', select: 'name category image' })
-    )
+    const inventories = await prisma.inventory.findMany({
+      where: { branchId },
+      include: { product: { select: { name: true, category: true, image: true } } },
+    });
+    return inventories.filter((inv) => inv.quantity <= inv.lowStockThreshold);
   }
 
   async delete(branchId, productId) {
-    return Inventory.findOneAndDelete({ branchId, productId })
+    return await prisma.inventory.delete({
+      where: { branchId_productId: { branchId, productId } },
+    });
   }
 }
 
-export default new InventoryRepository()
+export default new InventoryRepository();

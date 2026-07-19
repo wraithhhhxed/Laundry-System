@@ -11,7 +11,7 @@ function Header() {
 
   return (
     <div
-      style={{ fontFamily: "'Georgia', serif" }}
+      style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
       className="overflow-hidden relative flex flex-col bg-white"
     >
       <style>{`
@@ -30,11 +30,11 @@ function Header() {
         .shimmer-text {
           background: linear-gradient(
             90deg,
-            #4c1d95 0%,
-            #7c3aed 30%,
-            #c4b5fd 50%,
-            #7c3aed 70%,
-            #4c1d95 100%
+            #1e3a8a 0%,
+            #2563eb 30%,
+            #93c5fd 50%,
+            #2563eb 70%,
+            #1e3a8a 100%
           );
           background-size: 200% auto;
           -webkit-background-clip: text;
@@ -50,11 +50,11 @@ function Header() {
       `}</style>
 
       {/* ── TOP BAR ── */}
-      <div className="flex items-center justify-between px-6 md:px-16 py-3 border-b border-violet-100 relative z-20 bg-white">
-        <span className="uppercase tracking-[0.2em] md:tracking-[0.35em] text-[8px] md:text-[10px] text-violet-400 font-sans font-bold">
+      <div className="flex items-center justify-between px-6 md:px-16 py-3 border-b border-blue-100 relative z-20 bg-white">
+        <span className="uppercase tracking-[0.2em] md:tracking-[0.35em] text-[8px] md:text-[11px] text-blue-400 font-sans font-bold">
           Selfie Wash Laundry
         </span>
-        <span className="uppercase tracking-[0.2em] md:tracking-[0.35em] text-[8px] md:text-[10px] text-neutral-400 font-sans hidden sm:block">
+        <span className="uppercase tracking-[0.2em] md:tracking-[0.35em] text-[8px] md:text-[11px] text-blue-400 font-sans font-bold sm:block">
           Pickup · Wash · Deliver
         </span>
       </div>
@@ -62,9 +62,9 @@ function Header() {
       {/* ── HERO BODY ── */}
       <div className="relative flex flex-row items-center overflow-hidden min-h-[60vh] md:min-h-[88vh]">
 
-        {/* ── BACKGROUND VIOLET PANEL (Hidden on Mobile) ── */}
+        {/* ── BACKGROUND BLUE PANEL (Hidden on Mobile) ── */}
         <div
-          className="hidden md:block absolute top-0 right-0 h-full bg-violet-600 z-0"
+          className="hidden md:block absolute top-0 right-0 h-full bg-blue-600 z-0"
           style={{ width: '35%' }}
         >
           <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(circle_at_top,white,transparent)]" />
@@ -76,7 +76,7 @@ function Header() {
           style={{
             fontSize: 'clamp(120px, 25vw, 260px)',
             fontWeight: 800,
-            color: '#ede9fe',
+            color: '#dbeafe',
             zIndex: 1,
           }}
         >
@@ -89,7 +89,7 @@ function Header() {
           {/* Headline */}
           <div className="reveal-1">
             <h1
-              className="leading-[0.95] text-violet-900"
+              className="leading-[0.95] text-blue-900"
               style={{
                 fontSize: 'clamp(40px, 12vw, 82px)',
                 fontWeight: 800,
@@ -104,7 +104,7 @@ function Header() {
           </div>
 
           {/* Subtext */}
-          <p className="reveal-2 text-sm md:text-base max-w-[220px] md:max-w-sm leading-snug font-sans font-bold text-violet-700">
+          <p className="reveal-2 text-sm md:text-base max-w-[220px] md:max-w-sm leading-snug font-sans font-semi-bold text-blue-700">
             We pick up, wash, fold, and deliver straight to your doorstep.
           </p>
           
@@ -112,13 +112,13 @@ function Header() {
           <div className="reveal-4 mt-2">
             <a
               href="#speciality"
-              className="group relative overflow-hidden bg-violet-600 text-white px-6 md:px-8 py-3 md:py-3.5 font-sans text-[10px] md:text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2"
-              style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
-            >
-              <span className="relative z-10">Book Now</span>
-              <img src={assets.arrow_icon} className="w-2 md:w-3 invert" alt="" />
-              <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
-            </a>
+  className="group relative overflow-hidden bg-orange-500 text-white px-6 md:px-8 py-3 md:py-3.5 font-sans text-[10px] md:text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2"
+  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+>
+  <span className="relative z-10">Book Now</span>
+  <img src={assets.arrow_icon} className="w-2 md:w-3 invert" alt="" />
+  <div className="absolute inset-0 bg-orange-600 translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+</a>
           </div>
         </div>
 

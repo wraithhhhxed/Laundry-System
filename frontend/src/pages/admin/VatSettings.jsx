@@ -74,10 +74,10 @@ const VatSettings = () => {
 
       {/* ── Header ── */}
       <div
-        className='bg-violet-600 px-7 py-6 mb-8'
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        className='bg-blue-600 px-7 py-6 mb-8'
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
-        <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-1'>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>
           Settings
         </p>
         <h1
@@ -90,19 +90,17 @@ const VatSettings = () => {
 
       <div className='px-7 pb-10'>
 
-
-
         {/* ── Main card ── */}
-        <div className='bg-white border border-violet-100 overflow-hidden mb-6'>
+        <div className='bg-white border border-blue-100 overflow-hidden mb-6'>
 
-          <div className='bg-violet-50 px-7 py-3 border-b border-violet-100 flex items-center justify-between'>
-            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>
+          <div className='bg-blue-50 px-7 py-3 border-b border-blue-100 flex items-center justify-between'>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
               Current VAT Rate
             </span>
             {!editing && (
               <button
                 onClick={handleEditClick}
-                className='font-sans text-[10px] uppercase tracking-[0.2em] font-bold text-violet-500 hover:text-violet-700 transition-colors'
+                className='font-sans text-[10px] uppercase tracking-[0.2em] font-bold text-blue-500 hover:text-blue-700 transition-colors'
               >
                 Edit ✎
               </button>
@@ -116,7 +114,7 @@ const VatSettings = () => {
                 <span className='font-sans font-black text-neutral-700' style={{ fontSize: '2.5rem', letterSpacing: '-0.04em' }}>
                   {vatRate !== null ? vatRate : '—'}
                 </span>
-                <span className='font-sans font-black text-violet-400 text-2xl pb-1'>%</span>
+                <span className='font-sans font-black text-blue-400 text-2xl pb-1'>%</span>
               </div>
             ) : (
               /* ── Edit mode ── */
@@ -132,10 +130,10 @@ const VatSettings = () => {
                     step='0.01'
                     value={inputVal}
                     onChange={e => { setInputVal(e.target.value); setError('') }}
-                    className='w-32 px-4 py-2 border border-violet-200 font-sans text-lg font-bold text-neutral-700 focus:outline-none focus:border-violet-500 transition-colors'
+                    className='w-32 px-4 py-2 border border-blue-200 font-sans text-lg font-bold text-neutral-700 focus:outline-none focus:border-blue-500 transition-colors'
                     placeholder='e.g. 12'
                   />
-                  <span className='font-sans font-bold text-violet-400 text-lg'>%</span>
+                  <span className='font-sans font-bold text-blue-400 text-lg'>%</span>
                 </div>
                 {error && (
                   <p className='font-sans text-xs text-red-500'>{error}</p>
@@ -143,7 +141,7 @@ const VatSettings = () => {
                 <div className='flex items-center gap-3 mt-1'>
                   <button
                     onClick={handleSaveClick}
-                    className='bg-violet-600 hover:bg-violet-700 text-white font-sans text-xs uppercase tracking-[0.2em] font-bold px-5 py-2.5 transition-colors'
+                    className='bg-blue-600 hover:bg-blue-700 text-white font-sans text-xs uppercase tracking-[0.2em] font-bold px-5 py-2.5 transition-colors'
                   >
                     Save
                   </button>
@@ -170,16 +168,16 @@ const VatSettings = () => {
         {/* ── Applied rate chip ── */}
         {vatRate !== null && (
           <div>
-            <p className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans font-semibold mb-2'>
+            <p className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans font-semibold mb-2'>
               Applied Rate
             </p>
-            <div className='h-px bg-violet-100 mb-4' />
+            <div className='h-px bg-blue-100 mb-4' />
             <div className='flex flex-wrap gap-3'>
               <div
-                className='bg-violet-600 px-6 py-4 min-w-[120px] text-center'
-                style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #7c3aed' }}
+                className='bg-blue-600 px-6 py-4 min-w-[120px] text-center'
+                style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #2563eb' }}
               >
-                <p className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-200 mb-1'>
+                <p className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-200 mb-1'>
                   VAT
                 </p>
                 <p className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>
@@ -194,10 +192,10 @@ const VatSettings = () => {
       {/* ── Confirmation Modal ── */}
       {showConfirm && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-          <div className='bg-white border border-violet-100 shadow-xl w-full max-w-sm mx-4' style={{ fontFamily: "'Georgia', serif" }}>
+          <div className='bg-white border border-blue-100 shadow-xl w-full max-w-sm mx-4' style={{ fontFamily: "'Georgia', serif" }}>
 
-            <div className='bg-violet-600 px-6 py-4'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+            <div className='bg-blue-600 px-6 py-4'
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
               <p className='font-sans font-black text-white text-base' style={{ letterSpacing: '-0.02em' }}>
                 Confirm VAT Change
               </p>
@@ -206,8 +204,8 @@ const VatSettings = () => {
             <div className='px-6 py-5 flex flex-col gap-4'>
               <p className='font-sans text-sm text-neutral-600 leading-relaxed'>
                 You are changing the VAT rate from{' '}
-                <strong className='text-violet-700'>{vatRate}%</strong> to{' '}
-                <strong className='text-violet-700'>{parseFloat(inputVal)}%</strong>.
+                <strong className='text-blue-700'>{vatRate}%</strong> to{' '}
+                <strong className='text-blue-700'>{parseFloat(inputVal)}%</strong>.
               </p>
               <div className='border border-amber-200 bg-amber-50 px-4 py-3'>
                 <p className='font-sans text-xs text-amber-700 leading-relaxed'>
@@ -218,14 +216,14 @@ const VatSettings = () => {
                 <button
                   onClick={handleConfirm}
                   disabled={saving}
-                  className='flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-sans text-xs uppercase tracking-[0.2em] font-bold py-2.5 transition-colors'
+                  className='flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-sans text-xs uppercase tracking-[0.2em] font-bold py-2.5 transition-colors'
                 >
                   {saving ? 'Saving…' : 'Confirm'}
                 </button>
                 <button
                   onClick={() => setShowConfirm(false)}
                   disabled={saving}
-                  className='flex-1 border border-violet-200 text-violet-500 hover:bg-violet-50 font-sans text-xs uppercase tracking-[0.2em] font-bold py-2.5 transition-colors'
+                  className='flex-1 border border-blue-200 text-blue-500 hover:bg-blue-50 font-sans text-xs uppercase tracking-[0.2em] font-bold py-2.5 transition-colors'
                 >
                   Cancel
                 </button>

@@ -65,12 +65,12 @@ const AuditLogs = () => {
   return (
     <div className='bg-neutral-50 min-h-screen w-full' style={{ fontFamily: "'Georgia', serif" }}>
 
-      {/* Violet Panel Header */}
+      {/* Blue Panel Header */}
       <div
-        className='bg-violet-600 px-7 py-6 mb-8'
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        className='bg-blue-600 px-7 py-6 mb-8'
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
-        <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-1'>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>
           System
         </p>
         <div className='flex items-center justify-between'>
@@ -80,7 +80,7 @@ const AuditLogs = () => {
           >
             Audit Logs
           </h1>
-          <span className='font-sans text-xs font-semibold text-violet-200 uppercase tracking-[0.2em]'>
+          <span className='font-sans text-xs font-semibold text-blue-200 uppercase tracking-[0.2em]'>
             {total} records
           </span>
         </div>
@@ -89,9 +89,9 @@ const AuditLogs = () => {
       <div className='px-7 pb-10'>
 
         {/* Filters */}
-        <div className='bg-white border border-violet-100 mb-6'>
-          <div className='bg-violet-50 px-7 py-3 border-b border-violet-100'>
-            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>
+        <div className='bg-white border border-blue-100 mb-6'>
+          <div className='bg-blue-50 px-7 py-3 border-b border-blue-100'>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
               Filters
             </span>
           </div>
@@ -100,21 +100,21 @@ const AuditLogs = () => {
             {/* Search */}
             <form onSubmit={handleSearch} className='flex items-center gap-2 flex-1 min-w-[220px]'>
               <div className='relative flex-1'>
-                <Search size={13} className='absolute left-3 top-1/2 -translate-y-1/2 text-violet-300' />
+                <Search size={13} className='absolute left-3 top-1/2 -translate-y-1/2 text-blue-300' />
                 <input
                   type='text'
                   placeholder='Search by name or email…'
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className='w-full pl-9 pr-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+                  className='w-full pl-9 pr-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
                 />
               </div>
               <button
                 type='submit'
-                className='group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center px-5 py-2.5'
+                className='group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center px-5 py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
               >
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Search</span>
               </button>
             </form>
@@ -123,7 +123,7 @@ const AuditLogs = () => {
             <select
               value={actorModel}
               onChange={e => { setActorModel(e.target.value); setPage(1) }}
-              className='border border-violet-100 px-3 py-2.5 font-sans text-sm text-neutral-600 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+              className='border border-blue-100 px-3 py-2.5 font-sans text-sm text-neutral-600 focus:outline-none focus:border-blue-400 transition-colors bg-white'
             >
               <option value=''>All Roles</option>
               <option value='user'>Users</option>
@@ -135,7 +135,7 @@ const AuditLogs = () => {
             <select
               value={action}
               onChange={e => { setAction(e.target.value); setPage(1) }}
-              className='border border-violet-100 px-3 py-2.5 font-sans text-sm text-neutral-600 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+              className='border border-blue-100 px-3 py-2.5 font-sans text-sm text-neutral-600 focus:outline-none focus:border-blue-400 transition-colors bg-white'
             >
               <option value=''>All Actions</option>
               <option value='login'>Login</option>
@@ -146,12 +146,12 @@ const AuditLogs = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-violet-100 overflow-hidden mb-4'>
+        <div className='bg-white border border-blue-100 overflow-hidden mb-4'>
 
           {/* Table Header */}
-          <div className='grid grid-cols-[1.6fr_0.8fr_0.8fr_1fr_1.2fr] bg-violet-50 px-7 py-3 border-b border-violet-100'>
+          <div className='grid grid-cols-[1.6fr_0.8fr_0.8fr_1fr_1.2fr] bg-blue-50 px-7 py-3 border-b border-blue-100'>
             {['Account', 'Role', 'Action', 'IP Address', 'Date & Time'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>
+              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
                 {h}
               </span>
             ))}
@@ -166,7 +166,7 @@ const AuditLogs = () => {
               No logs found
             </div>
           ) : (
-            <div className='divide-y divide-violet-50'>
+            <div className='divide-y divide-blue-50'>
               {logs.map(log => {
                 const actor    = ACTOR_CONFIG[log.actorModel] || {}
                 const act      = ACTION_CONFIG[log.action]    || {}
@@ -174,8 +174,8 @@ const AuditLogs = () => {
                 const ActIcon   = act.icon   || LogIn
                 return (
                   <div
-                    key={log._id}
-                    className='grid grid-cols-[1.6fr_0.8fr_0.8fr_1fr_1.2fr] items-center px-7 py-4 hover:bg-violet-50 transition-colors'
+                    key={log.id}
+                    className='grid grid-cols-[1.6fr_0.8fr_0.8fr_1fr_1.2fr] items-center px-7 py-4 hover:bg-blue-50 transition-colors'
                   >
                     {/* Account */}
                     <div>
@@ -212,15 +212,15 @@ const AuditLogs = () => {
 
           {/* Pagination */}
           {pages > 1 && (
-            <div className='flex items-center justify-between px-7 py-3 border-t border-violet-100 bg-violet-50'>
-              <span className='font-sans text-[10px] uppercase tracking-[0.2em] text-violet-400'>
+            <div className='flex items-center justify-between px-7 py-3 border-t border-blue-100 bg-blue-50'>
+              <span className='font-sans text-[10px] uppercase tracking-[0.2em] text-blue-400'>
                 Page {page} of {pages}
               </span>
               <div className='flex items-center gap-1'>
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className='p-1.5 text-violet-400 hover:text-violet-700 disabled:opacity-20 transition-colors'
+                  className='p-1.5 text-blue-400 hover:text-blue-700 disabled:opacity-20 transition-colors'
                 >
                   <ChevronLeft size={15} />
                 </button>
@@ -234,8 +234,8 @@ const AuditLogs = () => {
                       onClick={() => setPage(p)}
                       className={`w-7 h-7 font-sans text-xs font-bold transition-colors ${
                         p === page
-                          ? 'bg-violet-600 text-white'
-                          : 'text-violet-400 hover:text-violet-700'
+                          ? 'bg-blue-600 text-white'
+                          : 'text-blue-400 hover:text-blue-700'
                       }`}
                       style={p === page ? { clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' } : {}}
                     >
@@ -247,7 +247,7 @@ const AuditLogs = () => {
                 <button
                   onClick={() => setPage(p => Math.min(pages, p + 1))}
                   disabled={page === pages}
-                  className='p-1.5 text-violet-400 hover:text-violet-700 disabled:opacity-20 transition-colors'
+                  className='p-1.5 text-blue-400 hover:text-blue-700 disabled:opacity-20 transition-colors'
                 >
                   <ChevronRight size={15} />
                 </button>

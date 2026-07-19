@@ -1,17 +1,18 @@
-import Setting from '../../models/settingModel.js'
+// backend/src/repositories/settingRepository.js
+import prisma from '../config/prismaClient.js';
 
 export const getSettingByKey = async (key) => {
-  return await Setting.findOne({ key })
-}
+  return await prisma.setting.findUnique({ where: { key } });
+};
 
 export const upsertSetting = async (key, value, description = '') => {
-  return await Setting.findOneAndUpdate(
-    { key },
-    { value, description },
-    { upsert: true, new: true }
-  )
-}
+  return await prisma.setting.upsert({
+    where: { key },
+    update: { value, description },
+    create: { key, value, description },
+  });
+};
 
 export const getAllSettings = async () => {
-  return await Setting.find({})
-}
+  return await prisma.setting.findMany();
+};

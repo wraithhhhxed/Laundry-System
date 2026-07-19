@@ -49,7 +49,7 @@ const HomePrices = () => {
     >
       {/* ── section header row — static ── */}
       <div className="flex items-end justify-between mb-3">
-        <span className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans">
+        <span className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans">
           Transparent Pricing
         </span>
         <span className="uppercase tracking-[0.35em] text-[10px] text-neutral-300 font-sans hidden sm:block">
@@ -57,13 +57,13 @@ const HomePrices = () => {
         </span>
       </div>
 
-      <div className="h-px bg-violet-100 mb-10" />
+      <div className="h-px bg-blue-100 mb-10" />
 
       {/* ── headline + subtext row — karaoke ── */}
       <div ref={karaokeRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
 
         <h2
-          className="leading-none text-violet-900"
+          className="leading-none text-blue-900"
           style={{
             fontSize: 'clamp(36px, 6vw, 80px)',
             fontWeight: 700,
@@ -113,7 +113,7 @@ const HomePrices = () => {
       {loading ? (
         <div className="space-y-0">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 bg-violet-50 animate-pulse border-b border-violet-100" />
+            <div key={i} className="h-16 bg-blue-50 animate-pulse border-b border-blue-100" />
           ))}
         </div>
       ) : (
@@ -122,10 +122,10 @@ const HomePrices = () => {
             {prices.map((item, i) => (
               <div
                 key={i}
-                className="group flex items-center justify-between gap-6 py-5 border-b border-violet-100 last:border-b-0"
+                className="group flex items-center justify-between gap-6 py-5 border-b border-blue-100 last:border-b-0"
               >
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <p className="font-sans font-semibold text-sm text-neutral-800 group-hover:text-violet-700 transition-colors duration-200 leading-snug">
+                  <p className="font-sans font-semibold text-sm text-neutral-800 group-hover:text-blue-700 transition-colors duration-200 leading-snug">
                     {item.label}
                   </p>
                   {item.description && (
@@ -137,12 +137,12 @@ const HomePrices = () => {
 
                 <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
                   <span
-                    className="font-sans font-bold text-violet-600"
+                    className="font-sans font-bold text-blue-600"
                     style={{ fontSize: 'clamp(15px, 2vw, 18px)' }}
                   >
                     {fmt(item.price)}
                   </span>
-                  <span className="font-sans text-[10px] tracking-widest uppercase text-violet-300">
+                  <span className="font-sans text-[10px] tracking-widest uppercase text-blue-300">
                     per load
                   </span>
                 </div>

@@ -106,12 +106,12 @@ const FaqSettings = () => {
   return (
     <div className='bg-neutral-50 min-h-screen w-full' style={{ fontFamily: "'Georgia', serif" }}>
       
-      {/* Violet Panel Header */}
+      {/* Blue Panel Header */}
       <div 
-        className='bg-violet-600 px-7 py-6 mb-8'
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        className='bg-blue-600 px-7 py-6 mb-8'
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
-        <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-1'>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>
           Public Information
         </p>
         <div className='flex items-center justify-between'>
@@ -131,12 +131,12 @@ const FaqSettings = () => {
 
       <div className='px-7 pb-10'>
         {/* Table/Grid Container */}
-        <div className='bg-white border border-violet-100 overflow-hidden mb-4 shadow-sm'>
+        <div className='bg-white border border-blue-100 overflow-hidden mb-4 shadow-sm'>
           
           {/* Header Row */}
-          <div className='grid grid-cols-[3rem_1fr_0.8fr_0.5fr_auto] bg-violet-50 px-7 py-3 border-b border-violet-100'>
+          <div className='grid grid-cols-[3rem_1fr_0.8fr_0.5fr_auto] bg-blue-50 px-7 py-3 border-b border-blue-100'>
             {['#', 'Content', 'Status', 'Order', 'Actions'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>
+              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
                 {h}
               </span>
             ))}
@@ -147,11 +147,11 @@ const FaqSettings = () => {
               No frequently asked questions available.
             </div>
           ) : (
-            <div className='divide-y divide-violet-50 max-h-[60vh] overflow-y-auto custom-scrollbar'>
+            <div className='divide-y divide-blue-50 max-h-[60vh] overflow-y-auto custom-scrollbar'>
               {faqs.map((faq, i) => (
                 <div 
                   key={i} 
-                  className={`grid grid-cols-[3rem_1fr_0.8fr_0.5fr_auto] items-center px-7 py-5 hover:bg-violet-50 transition-colors ${!faq.active ? 'opacity-50' : ''}`}
+                  className={`grid grid-cols-[3rem_1fr_0.8fr_0.5fr_auto] items-center px-7 py-5 hover:bg-blue-50 transition-colors ${!faq.active ? 'opacity-50' : ''}`}
                 >
                   <span className='font-sans text-xs text-neutral-400'>{(i + 1).toString().padStart(2, '0')}</span>
                   
@@ -172,12 +172,12 @@ const FaqSettings = () => {
                   </button>
 
                   <div className='flex items-center gap-1'>
-                    <button onClick={() => moveOrder(i, -1)} disabled={i === 0} className='text-violet-300 hover:text-violet-600 disabled:opacity-10'><MoveUp size={14}/></button>
-                    <button onClick={() => moveOrder(i, 1)} disabled={i === faqs.length - 1} className='text-violet-300 hover:text-violet-600 disabled:opacity-10'><MoveDown size={14}/></button>
+                    <button onClick={() => moveOrder(i, -1)} disabled={i === 0} className='text-blue-300 hover:text-blue-600 disabled:opacity-10'><MoveUp size={14}/></button>
+                    <button onClick={() => moveOrder(i, 1)} disabled={i === faqs.length - 1} className='text-blue-300 hover:text-blue-600 disabled:opacity-10'><MoveDown size={14}/></button>
                   </div>
 
                   <div className='flex items-center gap-4'>
-                    <button onClick={() => openEdit(i)} className='font-sans text-[10px] font-bold uppercase tracking-widest text-violet-500 hover:text-violet-700'>Edit</button>
+                    <button onClick={() => openEdit(i)} className='font-sans text-[10px] font-bold uppercase tracking-widest text-blue-500 hover:text-blue-700'>Edit</button>
                     <button onClick={() => handleDelete(i)} className='text-red-300 hover:text-red-500'><Trash2 size={16}/></button>
                   </div>
                 </div>
@@ -191,10 +191,10 @@ const FaqSettings = () => {
           <button 
             onClick={handleSaveAll}
             disabled={saving}
-            className='group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center px-8 py-3 disabled:opacity-50'
+            className='group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center px-8 py-3 disabled:opacity-50'
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
           >
-            <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+            <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
             <span className='relative z-10'>{saving ? 'Saving...' : 'Save All Changes'}</span>
           </button>
         </div>
@@ -209,16 +209,16 @@ const FaqSettings = () => {
           >
             <div 
               className='px-7 py-5'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
             >
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>Editor</p>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>Editor</p>
                   <h2 className='font-sans font-black text-white text-lg uppercase tracking-tight'>
                     {editIndex !== null ? 'Modify Question' : 'New FAQ Entry'}
                   </h2>
                 </div>
-                <button onClick={() => setShowModal(false)} className='text-violet-200 hover:text-white transition-colors'>
+                <button onClick={() => setShowModal(false)} className='text-blue-200 hover:text-white transition-colors'>
                   <X size={20} />
                 </button>
               </div>
@@ -228,7 +228,7 @@ const FaqSettings = () => {
               <div>
                 <label className='font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block mb-2'>Public Question</label>
                 <input 
-                  className={`w-full px-4 py-3 border font-sans text-sm focus:outline-none transition-colors bg-neutral-50 ${formErr.question ? 'border-red-400' : 'border-neutral-100 focus:border-violet-400'}`}
+                  className={`w-full px-4 py-3 border font-sans text-sm focus:outline-none transition-colors bg-neutral-50 ${formErr.question ? 'border-red-400' : 'border-neutral-100 focus:border-blue-400'}`}
                   value={form.question}
                   onChange={e => setForm(p => ({ ...p, question: e.target.value }))}
                   placeholder='e.g. What is your return policy?'
@@ -239,7 +239,7 @@ const FaqSettings = () => {
                 <label className='font-sans text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block mb-2'>Detailed Answer</label>
                 <textarea 
                   rows={4}
-                  className={`w-full px-4 py-3 border font-sans text-sm focus:outline-none transition-colors bg-neutral-50 resize-none ${formErr.answer ? 'border-red-400' : 'border-neutral-100 focus:border-violet-400'}`}
+                  className={`w-full px-4 py-3 border font-sans text-sm focus:outline-none transition-colors bg-neutral-50 resize-none ${formErr.answer ? 'border-red-400' : 'border-neutral-100 focus:border-blue-400'}`}
                   value={form.answer}
                   onChange={e => setForm(p => ({ ...p, answer: e.target.value }))}
                   placeholder='Provide a concise and helpful response...'
@@ -252,7 +252,7 @@ const FaqSettings = () => {
                   id='faq-active' 
                   checked={form.active} 
                   onChange={e => setForm(p => ({ ...p, active: e.target.checked }))} 
-                  className='w-4 h-4 accent-violet-600' 
+                  className='w-4 h-4 accent-blue-600' 
                 />
                 <label htmlFor='faq-active' className='font-sans text-xs font-bold uppercase tracking-widest text-neutral-500'>Visible to clients</label>
               </div>
@@ -268,7 +268,7 @@ const FaqSettings = () => {
               </button>
               <button 
                 onClick={handleSaveModal}
-                className='flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-3 transition-colors hover:bg-violet-700'
+                className='flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-3 transition-colors hover:bg-blue-700'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
                 {editIndex === null ? 'Add Entry' : 'Update FAQ'}

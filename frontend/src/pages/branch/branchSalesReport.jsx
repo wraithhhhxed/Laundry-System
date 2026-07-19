@@ -28,24 +28,24 @@ const normaliseReport = (raw, filterLabel) => {
   const kgRevenue  = raw.kgRevenue?.totalKgRevenue ?? 0
   const totalKg    = raw.kgRevenue?.totalKg        ?? 0
   const perService = (raw.perService || []).map(r => ({ name: r.name || '—', count: r.count, revenue: r.revenue || 0 }))
-  const promos     = (raw.promos    || []).map(r => ({ code: r._id, uses: r.timesUsed, totalDiscount: r.totalDiscount }))
+  const promos     = (raw.promos    || []).map(r => ({ code: r.id, uses: r.timesUsed, totalDiscount: r.totalDiscount }))
   return { summary, kgRevenue, totalKg, perService, promos, filterLabel }
 }
 
 const SectionLabel = ({ children }) => (
-  <p className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans mb-2 font-semibold">{children}</p>
+  <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2 font-semibold">{children}</p>
 )
-const Divider = () => <div className="h-px bg-violet-100 mb-6" />
+const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const StatCard = ({ label, value, sub }) => (
   <div className="px-7 py-8 flex flex-col gap-2"
-    style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #7c3aed' }}>
-    <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold">{label}</p>
+    style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #2563eb' }}>
+    <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold">{label}</p>
     <p className="text-white font-sans font-black"
       style={{ fontSize: 'clamp(1.25rem, 2.5vw, 1.75rem)', lineHeight: 1, letterSpacing: '-0.03em' }}>
       {value}
     </p>
-    {sub && <p className="font-sans text-xs text-violet-200 font-medium">{sub}</p>}
+    {sub && <p className="font-sans text-xs text-blue-200 font-medium">{sub}</p>}
   </div>
 )
 
@@ -94,11 +94,11 @@ const BranchSalesReport = () => {
     const win = window.open('', '_blank')
     win.document.write(`<html><head><title>${BRAND} – Sales Report</title>
       <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px}
-      h1{font-size:18px;color:#7c3aed;margin-bottom:4px}
-      h2{font-size:13px;margin:20px 0 8px;color:#333;border-bottom:1px solid #ede9fe;padding-bottom:4px}
+      h1{font-size:18px;color:#2563eb;margin-bottom:4px}
+      h2{font-size:13px;margin:20px 0 8px;color:#333;border-bottom:1px solid #dbeafe;padding-bottom:4px}
       table{width:100%;border-collapse:collapse;margin-bottom:16px}
-      th{background:#f5f3ff;text-align:left;padding:6px 10px;font-size:11px;text-transform:uppercase;color:#7c3aed}
-      td{padding:6px 10px;border-top:1px solid #ede9fe}.right{text-align:right}</style>
+      th{background:#eff6ff;text-align:left;padding:6px 10px;font-size:11px;text-transform:uppercase;color:#2563eb}
+      td{padding:6px 10px;border-top:1px solid #dbeafe}.right{text-align:right}</style>
       </head><body>${printRef.current?.innerHTML || ''}</body></html>`)
     win.document.close(); win.print()
   }
@@ -107,7 +107,7 @@ const BranchSalesReport = () => {
     if (!report) return
     const { summary: s, kgRevenue, perService, promos } = report
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
-    doc.setFontSize(16).setTextColor('#7c3aed').text(BRAND, 40, 40)
+    doc.setFontSize(16).setTextColor('#2563eb').text(BRAND, 40, 40)
     doc.setFontSize(11).setTextColor('#333').text('Sales Report', 40, 58)
     doc.setFontSize(9).setTextColor('#9ca3af').text(`Period: ${filter}`, 40, 72)
     doc.setFontSize(11).setTextColor('#333').text('Summary', 40, 96)
@@ -115,7 +115,7 @@ const BranchSalesReport = () => {
       startY: 104,
       head: [['Gross Revenue', 'After Discount', 'VAT Collected', 'Net Revenue']],
       body: [[fmt(s.grossRevenue), fmt(s.afterDiscount), fmt(s.vatCollected), fmt(s.netRevenue)]],
-      headStyles: { fillColor: [124, 58, 237], fontSize: 9 },
+      headStyles: { fillColor: [37, 99, 235], fontSize: 9 },
       bodyStyles: { fontSize: 9 },
       margin: { left: 40, right: 40 },
     })
@@ -124,7 +124,7 @@ const BranchSalesReport = () => {
         startY: doc.lastAutoTable.finalY + 18,
         head: [['Service', 'Bookings', 'Revenue']],
         body: perService.map(r => [r.name, r.count, fmt(r.revenue)]),
-        headStyles: { fillColor: [124, 58, 237], fontSize: 9 },
+        headStyles: { fillColor: [37, 99, 235], fontSize: 9 },
         bodyStyles: { fontSize: 9 },
         margin: { left: 40, right: 40 },
       })
@@ -136,7 +136,7 @@ const BranchSalesReport = () => {
         startY: afterService + 36,
         head: [['Promo Code', 'Uses', 'Discount Given']],
         body: promos.map(r => [r.code, r.uses, fmt(r.totalDiscount)]),
-        headStyles: { fillColor: [124, 58, 237], fontSize: 9 },
+        headStyles: { fillColor: [37, 99, 235], fontSize: 9 },
         bodyStyles: { fontSize: 9 },
         margin: { left: 40, right: 40 },
       })
@@ -170,8 +170,8 @@ const BranchSalesReport = () => {
     if (!report) return
     const { summary: s, kgRevenue, perService, promos } = report
     const wb = new ExcelJS.Workbook(); wb.creator = BRAND
-    const hStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } }, alignment: { horizontal: 'center' } }
-    const titleStyle = { font: { bold: true, size: 13, color: { argb: 'FF7C3AED' } } }
+    const hStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } }, alignment: { horizontal: 'center' } }
+    const titleStyle = { font: { bold: true, size: 13, color: { argb: 'FF2563EB' } } }
     const ws1 = wb.addWorksheet('Summary')
     ws1.getCell('A1').value = BRAND; ws1.getCell('A1').style = titleStyle
     ws1.getCell('A2').value = `Period: ${filter}`; ws1.addRow([])
@@ -211,22 +211,22 @@ const BranchSalesReport = () => {
   const promos     = report?.promos     || []
   const kgRevenue  = report?.kgRevenue  ?? 0
 
-  const inputClass = "px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white"
+  const inputClass = "px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white"
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-neutral-50">
 
       {/* Page header */}
       <div className="px-10 pt-10 pb-12"
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
-        <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-3 font-semibold">Branch Portal</p>
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+        <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3 font-semibold">Branch Portal</p>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-white font-sans font-black"
               style={{ letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}>
               Sales Report
             </h1>
-            <p className="font-sans text-sm text-violet-200 mt-2">Revenue overview for your branch</p>
+            <p className="font-sans text-sm text-blue-200 mt-2">Revenue overview for your branch</p>
           </div>
           {report && (
             <div className="flex gap-2 flex-wrap">
@@ -251,11 +251,11 @@ const BranchSalesReport = () => {
           <SectionLabel>Filter Period</SectionLabel>
           <Divider />
           <div className="flex flex-wrap items-end gap-4">
-            <div className="flex gap-px bg-violet-100">
+            <div className="flex gap-px bg-blue-100">
               {FILTER_OPTIONS.map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`font-sans text-xs uppercase tracking-[0.2em] font-bold px-5 py-2.5 transition-colors capitalize ${
-                    filter === f ? 'bg-violet-600 text-white' : 'bg-white text-neutral-400 hover:text-violet-600'
+                    filter === f ? 'bg-blue-600 text-white' : 'bg-white text-neutral-400 hover:text-blue-600'
                   }`}>
                   {f}
                 </button>
@@ -268,9 +268,9 @@ const BranchSalesReport = () => {
               </>
             )}
             <button onClick={fetchReport} disabled={loading}
-              className="group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
+              className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-              <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+              <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
               <span className="relative">{loading ? 'Loading...' : 'Generate Report'}</span>
             </button>
           </div>
@@ -278,8 +278,8 @@ const BranchSalesReport = () => {
 
         {/* Empty state */}
         {!report && !loading && (
-          <div className="border border-violet-100 bg-white flex flex-col items-center justify-center py-24 gap-4">
-            <svg className="w-10 h-10 text-violet-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="border border-blue-100 bg-white flex flex-col items-center justify-center py-24 gap-4">
+            <svg className="w-10 h-10 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9.414V19a2 2 0 01-2 2z" />
             </svg>
@@ -293,7 +293,7 @@ const BranchSalesReport = () => {
         {report && (
           <div ref={printRef} className="space-y-10">
 
-            {/* Summary cards — always violet, gap-3 for visible separation */}
+            {/* Summary cards — always blue, gap-3 for visible separation */}
             <div>
               <SectionLabel>Summary</SectionLabel>
               <Divider />
@@ -305,7 +305,7 @@ const BranchSalesReport = () => {
               </div>
             </div>
 
-            {/* Period breakdown — violet cards, gap-3 */}
+            {/* Period breakdown — blue cards, gap-3 */}
             <div>
               <SectionLabel>Period Breakdown</SectionLabel>
               <Divider />
@@ -316,8 +316,8 @@ const BranchSalesReport = () => {
                   { label: 'KG Revenue',         value: fmt(kgRevenue) },
                 ].map(({ label, value }) => (
                   <div key={label} className="px-7 py-6"
-                    style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #7c3aed' }}>
-                    <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-2">{label}</p>
+                    style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #2563eb' }}>
+                    <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-2">{label}</p>
                     <p className="font-sans font-black text-white text-2xl" style={{ letterSpacing: '-0.03em' }}>{value}</p>
                   </div>
                 ))}
@@ -329,17 +329,17 @@ const BranchSalesReport = () => {
               <div>
                 <SectionLabel>Revenue by Service</SectionLabel>
                 <Divider />
-                <div className="bg-white border border-violet-100 divide-y divide-violet-50">
-                  <div className="grid grid-cols-3 px-7 py-3 bg-violet-50">
+                <div className="bg-white border border-blue-100 divide-y divide-blue-50">
+                  <div className="grid grid-cols-3 px-7 py-3 bg-blue-50">
                     {['Service', 'Bookings', 'Revenue'].map((h, i) => (
-                      <p key={h} className={`font-sans text-[10px] uppercase tracking-[0.3em] text-violet-400 font-bold ${i > 0 ? 'text-right' : ''}`}>{h}</p>
+                      <p key={h} className={`font-sans text-[10px] uppercase tracking-[0.3em] text-blue-400 font-bold ${i > 0 ? 'text-right' : ''}`}>{h}</p>
                     ))}
                   </div>
                   {perService.map((r, i) => (
-                    <div key={i} className="grid grid-cols-3 items-center px-7 py-4 hover:bg-violet-50 transition-colors">
+                    <div key={i} className="grid grid-cols-3 items-center px-7 py-4 hover:bg-blue-50 transition-colors">
                       <p className="font-sans text-sm font-semibold text-neutral-800">{r.name}</p>
                       <p className="font-sans text-sm font-semibold text-neutral-500 text-right">{r.count}</p>
-                      <p className="font-sans text-sm font-black text-violet-900 text-right">{fmt(r.revenue)}</p>
+                      <p className="font-sans text-sm font-black text-blue-900 text-right">{fmt(r.revenue)}</p>
                     </div>
                   ))}
                 </div>
@@ -351,19 +351,19 @@ const BranchSalesReport = () => {
               <div>
                 <SectionLabel>Promo Code Usage</SectionLabel>
                 <Divider />
-                <div className="bg-white border border-violet-100 divide-y divide-violet-50">
-                  <div className="grid grid-cols-3 px-7 py-3 bg-violet-50">
+                <div className="bg-white border border-blue-100 divide-y divide-blue-50">
+                  <div className="grid grid-cols-3 px-7 py-3 bg-blue-50">
                     {['Code', 'Uses', 'Discount Given'].map((h, i) => (
-                      <p key={h} className={`font-sans text-[10px] uppercase tracking-[0.3em] text-violet-400 font-bold ${i > 0 ? 'text-right' : ''}`}>{h}</p>
+                      <p key={h} className={`font-sans text-[10px] uppercase tracking-[0.3em] text-blue-400 font-bold ${i > 0 ? 'text-right' : ''}`}>{h}</p>
                     ))}
                   </div>
                   {promos.map((r, i) => (
-                    <div key={i} className="grid grid-cols-3 items-center px-7 py-4 hover:bg-violet-50 transition-colors">
-                      <span className="font-sans text-xs font-black text-violet-700 uppercase tracking-[0.15em] bg-violet-50 border border-violet-100 px-2 py-0.5 inline-block w-fit">
+                    <div key={i} className="grid grid-cols-3 items-center px-7 py-4 hover:bg-blue-50 transition-colors">
+                      <span className="font-sans text-xs font-black text-blue-700 uppercase tracking-[0.15em] bg-blue-50 border border-blue-100 px-2 py-0.5 inline-block w-fit">
                         {r.code}
                       </span>
                       <p className="font-sans text-sm font-semibold text-neutral-500 text-right">{r.uses}</p>
-                      <p className="font-sans text-sm font-black text-violet-900 text-right">{fmt(r.totalDiscount)}</p>
+                      <p className="font-sans text-sm font-black text-blue-900 text-right">{fmt(r.totalDiscount)}</p>
                     </div>
                   ))}
                 </div>

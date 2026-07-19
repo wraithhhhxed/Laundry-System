@@ -2,10 +2,10 @@ import { useContext, useEffect, useState, useRef } from 'react'
 import { BranchesContext } from '../../context/BranchesContext'
 
 const SectionLabel = ({ children }) => (
-  <p className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans mb-2 font-semibold">{children}</p>
+  <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2 font-semibold">{children}</p>
 )
 
-const Divider = () => <div className="h-px bg-violet-100 mb-6" />
+const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const BranchProfile = () => {
   const { bToken, branchProfile, getBranchProfile, updateBranchProfile } = useContext(BranchesContext)
@@ -77,13 +77,13 @@ const BranchProfile = () => {
   if (!branchProfile) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent animate-spin" />
+        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent animate-spin" />
       </div>
     )
   }
 
   const displayImage = imagePreview || branchProfile.image
-  const inputClass   = "w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white"
+  const inputClass   = "w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white"
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
@@ -91,25 +91,25 @@ const BranchProfile = () => {
       {/* Page header */}
       <div
         className="px-10 pt-10 pb-12"
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
-        <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-3 font-semibold">Branch Portal</p>
+        <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3 font-semibold">Branch Portal</p>
         <h1
           className="text-white font-sans font-black"
           style={{ letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}
         >
           Branch Profile
         </h1>
-        <p className="font-sans text-sm text-violet-200 mt-2">View and update your branch information</p>
+        <p className="font-sans text-sm text-blue-200 mt-2">View and update your branch information</p>
       </div>
 
       {/* Split panel */}
       <div className="flex flex-col lg:flex-row min-h-[calc(100vh-200px)]">
 
-        {/* Left — violet identity panel */}
+        {/* Left — blue identity panel */}
         <div
           className="lg:w-72 flex-shrink-0 flex flex-col items-center px-10 py-12 gap-6"
-          style={{ background: 'radial-gradient(ellipse at bottom left, rgba(255,255,255,0.07) 0%, transparent 60%), #6d28d9' }}
+          style={{ background: 'radial-gradient(ellipse at bottom left, rgba(255,255,255,0.07) 0%, transparent 60%), #1d4ed8' }}
         >
           {/* Avatar */}
           <div className="relative">
@@ -117,7 +117,7 @@ const BranchProfile = () => {
               {displayImage
                 ? <img src={displayImage} alt={branchProfile.name} className="w-full h-full object-cover" />
                 : (
-                  <div className="w-full h-full bg-violet-800 flex items-center justify-center">
+                  <div className="w-full h-full bg-blue-800 flex items-center justify-center">
                     <span className="text-white font-black font-sans text-4xl">
                       {branchProfile.name?.[0]?.toUpperCase()}
                     </span>
@@ -131,7 +131,7 @@ const BranchProfile = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white text-violet-700 font-sans text-[10px] uppercase tracking-[0.2em] font-bold px-3 py-1 whitespace-nowrap hover:bg-violet-50 transition-colors"
+                  className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white text-blue-700 font-sans text-[10px] uppercase tracking-[0.2em] font-bold px-3 py-1 whitespace-nowrap hover:bg-blue-50 transition-colors"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}
                 >
                   Change Photo
@@ -152,7 +152,7 @@ const BranchProfile = () => {
             <p className="text-white font-sans font-black text-lg leading-tight" style={{ letterSpacing: '-0.02em' }}>
               {branchProfile.name}
             </p>
-            <p className="text-violet-200 font-sans text-xs mt-1 font-medium">{branchProfile.email}</p>
+            <p className="text-blue-200 font-sans text-xs mt-1 font-medium">{branchProfile.email}</p>
           </div>
 
           {/* Availability badge */}
@@ -167,10 +167,10 @@ const BranchProfile = () => {
           {/* Services */}
           {(branchProfile.speciality || []).length > 0 && (
             <div className="w-full">
-              <p className="uppercase tracking-[0.35em] text-[10px] text-violet-300 font-sans mb-3 font-semibold text-center">Services</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-300 font-sans mb-3 font-semibold text-center">Services</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {(branchProfile.speciality || []).map(s => (
-                  <span key={s} className="inline-block border border-white/20 text-violet-100 px-2 py-0.5 uppercase tracking-[0.15em] text-[10px] font-sans font-semibold bg-white/10">
+                  <span key={s} className="inline-block border border-white/20 text-blue-100 px-2 py-0.5 uppercase tracking-[0.15em] text-[10px] font-sans font-semibold bg-white/10">
                     {s}
                   </span>
                 ))}
@@ -237,7 +237,7 @@ const BranchProfile = () => {
                   className={`font-sans text-xs uppercase tracking-[0.2em] font-bold px-5 py-2.5 border transition-colors ${
                     available
                       ? 'bg-green-600 border-green-600 text-white'
-                      : 'border-violet-100 text-neutral-400 hover:border-violet-300 hover:text-violet-500'
+                      : 'border-blue-100 text-neutral-400 hover:border-blue-300 hover:text-blue-500'
                   }`}
                   style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                 >
@@ -249,7 +249,7 @@ const BranchProfile = () => {
                   className={`font-sans text-xs uppercase tracking-[0.2em] font-bold px-5 py-2.5 border transition-colors ${
                     !available
                       ? 'bg-red-500 border-red-500 text-white'
-                      : 'border-violet-100 text-neutral-400 hover:border-violet-300 hover:text-violet-500'
+                      : 'border-blue-100 text-neutral-400 hover:border-blue-300 hover:text-blue-500'
                   }`}
                   style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                 >
@@ -274,29 +274,29 @@ const BranchProfile = () => {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
+                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
-                  <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                   <span className="relative">{saving ? 'Saving...' : 'Save Changes'}</span>
                 </button>
                 <button
                   onClick={handleCancel}
                   disabled={saving}
-                  className="group relative overflow-hidden border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
+                  className="group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
-                  <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                   <span className="relative">Cancel</span>
                 </button>
               </>
             ) : (
               <button
                 onClick={() => setIsEdit(true)}
-                className="group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5"
+                className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
-                <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                 <span className="relative">Edit Profile</span>
               </button>
             )}

@@ -62,9 +62,9 @@ const HomeFaqs = () => {
       {/* ── SECTION HEADER ROW ── */}
       <div className="flex items-end justify-between mb-3">
         <span
-          className="uppercase tracking-[0.35em] text-[10px] font-sans font-bold"
+          className="uppercase tracking-[0.35em] text-[11px] font-sans font-bold"
           style={{
-            color: scrollProgress >= 0.1 ? '#a78bfa' : '#e5e5e5',
+            color: scrollProgress >= 0.1 ? '#3b82f6' : '#e5e5e5',
             transition: 'color 0.3s ease-out',
           }}
         >
@@ -75,9 +75,9 @@ const HomeFaqs = () => {
           {eyebrowRWords.map((word, i) => (
             <span
               key={i}
-              className="uppercase tracking-[0.35em] text-[10px] font-bold"
+              className="uppercase tracking-[0.35em] text-[11px] font-bold"
               style={{
-                color: scrollProgress >= 0.1 + (i * 0.05) ? '#d4d4d4' : '#f5f5f5',
+                color: scrollProgress >= 0.1 + (i * 0.05) ? '#3b82f6' : '#f5f5f5',
                 transition: 'color 0.25s ease-out',
               }}
             >
@@ -87,7 +87,7 @@ const HomeFaqs = () => {
         </div>
       </div>
 
-      <div className="h-px bg-violet-100 mb-10" />
+      <div className="h-px bg-blue-100 mb-10" />
 
       {/* ── HEADLINE + SUBTEXT ── */}
       <div ref={karaokeRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
@@ -104,7 +104,7 @@ const HomeFaqs = () => {
             <span
               key={i}
               style={{
-                color: scrollProgress >= 0.3 + (i * 0.15) ? '#4c1d95' : '#e5e5e5',
+                color: scrollProgress >= 0.3 + (i * 0.15) ? '#1e40af' : '#e5e5e5',
                 transition: 'color 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'inline-block',
                 marginRight: '0.2em',
@@ -133,12 +133,12 @@ const HomeFaqs = () => {
         </p>
       </div>
 
-      {/* ── FAQ ACCORDION — unchanged ── */}
+      {/* ── FAQ ACCORDION ── */}
       <div className="max-w-3xl">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-violet-50 rounded animate-pulse" />
+              <div key={i} className="h-16 bg-blue-50 rounded animate-pulse" />
             ))}
           </div>
         ) : (
@@ -146,7 +146,7 @@ const HomeFaqs = () => {
             {faqs.map((faq, i) => (
               <div
                 key={i}
-                className="border-b border-violet-100 last:border-b-0"
+                className="border-b border-blue-100 last:border-b-0"
               >
                 <button
                   onClick={() => toggle(i)}
@@ -154,14 +154,14 @@ const HomeFaqs = () => {
                 >
                   <span
                     className="font-sans font-semibold text-sm md:text-base transition-colors duration-200"
-                    style={{ color: openIdx === i ? '#4c1d95' : '#262626' }}
+                    style={{ color: openIdx === i ? '#1e40af' : '#262626' }}
                   >
                     {faq.question}
                   </span>
                   <span
                     className="flex-shrink-0 font-sans text-lg font-light transition-transform duration-300"
                     style={{
-                      color: '#7c3aed',
+                      color: '#2563eb',
                       transform: openIdx === i ? 'rotate(45deg)' : 'rotate(0deg)',
                       display: 'inline-block',
                     }}

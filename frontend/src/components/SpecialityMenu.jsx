@@ -72,27 +72,27 @@ const SpecialityMenu = () => {
     <div
       id="speciality"
       className="py-20 px-6 md:px-16 bg-white"
-      style={{ fontFamily: "'Georgia', serif" }}
+      style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
     >
-      {/* ── SECTION HEADER ROW — same reveal timing as FeaturedBranches ── */}
+      {/* ── SECTION HEADER ROW — blue scheme ── */}
       <div className="flex items-end justify-between mb-3">
         <span
-          className="uppercase tracking-[0.35em] text-[10px] font-sans font-bold"
+          className="uppercase tracking-[0.35em] text-[12px] font-sans font-bold"
           style={{
-            color: scrollProgress >= 0.1 ? '#a78bfa' : '#e5e5e5',
+            color: scrollProgress >= 0.1 ? '#3b82f6' : '#e5e5e5',
             transition: 'color 0.3s ease-out',
           }}
         >
-          What We Offer
+          What We Offer 
         </span>
 
         <div className="hidden sm:flex items-center gap-1 font-sans">
           {eyebrowRWords.map((word, i) => (
             <span
               key={i}
-              className="uppercase tracking-[0.35em] text-[10px] font-bold"
+              className="uppercase tracking-[0.35em] text-[12px] font-bold"
               style={{
-                color: scrollProgress >= 0.1 + (i * 0.05) ? '#d4d4d4' : '#f5f5f5',
+                color: scrollProgress >= 0.1 + (i * 0.05) ? '#3b82f6' : '#f5f5f5',
                 transition: 'color 0.25s ease-out',
               }}
             >
@@ -102,9 +102,9 @@ const SpecialityMenu = () => {
         </div>
       </div>
 
-      <div className="h-px bg-violet-100 mb-10" />
+      <div className="h-px bg-blue-100 mb-10" />
 
-      {/* ── HEADLINE + SUBTEXT — karaoke identical to FeaturedBranches ── */}
+      {/* ── HEADLINE + SUBTEXT — blue scheme ── */}
       <div ref={karaokeRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
 
         <h2
@@ -119,7 +119,7 @@ const SpecialityMenu = () => {
             <span
               key={i}
               style={{
-                color: scrollProgress >= 0.3 + (i * 0.15) ? '#4c1d95' : '#e5e5e5',
+                color: scrollProgress >= 0.3 + (i * 0.15) ? '#1e40af' : '#e5e5e5',
                 transition: 'color 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 display: 'inline-block',
                 marginRight: '0.2em',
@@ -136,7 +136,7 @@ const SpecialityMenu = () => {
             <span
               key={i}
               style={{
-                color: scrollProgress >= 0.5 + (i * 0.04) ? '#737373' : '#f5f5f5',
+                color: scrollProgress >= 0.5 + (i * 0.04) ? '#3b82f6' : '#f5f5f5',
                 transition: 'color 0.3s ease-out',
                 display: 'inline-block',
                 marginRight: '0.25em',
@@ -148,14 +148,14 @@ const SpecialityMenu = () => {
         </p>
       </div>
 
-      {/* ── SERVICE CARDS — unchanged ── */}
+      {/* ── SERVICE CARDS ── */}
       {loading ? (
         <div className="flex flex-wrap gap-10 justify-center">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="flex flex-col items-center gap-3 w-28">
-              <div className="w-24 h-24 bg-violet-50 animate-pulse rounded" />
-              <div className="w-16 h-3 bg-violet-50 rounded animate-pulse" />
-              <div className="w-10 h-3 bg-violet-50 rounded animate-pulse" />
+              <div className="w-24 h-24 bg-blue-50 animate-pulse rounded" />
+              <div className="w-16 h-3 bg-blue-50 rounded animate-pulse" />
+              <div className="w-10 h-3 bg-blue-50 rounded animate-pulse" />
             </div>
           ))}
         </div>
@@ -163,11 +163,12 @@ const SpecialityMenu = () => {
         <div className="flex flex-wrap gap-10 md:gap-14 justify-center">
           {services.map((service) => (
             <Link
-              key={service._id}
+              key={service.id}
               to={`/branches/${service.name}`}
               onClick={() => scrollTo(0, 0)}
               className="group flex flex-col items-center gap-3 flex-shrink-0"
               style={{ textDecoration: 'none' }}
+              title={service.description || undefined}
             >
               <div className="flex items-center justify-center w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28">
                 {service.image ? (
@@ -184,13 +185,13 @@ const SpecialityMenu = () => {
               </div>
 
               <div className="flex flex-col items-center gap-0.5">
-                <p className="font-sans font-semibold text-neutral-800 group-hover:text-violet-600 transition-colors duration-200 text-sm text-center">
+                <p className="font-sans font-semibold text-neutral-800 group-hover:text-blue-600 transition-colors duration-200 text-sm text-center">
                   {service.name}
                 </p>
                 <p className="font-sans text-[10px] text-neutral-400 tracking-wide">
                   starts at
                 </p>
-                <p className="font-sans text-xs text-violet-500 font-bold tracking-wide">
+                <p className="font-sans text-xs text-blue-600 font-bold tracking-wide">
                   ₱{service.price}
                 </p>
               </div>

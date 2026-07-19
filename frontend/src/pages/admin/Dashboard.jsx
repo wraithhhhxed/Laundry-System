@@ -7,20 +7,20 @@ import {
   ResponsiveContainer, Legend,
 } from 'recharts'
 
-const PRIMARY    = '#7c3aed'
-const BAR_COLORS = ['#7c3aed','#8b5cf6','#a78bfa','#c4b5fd','#6d28d9','#5b21b6']
+const PRIMARY    = '#2563eb'
+const BAR_COLORS = ['#2563eb','#3b82f6','#60a5fa','#93bbfc','#1d4ed8','#1e40af']
 const COLORS     = { completed: '#22c55e', pending: '#f59e0b', cancelled: '#ef4444' }
 
 const SectionLabel = ({ children }) => (
-  <p className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans mb-2 font-semibold">{children}</p>
+  <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2 font-semibold">{children}</p>
 )
-const Divider = () => <div className="h-px bg-violet-100 mb-6" />
+const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const StatCard = ({ label, value, sub }) => (
   <div
     className="relative overflow-hidden px-8 py-9 flex flex-col gap-3 group"
     style={{
-      background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.14) 0%, transparent 55%), #7c3aed',
+      background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.14) 0%, transparent 55%), #2563eb',
       clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)',
     }}
   >
@@ -30,7 +30,7 @@ const StatCard = ({ label, value, sub }) => (
       style={{ background: 'radial-gradient(circle, white, transparent)' }} />
 
     <div className="flex items-center justify-between">
-      <p className="uppercase tracking-[0.35em] text-[9px] text-violet-200 font-sans font-bold">{label}</p>
+      <p className="uppercase tracking-[0.35em] text-[9px] text-blue-200 font-sans font-bold">{label}</p>
     </div>
     <p
       className="text-white font-sans font-black leading-none"
@@ -39,7 +39,7 @@ const StatCard = ({ label, value, sub }) => (
       {value}
     </p>
     <div className="flex items-center gap-2 mt-1">
-      {sub && <p className="font-sans text-[10px] text-violet-200 uppercase tracking-widest font-medium">{sub}</p>}
+      {sub && <p className="font-sans text-[10px] text-blue-200 uppercase tracking-widest font-medium">{sub}</p>}
     </div>
     <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 group-hover:bg-white/25 transition-all duration-500" />
   </div>
@@ -56,12 +56,42 @@ const StatusChip = ({ appt }) => {
 const EarningsTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-violet-200 px-4 py-3 font-sans text-xs shadow-lg"
+    <div className="bg-white border border-blue-200 px-4 py-3 font-sans text-xs shadow-lg"
       style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
-      <p className="uppercase tracking-[0.2em] text-violet-400 mb-1 font-semibold text-[10px]">{label}</p>
-      <p className="font-black text-violet-900 text-base">₱{payload[0].value.toLocaleString()}</p>
+      <p className="uppercase tracking-[0.2em] text-blue-400 mb-1 font-semibold text-[10px]">{label}</p>
+      <p className="font-black text-blue-900 text-base">₱{payload[0].value.toLocaleString()}</p>
     </div>
   )
+}
+
+// Service name shortener
+const shortenServiceName = (name) => {
+  if (!name) return 'Unknown'
+  
+  const shortMap = {
+    'DIYSelf-Service': 'DIY Self',
+    'Drop-off (2Sabon 2Downy +Booster)': 'Drop-off (2S+2D+B)',
+    'Full Service(1 Sabon 1DownyWash-Dry-Fold)': 'Full Svc (1S+1D)',
+    'Full Service(2 Sabon 2Downy +Booster)': 'Full Svc (2S+2D+B)',
+    'Drop-off (1Sabon 1Downy)': 'Drop-off (1S+1D)',
+    'Drop-off (2Detergent, 2FabricConditioner+ Booste': 'Drop-off (2D+2FC+B)',
+    'DIY Self-Service': 'DIY Self',
+  }
+  
+  // Check for exact matches first
+  if (shortMap[name]) return shortMap[name]
+  
+  // Check for partial matches
+  for (const [key, value] of Object.entries(shortMap)) {
+    if (name.includes(key) || key.includes(name)) return value
+  }
+  
+  // If name is too long, truncate
+  if (name.length > 20) {
+    return name.substring(0, 18) + '…'
+  }
+  
+  return name
 }
 
 const Dashboard = () => {
@@ -74,8 +104,8 @@ const Dashboard = () => {
   if (!dashData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-8 h-8 border-2 border-violet-600 border-t-transparent animate-spin" />
-        <p className="font-sans text-[10px] uppercase tracking-[0.3em] text-violet-300 font-bold">Loading dashboard…</p>
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent animate-spin" />
+        <p className="font-sans text-[10px] uppercase tracking-[0.3em] text-blue-300 font-bold">Loading dashboard…</p>
       </div>
     )
   }
@@ -92,9 +122,12 @@ const Dashboard = () => {
   } = dashData
 
   // Filter out entries with null/undefined/empty names (deleted services)
-  const appointmentsByService = rawByService.filter(
-    item => item.name && item.name.trim() !== '' && item.name.toLowerCase() !== 'unknown'
-  )
+  const appointmentsByService = rawByService
+    .filter(item => item.name && item.name.trim() !== '' && item.name.toLowerCase() !== 'unknown')
+    .map(item => ({
+      ...item,
+      shortName: shortenServiceName(item.name)
+    }))
 
   const donutData = [
     { name: 'Completed', value: statusCounts.completed || 0 },
@@ -116,7 +149,7 @@ const Dashboard = () => {
       {/* ── HERO HEADER ── */}
       <div
         className="relative overflow-hidden px-10 pt-12 pb-14"
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
         {/* Background grid lines */}
         <div className="absolute inset-0 opacity-[0.04]"
@@ -140,18 +173,18 @@ const Dashboard = () => {
               >
                 Dashboard
               </h1>
-              <p className="font-sans text-[10px] text-violet-300 uppercase tracking-[0.3em] font-semibold">{today}</p>
+              <p className="font-sans text-[10px] text-blue-300 uppercase tracking-[0.3em] font-semibold">{today}</p>
             </div>
 
             {/* Quick KPI strip */}
             <div className="flex items-center gap-0 border border-white/10">
               {[
                 { label: 'Completion Rate', value: `${completionRate}%`,  color: 'text-emerald-300' },
-                { label: 'Branches',        value: totalBranches,         color: 'text-violet-200'  },
+                { label: 'Branches',        value: totalBranches,         color: 'text-blue-200'  },
                 { label: 'Customers',       value: totalCustomers,        color: 'text-sky-300'     },
               ].map((kpi, i) => (
                 <div key={i} className={`px-6 py-4 ${i < 2 ? 'border-r border-white/10' : ''}`}>
-                  <p className="font-sans text-[9px] uppercase tracking-[0.25em] text-violet-300 font-bold mb-1">{kpi.label}</p>
+                  <p className="font-sans text-[9px] uppercase tracking-[0.25em] text-blue-300 font-bold mb-1">{kpi.label}</p>
                   <p className={`font-sans font-black text-xl ${kpi.color}`} style={{ letterSpacing: '-0.03em' }}>{kpi.value}</p>
                 </div>
               ))}
@@ -162,7 +195,7 @@ const Dashboard = () => {
 
       {/* ── Thin accent bar ── */}
       <div className="h-[3px] w-full"
-        style={{ background: 'linear-gradient(90deg, #7c3aed 0%, #a78bfa 50%, transparent 100%)' }} />
+        style={{ background: 'linear-gradient(90deg, #2563eb 0%, #60a5fa 50%, transparent 100%)' }} />
 
       <div className="px-6 md:px-10 py-10 max-w-7xl mx-auto space-y-14">
 
@@ -185,11 +218,11 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
             {/* Area chart */}
-            <div className="lg:col-span-2 bg-white border border-violet-100 px-7 py-8"
+            <div className="lg:col-span-2 bg-white border border-blue-100 px-7 py-8"
               style={{ clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)' }}>
               <div className="flex items-center justify-between mb-6">
                 <p className="font-sans text-xs uppercase tracking-[0.25em] text-neutral-700 font-bold">Earnings — Last 6 Months</p>
-                <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-violet-400 font-bold border border-violet-100 px-2 py-1">Monthly</span>
+                <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-blue-400 font-bold border border-blue-100 px-2 py-1">Monthly</span>
               </div>
               <ResponsiveContainer width="100%" height={230}>
                 <AreaChart data={earningsByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -200,10 +233,10 @@ const Dashboard = () => {
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="month"
-                    tick={{ fontSize: 10, fill: '#7c3aed', fontFamily: 'sans-serif', fontWeight: 700, letterSpacing: 2 }}
+                    tick={{ fontSize: 10, fill: '#2563eb', fontFamily: 'sans-serif', fontWeight: 700, letterSpacing: 2 }}
                     axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fontSize: 10, fill: '#a78bfa', fontFamily: 'sans-serif', fontWeight: 600 }}
+                    tick={{ fontSize: 10, fill: '#60a5fa', fontFamily: 'sans-serif', fontWeight: 600 }}
                     axisLine={false} tickLine={false}
                     tickFormatter={v => `₱${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
                   <Tooltip content={<EarningsTooltip />} />
@@ -216,7 +249,7 @@ const Dashboard = () => {
             </div>
 
             {/* Donut */}
-            <div className="bg-white border border-violet-100 px-7 py-8"
+            <div className="bg-white border border-blue-100 px-7 py-8"
               style={{ clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)' }}>
               <div className="flex items-center justify-between mb-6">
                 <p className="font-sans text-xs uppercase tracking-[0.25em] text-neutral-700 font-bold">Status Split</p>
@@ -237,7 +270,7 @@ const Dashboard = () => {
                       </span>
                     )} />
                   <Tooltip
-                    contentStyle={{ fontFamily: 'sans-serif', fontSize: 11, fontWeight: 700, border: '1px solid #ede9fe', borderRadius: 0 }} />
+                    contentStyle={{ fontFamily: 'sans-serif', fontSize: 11, fontWeight: 700, border: '1px solid #dbeafe', borderRadius: 0 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -251,13 +284,13 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
             {/* Bar chart */}
-            <div className="bg-white border border-violet-100 px-7 py-8"
+            <div className="bg-white border border-blue-100 px-7 py-8"
               style={{ clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)' }}>
               <p className="font-sans text-xs uppercase tracking-[0.25em] text-neutral-700 font-bold mb-6">By Service</p>
               {appointmentsByService.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[220px] gap-3">
-                  <div className="w-8 h-8 border border-dashed border-violet-200 flex items-center justify-center">
-                    <span className="text-violet-300 text-xs">—</span>
+                  <div className="w-8 h-8 border border-dashed border-blue-200 flex items-center justify-center">
+                    <span className="text-blue-300 text-xs">—</span>
                   </div>
                   <p className="font-sans text-[10px] uppercase tracking-widest text-neutral-300 font-semibold">No data yet</p>
                 </div>
@@ -265,13 +298,18 @@ const Dashboard = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={appointmentsByService} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <XAxis type="number"
-                      tick={{ fontSize: 10, fill: '#a78bfa', fontFamily: 'sans-serif', fontWeight: 600 }}
+                      tick={{ fontSize: 10, fill: '#60a5fa', fontFamily: 'sans-serif', fontWeight: 600 }}
                       axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" width={90}
-                      tick={{ fontSize: 10, fill: '#374151', fontFamily: 'sans-serif', fontWeight: 700 }}
+                    <YAxis type="category" dataKey="shortName" width={100}
+                      tick={{ fontSize: 9, fill: '#374151', fontFamily: 'sans-serif', fontWeight: 700 }}
                       axisLine={false} tickLine={false} />
-                    <Tooltip cursor={{ fill: '#f5f3ff' }} formatter={v => [v, 'Bookings']}
-                      contentStyle={{ fontFamily: 'sans-serif', fontSize: 11, fontWeight: 700, border: '1px solid #ede9fe', borderRadius: 0 }} />
+                    <Tooltip 
+                      cursor={{ fill: '#eff6ff' }} 
+                      formatter={(v, name, props) => {
+                        const originalName = props.payload?.name || ''
+                        return [v, originalName]
+                      }}
+                      contentStyle={{ fontFamily: 'sans-serif', fontSize: 11, fontWeight: 700, border: '1px solid #dbeafe', borderRadius: 0 }} />
                     <Bar dataKey="count" radius={0}>
                       {appointmentsByService.map((_, i) => (
                         <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
@@ -283,12 +321,12 @@ const Dashboard = () => {
             </div>
 
             {/* Latest appointments table */}
-            <div className="lg:col-span-2 bg-white border border-violet-100 px-7 py-8"
+            <div className="lg:col-span-2 bg-white border border-blue-100 px-7 py-8"
               style={{ clipPath: 'polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)' }}>
               <div className="flex items-center justify-between mb-6">
                 <p className="font-sans text-xs uppercase tracking-[0.25em] text-neutral-700 font-bold">Latest Appointments</p>
                 {latestAppointments.length > 0 && (
-                  <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-violet-400 font-bold border border-violet-100 px-2 py-1">
+                  <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-blue-400 font-bold border border-blue-100 px-2 py-1">
                     {latestAppointments.length} records
                   </span>
                 )}
@@ -296,38 +334,38 @@ const Dashboard = () => {
 
               {latestAppointments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-[220px] gap-3">
-                  <div className="w-8 h-8 border border-dashed border-violet-200 flex items-center justify-center">
-                    <span className="text-violet-300 text-xs">—</span>
+                  <div className="w-8 h-8 border border-dashed border-blue-200 flex items-center justify-center">
+                    <span className="text-blue-300 text-xs">—</span>
                   </div>
                   <p className="font-sans text-[10px] uppercase tracking-widest text-neutral-300 font-semibold">No appointments yet</p>
                 </div>
               ) : (
-                <div className="divide-y divide-violet-50">
+                <div className="divide-y divide-blue-50">
                   {/* Header row */}
-                  <div className="grid grid-cols-5 pb-3 border-b border-violet-100">
+                  <div className="grid grid-cols-5 pb-3 border-b border-blue-100">
                     {['Customer', 'Branch', 'Date & Time', 'Amount', 'Status'].map(h => (
-                      <p key={h} className="font-sans text-[9px] uppercase tracking-[0.3em] text-violet-300 font-bold">{h}</p>
+                      <p key={h} className="font-sans text-[9px] uppercase tracking-[0.3em] text-blue-300 font-bold">{h}</p>
                     ))}
                   </div>
 
                   {latestAppointments.map((appt) => (
                     <div
-                      key={appt._id}
-                      className="grid grid-cols-5 items-center py-3.5 hover:bg-violet-50/60 -mx-7 px-7 transition-colors cursor-default group"
+                      key={appt.id}
+                      className="grid grid-cols-5 items-center py-3.5 hover:bg-blue-50/60 -mx-7 px-7 transition-colors cursor-default group"
                     >
                       {/* Customer */}
                       <div className="flex items-center gap-2.5">
                         {appt.userData?.image ? (
                           <img src={appt.userData.image}
-                            className="w-7 h-7 object-cover flex-shrink-0 ring-1 ring-violet-100"
+                            className="w-7 h-7 object-cover flex-shrink-0 ring-1 ring-blue-100"
                             alt="" />
                         ) : (
-                          <div className="w-7 h-7 bg-violet-600 flex items-center justify-center text-white font-black font-sans text-xs flex-shrink-0"
+                          <div className="w-7 h-7 bg-blue-600 flex items-center justify-center text-white font-black font-sans text-xs flex-shrink-0"
                             style={{ clipPath: 'polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%)' }}>
                             {appt.userData?.name?.[0]?.toUpperCase() || '?'}
                           </div>
                         )}
-                        <span className="font-sans text-xs text-neutral-800 font-semibold truncate max-w-[80px] group-hover:text-violet-700 transition-colors">
+                        <span className="font-sans text-xs text-neutral-800 font-semibold truncate max-w-[80px] group-hover:text-blue-700 transition-colors">
                           {appt.userData?.name || '—'}
                         </span>
                       </div>
@@ -344,7 +382,7 @@ const Dashboard = () => {
                       </div>
 
                       {/* Amount */}
-                      <p className="font-sans text-sm font-black text-violet-800" style={{ letterSpacing: '-0.02em' }}>
+                      <p className="font-sans text-sm font-black text-blue-800" style={{ letterSpacing: '-0.02em' }}>
                         ₱{(appt.finalAmount ?? appt.totalAmount ?? 0).toLocaleString()}
                       </p>
 

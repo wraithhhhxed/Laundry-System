@@ -5,7 +5,7 @@ import { toast } from 'react-toastify'
 import { assets } from '../assets/assets'
 
 const inputCls =
-  'w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+  'w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
 
 const readCls = 'font-sans text-sm text-neutral-700 font-bold tracking-tight'
 
@@ -50,12 +50,12 @@ const MyProfiles = () => {
 
       {/* ── HEADING ── */}
       <div className='max-w-4xl mx-auto px-6 pt-14 pb-0 text-center md:text-left'>
-        <span className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans block mb-3 font-bold'>
+        <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-3 font-bold'>
           Account Settings
         </span>
-        <div className='h-px bg-violet-100 mb-10' />
+        <div className='h-px bg-blue-100 mb-10' />
         <h1
-          className='leading-none text-violet-900 mb-16'
+          className='leading-none text-blue-900 mb-16'
           style={{ fontSize: 'clamp(38px, 6vw, 72px)', fontWeight: 800, letterSpacing: '-0.04em' }}
         >
           My Profile.
@@ -64,10 +64,10 @@ const MyProfiles = () => {
 
       {/* ── PROFILE CARD ── */}
       <div className='max-w-4xl mx-auto px-6 pb-20'>
-        <div className='flex flex-col md:flex-row gap-0 items-stretch border border-violet-100'>
+        <div className='flex flex-col md:flex-row gap-0 items-stretch border border-blue-100'>
 
           {/* ── LEFT — avatar + name ── */}
-          <div className='w-full md:w-72 flex-shrink-0 bg-violet-600 px-8 py-12 flex flex-col items-center gap-6 relative overflow-hidden'>
+          <div className='w-full md:w-72 flex-shrink-0 bg-blue-600 px-8 py-12 flex flex-col items-center gap-6 relative overflow-hidden'>
             <div
               className='absolute inset-0 pointer-events-none'
               style={{ background: 'radial-gradient(circle at top right, rgba(255,255,255,0.15) 0%, transparent 70%)' }}
@@ -84,7 +84,7 @@ const MyProfiles = () => {
                     style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%)' }}
                   />
                   <div
-                    className='absolute inset-0 bg-violet-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
+                    className='absolute inset-0 bg-blue-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity'
                     style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%)' }}
                   >
                     <span className='font-sans text-[10px] uppercase tracking-widest text-white font-black'>Update</span>
@@ -141,11 +141,11 @@ const MyProfiles = () => {
                 <div className='flex flex-col gap-3'>
                   <button
                     onClick={handleSave}
-                    className='group relative overflow-hidden w-full py-3 font-sans text-[10px] tracking-[0.2em] uppercase font-black bg-white text-violet-700 inline-flex items-center justify-center gap-2'
+                    className='group relative overflow-hidden w-full py-3 font-sans text-[10px] tracking-[0.2em] uppercase font-black bg-white text-blue-700 inline-flex items-center justify-center gap-2'
                     style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                   >
                     <span className='relative z-10'>Save Changes</span>
-                    <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                    <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                   </button>
                   <button
                     onClick={() => { setIsEdit(false); setImage(null) }}
@@ -158,7 +158,7 @@ const MyProfiles = () => {
               ) : (
                 <button
                   onClick={() => setIsEdit(true)}
-                  className='group relative overflow-hidden w-full py-3 font-sans text-[10px] tracking-[0.2em] uppercase font-black border-2 border-white/30 text-white hover:bg-white hover:text-violet-600 transition-all duration-300'
+                  className='group relative overflow-hidden w-full py-3 font-sans text-[10px] tracking-[0.2em] uppercase font-black border-2 border-white/30 text-white hover:bg-white hover:text-blue-600 transition-all duration-300'
                   style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                 >
                   Edit Profile
@@ -173,10 +173,10 @@ const MyProfiles = () => {
             {/* Contact */}
             <section>
               <div className='flex items-center gap-4 mb-6'>
-                <span className='uppercase tracking-[0.3em] text-[10px] text-violet-500 font-sans font-black whitespace-nowrap'>
+                <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black whitespace-nowrap'>
                   Contact Info
                 </span>
-                <div className='h-px bg-violet-50 w-full' />
+                <div className='h-px bg-blue-50 w-full' />
               </div>
 
               <div className='grid grid-cols-1 gap-6'>
@@ -229,10 +229,10 @@ const MyProfiles = () => {
             {/* Personal Info */}
             <section>
               <div className='flex items-center gap-4 mb-6'>
-                <span className='uppercase tracking-[0.3em] text-[10px] text-violet-500 font-sans font-black whitespace-nowrap'>
+                <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black whitespace-nowrap'>
                   Personal Info
                 </span>
-                <div className='h-px bg-violet-50 w-full' />
+                <div className='h-px bg-blue-50 w-full' />
               </div>
 
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-8'>

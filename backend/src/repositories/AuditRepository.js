@@ -1,9 +1,9 @@
-import AuditLog from '../../models/AuditLog.js';
+// backend/src/repositories/AuditRepository.js
+import prisma from '../config/prismaClient.js';
 
 class AuditRepository {
   async create(data) {
-    const log = new AuditLog(data);
-    return log.save();
+    return await prisma.auditLog.create({ data });
   }
 
   async findAll(filters = {}) {
@@ -15,65 +15,79 @@ class AuditRepository {
       targetType,
       dateFrom,
       dateTo,
-      page  = 1,
+      page = 1,
       limit = 50,
     } = filters;
 
-    const query = {};
+    const and = [];
 
     // Support comma-separated action values (e.g. "USER_LOGIN,USER_LOGOUT")
     if (action) {
-      const actions = action.split(',').map(a => a.trim()).filter(Boolean);
-      query.action = actions.length === 1 ? actions[0] : { $in: actions };
+      const actions = action.split(',').map((a) => a.trim()).filter(Boolean);
+      and.push({ action: actions.length === 1 ? actions[0] : { in: actions } });
     }
 
-    if (branchId)   query.branchId       = branchId;
-    if (actorRole)  query['actor.role']  = actorRole;
-    if (targetType) query['target.type'] = targetType;
+    if (branchId) and.push({ branchId });
+
+    if (actorRole) {
+      and.push({ actor: { path: ['role'], equals: actorRole } });
+    }
+
+    if (targetType) {
+      and.push({ target: { path: ['type'], equals: targetType } });
+    }
 
     if (actorName) {
-      query['actor.name'] = { $regex: actorName, $options: 'i' };
+      and.push({ actor: { path: ['name'], string_contains: actorName, mode: 'insensitive' } });
+    } else {
+      // Exclude ghost records — mga lumang logs na walang totoong actor name
+      // (nakatabi bilang 'System' bago na-fix ang auth middleware).
+      and.push({ NOT: { actor: { path: ['name'], equals: 'System' } } });
     }
 
     if (dateFrom || dateTo) {
-      query.createdAt = {};
-      if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+      const createdAt = {};
+      if (dateFrom) createdAt.gte = new Date(dateFrom);
       if (dateTo) {
         const end = new Date(dateTo);
         end.setHours(23, 59, 59, 999);
-        query.createdAt.$lte = end;
+        createdAt.lte = end;
       }
+      and.push({ createdAt });
     }
 
-    // Exclude ghost records — old logs written before auth middleware fix
-    // that have no real actor name (stored as null or 'System')
-    query['actor.name'] = query['actor.name'] ?? { $nin: [null, 'System'] };
+    const where = and.length > 0 ? { AND: and } : {};
 
-    const skip  = (page - 1) * limit;
-    const total = await AuditLog.countDocuments(query);
-
-    const logs = await AuditLog.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .lean();
+    const skip = (page - 1) * limit;
+    const [total, logs] = await Promise.all([
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: Number(limit),
+      }),
+    ]);
 
     return {
       logs,
       total,
-      page:       Number(page),
+      page: Number(page),
       totalPages: Math.ceil(total / limit),
     };
   }
 
   async findByTarget(targetType, targetId, limit = 20) {
-    return AuditLog.find({
-      'target.type': targetType,
-      'target.id':   targetId,
-    })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    return await prisma.auditLog.findMany({
+      where: {
+        AND: [
+          { target: { path: ['type'], equals: targetType } },
+          { target: { path: ['id'], equals: targetId } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
   }
 }
 

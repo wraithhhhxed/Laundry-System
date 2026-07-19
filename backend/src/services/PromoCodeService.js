@@ -36,7 +36,7 @@ class PromoCodeService {
     if (data.code) {
       data.code = data.code.toUpperCase().trim()
       const existing = await PromoCodeRepository.findByCode(data.code)
-      if (existing && existing._id.toString() !== id)
+      if (existing && existing.id !== id)
         throw new ApiError(400, 'A promo code with this name already exists')
     }
 
@@ -69,7 +69,7 @@ class PromoCodeService {
     if (!code) throw new ApiError(400, 'Promo code is required')
     if (!orderSubtotal || orderSubtotal <= 0) throw new ApiError(400, 'Invalid order subtotal')
 
-    // Single atomic findOneAndUpdate — only one concurrent caller can win
+    // Single atomic reserve — only one concurrent caller can win
     const promo = await PromoCodeRepository.reserveUse(code, orderSubtotal)
 
     if (!promo) {
@@ -88,7 +88,7 @@ class PromoCodeService {
     const discountAmount = this._computeDiscount(promo, orderSubtotal)
 
     return {
-      promoCodeId:    promo._id,
+      promoCodeId:    promo.id,
       code:           promo.code,
       discountType:   promo.discountType,
       discountValue:  promo.discountValue,

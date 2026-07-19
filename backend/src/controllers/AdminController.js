@@ -14,23 +14,35 @@ import UserRepository from '../repositories/UserRepository.js'
 import BranchRepository from '../repositories/BranchRepository.js'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
 import extraServiceService from '../services/ExtraServiceService.js'
+import AuditRepository from '../repositories/AuditRepository.js'
+import AdminRepository from '../repositories/AdminRepository.js'
 
 // ─── HELPERS ──────────────────────────────────────────────────────
-const adminActor = () => ({
-  userId: null,
-  name:   'Super Admin',
-  role:   'superadmin',
+// Kumuha ng totoong logged-in admin info mula sa req.user (pinopopulate
+// ng auth.middleware.js). Fallback lang ang 'Super Admin' kung walang
+// req.user (hal. hindi dumaan sa protect() middleware).
+const adminActor = (req) => ({
+  userId: req.user?.id   ?? null,
+  name:   req.user?.name ?? 'Super Admin',
+  role:   req.user?.role ?? 'admin',
 })
 
 // ─── AUTH ─────────────────────────────────────────────────────────
 const loginAdmin = asyncHandler(async (req, res) => {
   const { email, password } = req.body
-  if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD)
+
+  const admin = await AdminRepository.findByEmail(email)
+  if (!admin || !admin.isActive)
     throw new ApiError(401, 'Invalid credentials')
-  const token = jwt.sign({ id: email, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '7d' })
+
+  const isMatch = await bcrypt.compare(password, admin.password)
+  if (!isMatch)
+    throw new ApiError(401, 'Invalid credentials')
+
+  const token = jwt.sign({ id: admin.id, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '7d' })
 
   await AuditService.logLogin(
-    { name: 'Super Admin', role: 'superadmin', userId: null },
+    { userId: admin.id, name: admin.name, role: 'admin' },
     { ip: req.ip, userAgent: req.headers['user-agent'] }
   )
 
@@ -38,7 +50,11 @@ const loginAdmin = asyncHandler(async (req, res) => {
 })
 
 const logoutAdmin = asyncHandler(async (req, res) => {
-  await AuditService.logLogout({ name: 'Super Admin', role: 'superadmin', userId: null })
+  await AuditService.logLogout({
+    userId: req.user?.id   ?? null,
+    name:   req.user?.name ?? 'Super Admin',
+    role:   req.user?.role ?? 'admin',
+  })
 
   res.json(new ApiResponse(200, {}, 'Logged out successfully'))
 })
@@ -46,7 +62,7 @@ const logoutAdmin = asyncHandler(async (req, res) => {
 // ─── BRANCHES ─────────────────────────────────────────────────────
 const addBranch = asyncHandler(async (req, res) => {
   const branch = await branchService.addBranch(req.body, req.file)
-  await AuditService.logBranchCreated(adminActor(), branch)
+  await AuditService.logBranchCreated(adminActor(req), branch)
   res.json(new ApiResponse(201, { branch }, 'Branch added'))
 })
 
@@ -68,7 +84,7 @@ const allAppointments = asyncHandler(async (req, res) => {
 
 const cancelAppointment = asyncHandler(async (req, res) => {
   await appointmentService.cancelAppointment(
-    req.body.appointmentId, 'admin', null, adminActor()
+    req.body.appointmentId, 'admin', null, adminActor(req)
   )
   res.json(new ApiResponse(200, {}, 'Appointment cancelled'))
 })
@@ -88,7 +104,7 @@ const approveBooking = asyncHandler(async (req, res) => {
   await AppointmentRepository.updateById(appointmentId, { deliveryStatus: 'approved' })
 
   await AuditService.logStatusChange(
-    adminActor(),
+    adminActor(req),
     appointment,
     'pending_approval',
     'approved'
@@ -123,7 +139,7 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
   const fromStatus = appointment.deliveryStatus
   await AppointmentRepository.updateDeliveryStatus(appointmentId, status)
 
-  await AuditService.logStatusChange(adminActor(), appointment, fromStatus, status)
+  await AuditService.logStatusChange(adminActor(req), appointment, fromStatus, status)
 
   res.json(new ApiResponse(200, {}, 'Delivery status updated'))
 })
@@ -141,7 +157,7 @@ const confirmActualWeight = asyncHandler(async (req, res) => {
     appointmentId,
     appointment.branchId.toString(),
     actualServices,
-    adminActor()
+    adminActor(req)
   )
 
   res.json(new ApiResponse(200, { appointment: updated }, 'Actual weight confirmed by admin'))
@@ -154,7 +170,7 @@ const confirmPayment = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'appointmentId and paymentMethod are required')
 
   const appointment = await appointmentService.confirmPayment(
-    appointmentId, paymentMethod, adminActor()
+    appointmentId, paymentMethod, adminActor(req)
   )
   res.json(new ApiResponse(200, { appointment }, 'Payment confirmed by admin'))
 })
@@ -224,13 +240,23 @@ const deleteKgRate = asyncHandler(async (req, res) => {
 
 // ─── AUDIT LOGS ───────────────────────────────────────────────────
 const getAuditLogs = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, actorModel, action, search } = req.query
-  const data = await AuditLogService.getLogs({
+  const {
+    page = 1, limit = 20,
+    action, branchId, actorName, actorRole, targetType,
+    dateFrom, dateTo,
+  } = req.query
+
+  const data = await AuditRepository.findAll({
     page: Number(page), limit: Number(limit),
-    actorModel: actorModel || undefined,
-    action: action || undefined,
-    search: search || undefined
+    action:     action     || undefined,
+    branchId:   branchId   || undefined,
+    actorName:  actorName  || undefined,
+    actorRole:  actorRole  || undefined,
+    targetType: targetType || undefined,
+    dateFrom:   dateFrom   || undefined,
+    dateTo:     dateTo     || undefined,
   })
+
   res.json(new ApiResponse(200, data))
 })
 
@@ -274,7 +300,7 @@ const addUser = asyncHandler(async (req, res) => {
   const user = await UserRepository.create(payload)
 
   await AuditService.logUserUpdated(
-    adminActor(), user,
+    adminActor(req), user,
     {},
     { name, email }
   )
@@ -288,7 +314,7 @@ const updateUser = asyncHandler(async (req, res) => {
   const user   = await UserRepository.updateById(req.params.id, { name, email, phone, address })
   if (!user) throw new ApiError(404, 'User not found')
   await AuditService.logUserUpdated(
-    adminActor(), user,
+    adminActor(req), user,
     { name: before.name, email: before.email },
     { name, email }
   )
@@ -300,7 +326,7 @@ const toggleUserStatus = asyncHandler(async (req, res) => {
   const user = await UserRepository.setActive(req.params.id, isActive)
   if (!user) throw new ApiError(404, 'User not found')
   await AuditService.logUserUpdated(
-    adminActor(), user,
+    adminActor(req), user,
     { isActive: !isActive },
     { isActive }
   )
@@ -310,7 +336,7 @@ const toggleUserStatus = asyncHandler(async (req, res) => {
 const deleteUser = asyncHandler(async (req, res) => {
   const user = await UserRepository.deleteById(req.params.id)
   if (!user) throw new ApiError(404, 'User not found')
-  await AuditService.logUserDeleted(adminActor(), user)
+  await AuditService.logUserDeleted(adminActor(req), user)
   res.json(new ApiResponse(200, {}, 'User deleted successfully'))
 })
 
@@ -335,13 +361,13 @@ const updateBranchAdmin = asyncHandler(async (req, res) => {
   const { name, email, phone, speciality, about, address } = req.body
   const before = await BranchRepository.findById(req.params.id)
   if (!before) throw new ApiError(404, 'Branch not found')
- 
+
   const branch = await branchService.updateBranch(req.params.id, {
     name, email, phone, speciality, about, address
   })
- 
+
   await AuditService.logBranchUpdated(
-    adminActor(), branch,
+    adminActor(req), branch,
     { name: before.name, email: before.email },
     { name, email }
   )
@@ -353,7 +379,7 @@ const toggleBranchStatus = asyncHandler(async (req, res) => {
   if (!branch) throw new ApiError(404, 'Branch not found')
   const updated = await BranchRepository.updateById(req.params.id, { available: !branch.available })
   await AuditService.logBranchUpdated(
-    adminActor(), updated,
+    adminActor(req), updated,
     { available: branch.available },
     { available: updated.available }
   )

@@ -4,20 +4,24 @@ import { toast } from 'react-toastify'
 import { X } from 'lucide-react'
 
 const VALID_STATUSES = [
-  { value: 'pending_approval', label: 'Pending Approval' },
-  { value: 'approved',         label: 'Approved' },
-  { value: 'cancelled',        label: 'Cancelled' },
-  { value: 'delivered',        label: 'Delivered' },
+  { value: 'pending_approval',   label: 'Pending Approval' },
+  { value: 'approved',           label: 'Approved' },
+  { value: 'picked_up',          label: 'Picked Up' },
+  { value: 'in_progress',        label: 'In Progress' },
+  { value: 'out_for_delivery',   label: 'Out for Delivery' },
+  { value: 'delivered',          label: 'Delivered' },
 ]
 
 const STATUS_COLORS = {
   pending_approval: 'border-amber-200 text-amber-600',
   approved:         'border-blue-200 text-blue-600',
-  cancelled:        'border-red-200 text-red-500',
+  picked_up:        'border-cyan-200 text-cyan-600',
+  in_progress:      'border-orange-200 text-orange-600',
+  out_for_delivery: 'border-indigo-200 text-indigo-600',
   delivered:        'border-green-200 text-green-600',
 }
 
-const emptyForm = { reason: '', applicableStatuses: [], isActive: true }
+const emptyForm = { reason: '', applicableStatuses: [], appliesToCancelled: false, isActive: true }
 
 const RefundReasonsSettings = () => {
   const { getRefundReasons, updateRefundReasons } = useContext(AdminContext)
@@ -41,7 +45,12 @@ const RefundReasonsSettings = () => {
   const openAdd = () => { setEditItem(null); setForm(emptyForm); setShowForm(true) }
   const openEdit = (item, idx) => {
     setEditItem(idx)
-    setForm({ reason: item.reason, applicableStatuses: [...item.applicableStatuses], isActive: item.isActive })
+    setForm({
+      reason: item.reason,
+      applicableStatuses: [...item.applicableStatuses],
+      appliesToCancelled: !!item.appliesToCancelled,
+      isActive: item.isActive,
+    })
     setShowForm(true)
   }
   const closeForm = () => { setShowForm(false); setEditItem(null); setForm(emptyForm) }
@@ -57,7 +66,7 @@ const RefundReasonsSettings = () => {
 
   const handleSubmit = () => {
     if (!form.reason.trim())                  { toast.error('Reason label is required.'); return }
-    if (form.applicableStatuses.length === 0) { toast.error('Select at least one status.'); return }
+    if (form.applicableStatuses.length === 0 && !form.appliesToCancelled) { toast.error('Select at least one status.'); return }
     if (editItem !== null) {
       setReasons(prev => prev.map((r, i) => i === editItem ? { ...form, reason: form.reason.trim() } : r))
     } else {
@@ -172,6 +181,11 @@ const RefundReasonsSettings = () => {
                         {VALID_STATUSES.find(v => v.value === s)?.label ?? s}
                       </span>
                     ))}
+                    {item.appliesToCancelled && (
+                      <span className='uppercase tracking-[0.15em] text-[9px] font-sans font-bold border border-red-200 text-red-500 px-2 py-0.5'>
+                        Cancelled
+                      </span>
+                    )}
                   </div>
 
                   {/* Active toggle */}
@@ -294,6 +308,20 @@ const RefundReasonsSettings = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Applies to Cancelled */}
+              <div className='flex items-center gap-3'>
+                <input
+                  type='checkbox'
+                  id='reasonCancelled'
+                  checked={form.appliesToCancelled}
+                  onChange={e => setForm(prev => ({ ...prev, appliesToCancelled: e.target.checked }))}
+                  className='w-4 h-4 accent-violet-600'
+                />
+                <label htmlFor='reasonCancelled' className='font-sans text-sm text-neutral-600'>
+                  Also show for <span className='text-red-400'>cancelled</span> appointments
+                </label>
               </div>
 
               {/* Active checkbox */}

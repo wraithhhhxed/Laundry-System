@@ -105,19 +105,19 @@ const Branches = () => {
       {/* ── HERO HEADING ── */}
       <div className='px-6 md:px-16 pt-14 pb-0'>
         <div className='flex items-end justify-between mb-3'>
-          <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-violet-400 font-sans'>
+          <span className='uppercase tracking-[0.35em] text-[10px] font-bold text--400 font-sans'>
             Our Locations
           </span>
           <button
             onClick={() => setShowFilter(f => !f)}
-            className='md:hidden uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'
+            className='md:hidden uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'
           >
             {showFilter ? 'Hide Filters' : 'Filter ↓'}
           </button>
         </div>
-        <div className='h-px bg-violet-100 mb-10' />
+        <div className='h-px bg-blue-100 mb-10' />
         <h1
-          className='leading-none text-violet-900 mb-16'
+          className='leading-none text-blue-900 mb-16'
           style={{ fontSize: 'clamp(48px, 8vw, 110px)', fontWeight: 700, letterSpacing: '-0.03em' }}
         >
           Branches.
@@ -131,22 +131,22 @@ const Branches = () => {
         <div className={`${showFilter ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-56 flex-shrink-0`}>
 
           {/* Search */}
-          <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-violet-400 font-sans block mb-3'>
+          <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-blue-400 font-sans block mb-3'>
             Search
           </span>
-          <div className='h-px bg-violet-100 mb-4' />
+          <div className='h-px bg-blue-100 mb-4' />
           <div className='relative mb-8'>
             <input
               type='text'
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder='Branch name or service...'
-              className='w-full px-4 py-2.5 pr-8 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+              className='w-full px-4 py-2.5 pr-8 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-violet-300 hover:text-violet-500 font-sans text-xs transition-colors'
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 hover:text-blue-500 font-sans text-xs transition-colors'
               >
                 ×
               </button>
@@ -154,28 +154,28 @@ const Branches = () => {
           </div>
 
           {/* Filter by service */}
-          <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-violet-400 font-sans block mb-3'>
+          <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-blue-400 font-sans block mb-3'>
             Filter by Service
           </span>
-          <div className='h-px bg-violet-100 mb-4' />
+          <div className='h-px bg-blue-100 mb-4' />
 
-          <div className='flex flex-col border border-violet-100'>
+          <div className='flex flex-col border border-blue-100'>
             {allSpecialities.map((specialityName, index) => {
               const isChecked = selectedFilters.some(f => normalize(f) === normalize(specialityName))
               return (
                 <label
                   key={index}
-                  className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer border-b border-violet-50 last:border-b-0 transition-colors duration-150 font-sans text-sm ${
+                  className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer border-b border-blue-50 last:border-b-0 transition-colors duration-150 font-sans text-sm ${
                     isChecked
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-white text-neutral-600 hover:bg-violet-50'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-neutral-600 hover:bg-blue-50'
                   }`}
                 >
                   <input
                     type='checkbox'
                     checked={isChecked}
                     onChange={() => handleCheckboxChange(specialityName)}
-                    className='w-3.5 h-3.5 accent-violet-600 cursor-pointer flex-shrink-0'
+                    className='w-3.5 h-3.5 accent-blue-600 cursor-pointer flex-shrink-0'
                   />
                   {specialityName}
                 </label>
@@ -186,7 +186,7 @@ const Branches = () => {
           {selectedFilters.length > 0 && (
             <button
               onClick={() => { setSelectedFilters([]); navigate('/branches') }}
-              className='mt-3 font-sans text-[10px] uppercase tracking-[0.35em] font-bold text-violet-400 hover:text-violet-600 text-left transition-colors'
+              className='mt-3 font-sans text-[10px] uppercase tracking-[0.35em] font-bold text-blue-400 hover:text-blue-600 text-left transition-colors'
             >
               Clear filters ×
             </button>
@@ -195,24 +195,24 @@ const Branches = () => {
           {/* ── SUGGESTED ITEMS ── */}
           {hasSuggestions && (
             <div className='mt-8'>
-              <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-violet-400 font-sans block mb-3'>
+              <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-blue-400 font-sans block mb-3'>
                 Suggested Clothes
               </span>
-              <div className='h-px bg-violet-100 mb-4' />
+              <div className='h-px bg-blue-100 mb-4' />
 
               <div className='flex flex-col gap-3'>
                 {selectedFilters
                   .filter(f => serviceItemSuggestions[f])
                   .flatMap((filter, fi) =>
                     serviceItemSuggestions[filter].map((group, gi) => (
-                      <div key={`${fi}-${gi}`} className='border border-violet-100 p-3'>
-                        <span className='font-sans text-[10px] font-bold text-violet-600 uppercase tracking-wider block mb-2'>
+                      <div key={`${fi}-${gi}`} className='border border-blue-100 p-3'>
+                        <span className='font-sans text-[10px] font-bold text-blue-600 uppercase tracking-wider block mb-2'>
                           {group.label}
                         </span>
                         <ul className='flex flex-col gap-1.5'>
                           {group.items.map((item, ii) => (
                             <li key={ii} className='flex items-center gap-2 font-sans text-xs text-neutral-500'>
-                              <span className='w-1 h-1 rounded-full bg-violet-300 flex-shrink-0' />
+                              <span className='w-1 h-1 rounded-full bg-blue-300 flex-shrink-0' />
                               {item}
                             </li>
                           ))}
@@ -233,7 +233,7 @@ const Branches = () => {
           <div className='flex items-center justify-between mb-8'>
             <span className='font-sans text-xs text-neutral-400'>
               Showing{' '}
-              <span className='text-violet-600 font-bold'>{filterbranches.length}</span>{' '}
+              <span className='text-blue-600 font-bold'>{filterbranches.length}</span>{' '}
               {filterbranches.length === 1 ? 'branch' : 'branches'}
               {(selectedFilters.length > 0 || searchQuery) && (
                 <span className='text-neutral-300'> — filtered</span>
@@ -246,8 +246,8 @@ const Branches = () => {
               {filterbranches.map((item, index) => (
                 <div
                   key={index}
-                  onClick={() => { navigate(`/appointment/${item._id}`); scrollTo(0, 0) }}
-                  className='group bg-white border border-violet-100 cursor-pointer flex flex-col overflow-hidden hover:bg-violet-600 transition-colors duration-300'
+                  onClick={() => { navigate(`/appointment/${item.id}`); scrollTo(0, 0) }}
+                  className='group bg-white border border-blue-100 cursor-pointer flex flex-col overflow-hidden hover:bg-blue-600 transition-colors duration-300'
                 >
                   {/* image */}
                   <div className='overflow-hidden'>
@@ -272,31 +272,31 @@ const Branches = () => {
                     </div>
 
                     <h3
-                      className='leading-tight text-violet-900 group-hover:text-white transition-colors'
+                      className='leading-tight text-blue-900 group-hover:text-white transition-colors'
                       style={{ fontSize: 'clamp(18px, 2vw, 22px)', fontWeight: 700, letterSpacing: '-0.02em' }}
                     >
                       {item.name}
                     </h3>
 
-                    <p className='font-sans text-xs text-neutral-400 group-hover:text-white/60 transition-colors leading-relaxed'>
-                      {Array.isArray(item.speciality) ? item.speciality.join(' • ') : item.speciality}
-                    </p>
+                    <p className='font-sans text-xs text-neutral-400 group-hover:text-white/60 transition-colors leading-relaxed line-clamp-2'>
+  {item.about}
+</p>
 
-                    <div className='h-px bg-violet-100 group-hover:bg-white/10 transition-colors mt-2' />
+                    <div className='h-px bg-blue-100 group-hover:bg-white/10 transition-colors mt-2' />
 
                     <div className='flex items-center justify-between pt-1'>
-                      <span className='font-sans text-xs text-violet-400 group-hover:text-white/50 transition-colors'>
+                      <span className='font-sans text-xs text-blue-400 group-hover:text-white/50 transition-colors'>
                         Starting at
                       </span>
                       <span
-                        className='text-violet-700 group-hover:text-white font-bold transition-colors'
+                        className='text-blue-700 group-hover:text-white font-bold transition-colors'
                         style={{ fontSize: '16px', letterSpacing: '-0.02em' }}
                       >
                         ₱{item.fees}
                       </span>
                     </div>
 
-                    <span className='font-sans text-xs text-violet-300 font-bold group-hover:text-white/50 uppercase tracking-widest transition-colors'>
+                    <span className='font-sans text-xs text-vblue-300 font-bold group-hover:text-white/50 uppercase tracking-widest transition-colors'>
                       Book now →
                     </span>
                   </div>
@@ -304,21 +304,21 @@ const Branches = () => {
               ))}
             </div>
           ) : (
-            <div className='border border-violet-100 px-8 py-24 text-center'>
-              <span className='uppercase tracking-[0.35em] text-[10px] text-violet-300 font-sans block mb-4'>
+            <div className='border border-blue-100 px-8 py-24 text-center'>
+              <span className='uppercase tracking-[0.35em] text-[10px] text-blue-300 font-sans block mb-4'>
                 No Results
               </span>
-              <p className='text-violet-900 font-bold mb-8' style={{ fontSize: '24px', letterSpacing: '-0.02em' }}>
+              <p className='text-blue-900 font-bold mb-8' style={{ fontSize: '24px', letterSpacing: '-0.02em' }}>
                 No branches found.
               </p>
               <button
                 onClick={() => { setSelectedFilters([]); setSearchQuery(''); navigate('/branches') }}
-                className='group relative overflow-hidden bg-violet-600 text-white px-8 py-3 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3'
+                className='group relative overflow-hidden bg-blue-600 text-white px-8 py-3 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
               >
                 <span className='relative z-10'>View All Branches</span>
                 <span className='relative z-10 group-hover:translate-x-1 transition-transform duration-300'>→</span>
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
               </button>
             </div>
           )}

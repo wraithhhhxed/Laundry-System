@@ -45,12 +45,12 @@ const SecretLogin = () => {
 
         {/* header */}
         <div className='mb-8'>
-          <span className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans block mb-3'>
+          <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-3'>
             Selfie Wash · Internal Access
           </span>
-          <div className='h-px bg-violet-100 mb-6' />
+          <div className='h-px bg-blue-100 mb-6' />
           <h1
-            className='leading-none text-violet-900'
+            className='leading-none text-blue-900'
             style={{ fontSize: '40px', fontWeight: 700, letterSpacing: '-0.03em' }}
           >
             Staf<span
@@ -64,7 +64,7 @@ const SecretLogin = () => {
         <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
 
           <div className='flex flex-col gap-1.5'>
-            <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>
+            <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>
               Email
             </label>
             <input
@@ -73,12 +73,12 @@ const SecretLogin = () => {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder='staff@selfiewash.com'
-              className='w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors'
+              className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors'
             />
           </div>
 
           <div className='flex flex-col gap-1.5'>
-            <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>
+            <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>
               Password
             </label>
             <div className='relative'>
@@ -88,12 +88,12 @@ const SecretLogin = () => {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder='Enter your password'
-                className='w-full px-4 py-2.5 pr-10 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors'
+                className='w-full px-4 py-2.5 pr-10 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors'
               />
               <button
                 type='button'
                 onClick={() => setShowPassword(p => !p)}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-violet-300 hover:text-violet-500 transition-colors'
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 hover:text-blue-500 transition-colors'
               >
                 <EyeIcon show={showPassword} />
               </button>
@@ -103,14 +103,14 @@ const SecretLogin = () => {
           <button
             type='submit'
             disabled={loading}
-            className='group relative overflow-hidden bg-violet-600 text-white mt-2 py-3 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-3 disabled:opacity-60'
+            className='group relative overflow-hidden bg-blue-600 text-white mt-2 py-3 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-3 disabled:opacity-60'
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
           >
             <span className='relative z-10'>{loading ? 'Signing in...' : 'Login'}</span>
             {!loading && (
               <span className='relative z-10 group-hover:translate-x-1 transition-transform duration-300'>→</span>
             )}
-            <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+            <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
           </button>
 
         </form>

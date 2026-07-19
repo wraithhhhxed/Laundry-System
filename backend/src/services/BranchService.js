@@ -1,19 +1,19 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import BranchRepository from '../repositories/BranchRepository.js'
+import ServiceRepository from '../repositories/ServiceRepository.js'
 import { ApiError } from '../utils/apiError.js'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
-import serviceModel from '../../models/serviceModel.js';
 
 
 const computeFeesFromServices = async (specialityNames = []) => {
   if (!specialityNames.length) return 0
-  const services = await serviceModel.find({
-    name: { $in: specialityNames },
-    isActive: true,
-  })
-  if (!services.length) return 0
-  return Math.min(...services.map(s => s.price))
+  const activeServices = await ServiceRepository.findActive()
+  const matched = activeServices.filter(s => specialityNames.includes(s.name))
+  if (!matched.length) return 0
+  // fees ay Int sa Prisma schema — i-round dahil decimal ang posibleng
+  // resulta ng Math.min sa mga Service.price (Float).
+  return Math.round(Math.min(...matched.map(s => s.price)))
 }
 
 class BranchService {
@@ -25,7 +25,7 @@ class BranchService {
     if (!isMatch) throw new ApiError(401, 'Invalid credentials')
 
     const token = jwt.sign(
-      { id: branch._id, role: 'branch' },
+      { id: branch.id, role: 'branch' },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
@@ -96,7 +96,7 @@ class BranchService {
       address: parsedAddress,
       phone,
       image: imageUrl,
-      date: Date.now()
+      date: BigInt(Date.now())
     })
   }
 

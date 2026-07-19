@@ -8,17 +8,22 @@ const assertValidKey = (key) => {
   }
 }
 
-const VALID_STATUSES = ['pending_approval', 'approved', 'cancelled', 'delivered']
+// Totoong deliveryStatus enum (6 values). "cancelled" ay HIWALAY na boolean flag
+// (appliesToCancelled), hindi bahagi ng deliveryStatus.
+const VALID_STATUSES = [
+  'pending_approval', 'approved', 'picked_up',
+  'in_progress', 'out_for_delivery', 'delivered',
+]
 
 const DEFAULT_REFUND_REASONS = [
-  { reason: 'Change of mind',       applicableStatuses: ['pending_approval', 'approved', 'cancelled'], isActive: true },
-  { reason: 'Duplicate booking',    applicableStatuses: ['pending_approval', 'approved', 'cancelled'], isActive: true },
-  { reason: 'Long wait time',       applicableStatuses: ['pending_approval', 'approved'],              isActive: true },
-  { reason: 'Damaged clothing',     applicableStatuses: ['delivered'],                                 isActive: true },
-  { reason: 'Missing items',        applicableStatuses: ['delivered'],                                 isActive: true },
-  { reason: 'Poor wash quality',    applicableStatuses: ['delivered'],                                 isActive: true },
-  { reason: 'Wrong items returned', applicableStatuses: ['delivered'],                                 isActive: true },
-  { reason: 'Other',                applicableStatuses: ['pending_approval', 'approved', 'cancelled', 'delivered'], isActive: true },
+  { reason: 'Change of mind',       applicableStatuses: ['pending_approval', 'approved'], appliesToCancelled: true,  isActive: true },
+  { reason: 'Duplicate booking',    applicableStatuses: ['pending_approval', 'approved'], appliesToCancelled: true,  isActive: true },
+  { reason: 'Long wait time',       applicableStatuses: ['pending_approval', 'approved'], appliesToCancelled: false, isActive: true },
+  { reason: 'Damaged clothing',     applicableStatuses: ['delivered'],                    appliesToCancelled: false, isActive: true },
+  { reason: 'Missing items',        applicableStatuses: ['delivered'],                    appliesToCancelled: false, isActive: true },
+  { reason: 'Poor wash quality',    applicableStatuses: ['delivered'],                    appliesToCancelled: false, isActive: true },
+  { reason: 'Wrong items returned', applicableStatuses: ['delivered'],                    appliesToCancelled: false, isActive: true },
+  { reason: 'Other',                applicableStatuses: VALID_STATUSES,                   appliesToCancelled: true,  isActive: true },
 ]
 
 const DEFAULT_FAQS = [
@@ -53,20 +58,16 @@ export const updateVatRate = async (rate, actor = null) => {
     throw new ApiError(400, `VAT rate out of range: received ${parsed}. Must be between 0 and 1 inclusive.`)
   }
 
-  // ── snapshot before ────────────────────────────────────────────
   const currentRate = await getVatRate()
-  // ──────────────────────────────────────────────────────────────
 
   const result = await settingRepo.upsertSetting('vatRate', parsed, 'VAT rate applied after promo discount')
 
-  // ── AUDIT ──────────────────────────────────────────────────────
   await AuditService.logSettingChanged(
     actor ?? { name: 'Admin', role: 'superadmin' },
     'vatRate',
     currentRate,
     parsed
   )
-  // ──────────────────────────────────────────────────────────────
 
   return result
 }
@@ -78,8 +79,12 @@ export const getRefundReasons = async () => {
   return setting ? setting.value : DEFAULT_REFUND_REASONS
 }
 
-export const getRefundReasonsForStatus = async (deliveryStatus) => {
+// deliveryStatus: string, cancelled: boolean — parehong ipasa ng caller
+export const getRefundReasonsForStatus = async (deliveryStatus, cancelled = false) => {
   const reasons = await getRefundReasons()
+  if (cancelled) {
+    return reasons.filter(r => r.isActive && r.appliesToCancelled)
+  }
   return reasons.filter(r => r.isActive && r.applicableStatuses.includes(deliveryStatus))
 }
 
@@ -96,13 +101,19 @@ export const updateRefundReasons = async (reasons, actor = null) => {
     if (!r.reason || typeof r.reason !== 'string' || r.reason.trim() === '') {
       throw new ApiError(400, 'Each refund reason must have a non-empty "reason" string.')
     }
-    if (!Array.isArray(r.applicableStatuses) || r.applicableStatuses.length === 0) {
-      throw new ApiError(400, `Reason "${r.reason}" must have at least one applicableStatus.`)
+    if (!Array.isArray(r.applicableStatuses)) {
+      throw new ApiError(400, `Reason "${r.reason}" must have an applicableStatuses array (can be empty if appliesToCancelled is true).`)
     }
     for (const s of r.applicableStatuses) {
       if (!VALID_STATUSES.includes(s)) {
         throw new ApiError(400, `Invalid status "${s}" in reason "${r.reason}". Valid: ${VALID_STATUSES.join(', ')}.`)
       }
+    }
+    if (typeof r.appliesToCancelled !== 'boolean') {
+      throw new ApiError(400, `Reason "${r.reason}" must have an appliesToCancelled boolean.`)
+    }
+    if (r.applicableStatuses.length === 0 && !r.appliesToCancelled) {
+      throw new ApiError(400, `Reason "${r.reason}" must apply to at least one status or to cancelled appointments.`)
     }
     if (typeof r.isActive !== 'boolean') {
       throw new ApiError(400, `Reason "${r.reason}" must have an isActive boolean.`)
@@ -112,14 +123,12 @@ export const updateRefundReasons = async (reasons, actor = null) => {
   const before = await getRefundReasons()
   const result = await settingRepo.upsertSetting('refundReasons', reasons, 'Refund reasons shown to users per delivery status')
 
-  // ── AUDIT ──────────────────────────────────────────────────────
   await AuditService.logSettingChanged(
     actor ?? { name: 'Admin', role: 'superadmin' },
     'refundReasons',
     before,
     reasons
   )
-  // ──────────────────────────────────────────────────────────────
 
   return result
 }
@@ -156,14 +165,12 @@ export const updateFaqs = async (faqs, actor = null) => {
   const before = await getFaqs()
   const result = await settingRepo.upsertSetting('faqs', sanitized, 'FAQs shown on the homepage')
 
-  // ── AUDIT ──────────────────────────────────────────────────────
   await AuditService.logSettingChanged(
     actor ?? { name: 'Admin', role: 'superadmin' },
     'faqs',
     before,
     sanitized
   )
-  // ──────────────────────────────────────────────────────────────
 
   return result
 }
@@ -196,14 +203,12 @@ export const upsertSetting = async (key, value, description = '', actor = null) 
   const before   = existing?.value ?? null
   const result   = await settingRepo.upsertSetting(key, value, description)
 
-  // ── AUDIT ──────────────────────────────────────────────────────
   await AuditService.logSettingChanged(
     actor ?? { name: 'Admin', role: 'superadmin' },
     key,
     before,
     value
   )
-  // ──────────────────────────────────────────────────────────────
 
   return result
 }

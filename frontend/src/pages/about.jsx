@@ -76,7 +76,7 @@ const KaraokeText = React.memo(({ text, progress, startFrac = 0, endFrac = 1, ba
 })
 
 // Eyebrow label with staggered word reveal — matches FeaturedBranches pattern
-const EyebrowLabel = ({ text, progress, threshold = 0.1, color = '#a78bfa' }) => {
+const EyebrowLabel = ({ text, progress, threshold = 0.1, color = '#60a5fa' }) => {
   const words = useMemo(() => text.split(' '), [text])
   return (
     <div className="flex items-center gap-1 font-sans">
@@ -121,13 +121,13 @@ const About = () => {
       {/* ── HERO HEADING ── */}
       <div className="px-6 md:px-16 pt-14 pb-0">
         <div className="flex items-end justify-between mb-3">
-          <span className="uppercase tracking-[0.35em] text-[10px] font-bold text-violet-400 font-sans">
+          <span className="uppercase tracking-[0.35em] text-[10px] font-bold text-blue-400 font-sans">
             Who We Are
           </span>
         </div>
-        <div className="h-px bg-violet-100 mb-10" />
+        <div className="h-px bg-blue-100 mb-10" />
         <h1
-          className="leading-none text-violet-900 mb-16"
+          className="leading-none text-blue-900 mb-16"
           style={{ fontSize: 'clamp(48px, 8vw, 110px)', fontWeight: 700, letterSpacing: '-0.03em' }}
         >
           About Us.
@@ -147,7 +147,7 @@ const About = () => {
           </div>
           <div
             ref={storyRef}
-            className="flex-1 bg-violet-600 px-8 md:px-12 py-10 flex flex-col justify-center gap-6 relative overflow-hidden"
+            className="flex-1 bg-blue-600 px-8 md:px-12 py-10 flex flex-col justify-center gap-6 relative overflow-hidden"
           >
             <div
               className="absolute top-0 left-0 w-full h-full pointer-events-none"
@@ -184,32 +184,32 @@ const About = () => {
       {/* ── WHY CHOOSE US ── */}
       <div className="px-6 md:px-16 mb-20">
         <div ref={eyebrow2Ref} className="flex items-end justify-between mb-3">
-          <EyebrowLabel text="Why Choose Us" progress={eyebrow2Progress} color="#a78bfa" />
+          <EyebrowLabel text="Why Choose Us" progress={eyebrow2Progress} color="#60a5fa" />
         </div>
-        <div className="h-px bg-violet-100 mb-10" />
+        <div className="h-px bg-blue-100 mb-10" />
 
         <div ref={commitRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <h2
-            className="leading-none text-violet-900"
+            className="leading-none text-blue-900"
             style={{ fontSize: 'clamp(32px, 5vw, 70px)', fontWeight: 700, letterSpacing: '-0.03em' }}
           >
             <KaraokeText
               text="Our Commitment."
               progress={effectiveCommitProgress}
               startFrac={0.10} endFrac={0.30}
-              baseColor="#e5e5e5" litColor="#4c1d95"
+              baseColor="#e5e5e5" litColor="#1e3a8a"
             />
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-violet-100 border-x border-violet-100">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-blue-100 border-x border-blue-100">
           {COMMITMENT_CARDS.map(({ num, title, desc }, ci) => {
             const cardStart = 0.30 + ci * 0.20
             const cardEnd   = cardStart + 0.15
             return (
               <div
                 key={title}
-                className="group bg-white hover:bg-violet-600 transition-colors duration-300 px-8 py-10 flex flex-col gap-4 cursor-pointer"
+                className="group bg-white hover:bg-blue-600 transition-colors duration-300 px-8 py-10 flex flex-col gap-4 cursor-pointer"
                 onMouseEnter={() => setHoveredCard(ci)}
                 onMouseLeave={() => setHoveredCard(null)}
               >
@@ -217,7 +217,7 @@ const About = () => {
                   className="font-sans font-bold leading-none transition-colors duration-300 group-hover:text-white/20"
                   style={{
                     fontSize: 'clamp(36px, 4vw, 56px)',
-                    color: effectiveCommitProgress >= cardStart ? '#c4b5fd' : '#f5f5f5',
+                    color: effectiveCommitProgress >= cardStart ? '#93c5fd' : '#f5f5f5',
                     transition: 'color 0.3s ease',
                   }}
                 >
@@ -228,7 +228,7 @@ const About = () => {
                   style={{
                     fontSize: 'clamp(18px, 2vw, 24px)',
                     letterSpacing: '-0.02em',
-                    color: effectiveCommitProgress >= cardStart + 0.05 ? '#3b0764' : '#e5e5e5',
+                    color: effectiveCommitProgress >= cardStart + 0.05 ? '#172554' : '#e5e5e5',
                     transition: 'color 0.3s ease',
                   }}
                 >
@@ -246,7 +246,7 @@ const About = () => {
                 <span
                   className="mt-auto font-sans text-xs uppercase tracking-widest transition-colors duration-300 group-hover:text-white/50"
                   style={{
-                    color: effectiveCommitProgress >= cardEnd ? '#a78bfa' : '#f5f5f5',
+                    color: effectiveCommitProgress >= cardEnd ? '#60a5fa' : '#f5f5f5',
                     transition: 'color 0.3s ease',
                   }}
                 >
@@ -261,20 +261,20 @@ const About = () => {
       {/* ── FIND US ── */}
       <div className="px-6 md:px-16 mb-20">
         <div ref={eyebrow3Ref} className="flex items-end justify-between mb-3">
-          <EyebrowLabel text="Location" progress={eyebrow3Progress} color="#a78bfa" />
+          <EyebrowLabel text="Location" progress={eyebrow3Progress} color="#60a5fa" />
         </div>
-        <div className="h-px bg-violet-100 mb-10" />
+        <div className="h-px bg-blue-100 mb-10" />
 
         <div ref={findUsRef} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <h2
-            className="leading-none text-violet-900"
+            className="leading-none text-blue-900"
             style={{ fontSize: 'clamp(32px, 5vw, 70px)', fontWeight: 700, letterSpacing: '-0.03em' }}
           >
             <KaraokeText
               text="Find Us."
               progress={findUsProgress}
               startFrac={0.10} endFrac={0.40}
-              baseColor="#e5e5e5" litColor="#4c1d95"
+              baseColor="#e5e5e5" litColor="#1e3a8a"
             />
           </h2>
           <div className="max-w-xs md:text-right">
@@ -291,7 +291,7 @@ const About = () => {
 
         <div className="flex flex-col md:flex-row gap-8 items-stretch">
           <div
-            className="w-full md:w-2/3 overflow-hidden border border-violet-100 grayscale hover:grayscale-0 transition-all duration-700"
+            className="w-full md:w-2/3 overflow-hidden border border-blue-100 grayscale hover:grayscale-0 transition-all duration-700"
             style={{ minHeight: '380px' }}
           >
             <iframe
@@ -303,28 +303,28 @@ const About = () => {
               title="Selfie Wash Main Branch Location"
             />
           </div>
-          <div className="flex-1 font-bold bg-white border border-violet-100 px-8 py-10 flex flex-col gap-7">
+          <div className="flex-1 font-bold bg-white border border-blue-100 px-8 py-10 flex flex-col gap-7">
             {[
               { label: 'Our Main Branch', content: <>Barangay San Miguel<br />Taguig City, Metro Manila</> },
               { label: 'Hours',           content: <>Open 7 Days a Week<br />8:00 AM – 4:00 PM</> },
               { label: 'Contact',         content: <>Tel: +63 111 111 1111<br />selfiewash@gmail.com</> },
             ].map(({ label, content }) => (
               <div key={label}>
-                <span className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans block mb-2">{label}</span>
+                <span className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-2">{label}</span>
                 <p className="font-sans text-sm text-neutral-600 leading-relaxed">{content}</p>
               </div>
             ))}
-            <div className="h-px bg-violet-100" />
+            <div className="h-px bg-blue-100" />
             <a
               href="https://www.google.com/maps/dir/?api=1&destination=14.516367,121.072197"
               target="_blank"
               rel="noreferrer"
-              className="group relative overflow-hidden bg-violet-600 text-white px-8 py-3.5 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3 mt-auto w-fit"
+              className="group relative overflow-hidden bg-blue-600 text-white px-8 py-3.5 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3 mt-auto w-fit"
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
             >
               <span className="relative z-10">Get Directions</span>
               <span className="relative z-10 group-hover:translate-x-1 transition-transform duration-300">→</span>
-              <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+              <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
             </a>
           </div>
         </div>

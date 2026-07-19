@@ -6,7 +6,7 @@ import { GoogleLogin } from '@react-oauth/google'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 
 const inputCls =
-  'w-full px-4 py-3 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+  'w-full px-4 py-3 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
 
 // Eye icons
 const EyeOpen = () => (
@@ -42,7 +42,7 @@ const PasswordInput = ({ value, onChange, className, required, placeholder }) =>
       <button
         type='button'
         onClick={() => setShow(s => !s)}
-        className='absolute right-3 top-1/2 -translate-y-1/2 text-violet-300 hover:text-violet-500 transition-colors focus:outline-none'
+        className='absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 hover:text-blue-500 transition-colors focus:outline-none'
         tabIndex={-1}
         aria-label={show ? 'Hide password' : 'Show password'}
       >
@@ -150,7 +150,7 @@ const Login = () => {
     <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white min-h-[80vh] flex'>
 
       {/* ── LEFT PANEL ── */}
-      <div className='hidden md:flex w-2/5 bg-violet-600 flex-col justify-between px-12 py-14 relative overflow-hidden flex-shrink-0'>
+      <div className='hidden md:flex w-2/5 bg-blue-600 flex-col justify-between px-12 py-14 relative overflow-hidden flex-shrink-0'>
         <div
           className='absolute inset-0 pointer-events-none'
           style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%)' }}
@@ -177,7 +177,7 @@ const Login = () => {
         </div>
         <div className='relative z-10 grid grid-cols-3 gap-px bg-white/10'>
           {['Pickup', 'Wash', 'Deliver'].map((label, i) => (
-            <div key={label} className='bg-violet-600 px-4 py-5 flex flex-col gap-1'>
+            <div key={label} className='bg-blue-600 px-4 py-5 flex flex-col gap-1'>
               <span className='text-white/20 font-sans font-bold leading-none' style={{ fontSize: '26px' }}>
                 0{i + 1}
               </span>
@@ -192,12 +192,12 @@ const Login = () => {
         <div className='max-w-sm w-full mx-auto'>
 
           <div className='mb-8'>
-            <span className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans block mb-3'>
+            <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-3'>
               {isSignUp ? 'New Account' : 'Secure Login'}
             </span>
-            <div className='h-px bg-violet-100 mb-7' />
+            <div className='h-px bg-blue-100 mb-7' />
             <h1
-              className='leading-none text-violet-900'
+              className='leading-none text-blue-900'
               style={{ fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}
             >
               {isSignUp ? 'Create Account.' : 'Login.'}
@@ -213,7 +213,7 @@ const Login = () => {
               <>
                 {/* Name */}
                 <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Full Name</label>
+                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Full Name</label>
                   <input
                     className={inputCls}
                     type='text'
@@ -229,7 +229,7 @@ const Login = () => {
 
                 {/* Phone */}
                 <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Phone Number</label>
+                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Phone Number</label>
                   <input
                     className={inputCls + (phoneInvalid ? ' border-red-300 focus:border-red-400' : phoneValid ? ' border-green-300 focus:border-green-400' : '')}
                     type='tel'
@@ -248,13 +248,13 @@ const Login = () => {
 
                 {/* Address */}
                 <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Address Line 1</label>
+                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Address Line 1</label>
                   <input className={inputCls} type='text' value={address.line1}
                     onChange={e => setAddress({ ...address, line1: e.target.value })}
                     placeholder='Street, Barangay' required />
                 </div>
                 <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Address Line 2</label>
+                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Address Line 2</label>
                   <input className={inputCls} type='text' value={address.line2}
                     onChange={e => setAddress({ ...address, line2: e.target.value })}
                     placeholder='City, Province' required />
@@ -264,7 +264,7 @@ const Login = () => {
 
             {/* Email */}
             <div className='flex flex-col gap-1.5'>
-              <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Email</label>
+              <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Email</label>
               <input className={inputCls} type='email' value={email}
                 onChange={e => setEmail(e.target.value)} required />
             </div>
@@ -272,11 +272,11 @@ const Login = () => {
             {/* Password */}
             <div className='flex flex-col gap-1.5'>
               <div className='flex items-center justify-between'>
-                <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Password</label>
+                <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Password</label>
                 {!isSignUp && (
                   <Link
                     to='/forgot-password'
-                    className='font-sans text-[10px] text-violet-400 hover:text-violet-600 uppercase tracking-widest transition-colors'
+                    className='font-sans text-[10px] text-blue-400 hover:text-blue-600 uppercase tracking-widest transition-colors'
                   >
                     Forgot password?
                   </Link>
@@ -297,7 +297,7 @@ const Login = () => {
             {/* Confirm Password */}
             {isSignUp && (
               <div className='flex flex-col gap-1.5'>
-                <label className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans'>Confirm Password</label>
+                <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Confirm Password</label>
                 <PasswordInput
                   className={
                     inputCls +
@@ -319,12 +319,12 @@ const Login = () => {
 
             <button
               type='submit'
-              className='group relative overflow-hidden bg-violet-600 text-white mt-2 py-3.5 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-3'
+              className='group relative overflow-hidden bg-blue-600 text-white mt-2 py-3.5 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-3'
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
             >
               <span className='relative z-10'>{isSignUp ? 'Create Account' : 'Login'}</span>
               <span className='relative z-10 group-hover:translate-x-1 transition-transform duration-300'>→</span>
-              <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+              <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
             </button>
 
           </form>
@@ -332,9 +332,9 @@ const Login = () => {
           {/* Google OAuth */}
           <div className='mt-5'>
             <div className='relative flex items-center gap-3 mb-4'>
-              <div className='flex-1 h-px bg-violet-100' />
+              <div className='flex-1 h-px bg-blue-100' />
               <span className='font-sans text-[10px] text-neutral-400 uppercase tracking-widest'>or continue with</span>
-              <div className='flex-1 h-px bg-violet-100' />
+              <div className='flex-1 h-px bg-blue-100' />
             </div>
             <div className='flex justify-center'>
               <GoogleLogin
@@ -350,12 +350,12 @@ const Login = () => {
 
           {/* toggle */}
           <div className='mt-6'>
-            <div className='h-px bg-violet-100 mb-5' />
+            <div className='h-px bg-blue-100 mb-5' />
             <p className='font-sans text-sm text-neutral-400 text-center'>
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}
               <span
                 onClick={() => setState(isSignUp ? 'Login' : 'Sign Up')}
-                className='text-violet-500 hover:text-light-blue-700 cursor-pointer ml-1.5 transition-colors'
+                className='text-blue-500 hover:text-light-blue-700 cursor-pointer ml-1.5 transition-colors'
               >
                 {isSignUp ? 'Login here' : 'Sign up here'}
               </span>

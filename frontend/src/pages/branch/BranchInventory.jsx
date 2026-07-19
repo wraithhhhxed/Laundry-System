@@ -8,10 +8,10 @@ const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 const PAGE_SIZE = 4
 
 const SectionLabel = ({ children }) => (
-  <p className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans mb-2 font-semibold">{children}</p>
+  <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2 font-semibold">{children}</p>
 )
 
-const Divider = () => <div className="h-px bg-violet-100 mb-6" />
+const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const StatusChip = ({ isOut, isLow }) => {
   if (isOut)
@@ -103,7 +103,7 @@ const BranchInventory = () => {
         if (!addQuantity || Number(addQuantity) <= 0) { toast.error('Enter a valid restock quantity'); setSubmitting(false); return }
         const { data } = await axios.post(
           `${backendUrl}/api/inventory/restock`,
-          { productId: selected.productId._id || selected.productId, addQuantity: Number(addQuantity) },
+          { productId: selected.productId.id || selected.productId, addQuantity: Number(addQuantity) },
           { headers: authHeader(bToken) }
         )
         if (data.success) { toast.success('Restocked successfully'); setShowForm(false); fetchInventory() }
@@ -120,7 +120,7 @@ const BranchInventory = () => {
     const name = item.productId?.name || 'this product'
     if (!window.confirm(`Remove ${name} from your branch inventory?`)) return
     try {
-      const pid = item.productId?._id || item.productId
+      const pid = item.productId?.id || item.productId
       const { data } = await axios.delete(`${backendUrl}/api/inventory/${pid}`, { headers: authHeader(bToken) })
       if (data.success) { toast.success('Removed from inventory'); fetchInventory() }
       else toast.error(data.message)
@@ -131,9 +131,9 @@ const BranchInventory = () => {
 
   const lowStockCount       = inventory.filter(i => i.quantity <= i.lowStockThreshold).length
   const inventoryProductIds = inventory
-  .map(i => (i.productId?._id || i.productId)?.toString())
+  .map(i => (i.productId?.id || i.productId)?.toString())
   .filter(Boolean)
-  const availableToAdd      = products.filter(p => !inventoryProductIds.includes(p._id.toString()))
+  const availableToAdd      = products.filter(p => !inventoryProductIds.includes(p.id.toString()))
 
   // Filtered inventory
   const filtered = useMemo(() => {
@@ -172,8 +172,8 @@ const BranchInventory = () => {
     return range
   }
 
-  const inputClass  = "w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white"
-  const selectClass = "w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white appearance-none cursor-pointer"
+  const inputClass  = "w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white"
+  const selectClass = "w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white appearance-none cursor-pointer"
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
@@ -187,7 +187,7 @@ const BranchInventory = () => {
           >
             <div
               className="px-7 py-5"
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
             >
               <SectionLabel>{formMode === 'set' ? 'Inventory' : 'Restock'}</SectionLabel>
               <h2 className="text-white font-sans font-black text-lg" style={{ letterSpacing: '-0.02em' }}>
@@ -203,7 +203,7 @@ const BranchInventory = () => {
                     <select value={productId} onChange={e => setProductId(e.target.value)} className={selectClass}>
                       <option value="">Select a product</option>
                       {availableToAdd.map(p => (
-                        <option key={p._id} value={p._id}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
                   </div>
@@ -221,9 +221,9 @@ const BranchInventory = () => {
                 </>
               ) : (
                 <>
-                  <div className="border border-violet-100 px-5 py-3">
+                  <div className="border border-blue-100 px-5 py-3">
                     <SectionLabel>Current Stock</SectionLabel>
-                    <p className="font-sans font-black text-violet-900 text-2xl" style={{ letterSpacing: '-0.03em' }}>
+                    <p className="font-sans font-black text-blue-900 text-2xl" style={{ letterSpacing: '-0.03em' }}>
                       {selected?.quantity}
                     </p>
                   </div>
@@ -233,7 +233,7 @@ const BranchInventory = () => {
                       placeholder="e.g. 20" min="1" className={inputClass} />
                     {addQuantity > 0 && (
                       <p className="font-sans text-xs text-neutral-400 mt-1.5">
-                        New total: <span className="font-bold text-violet-700">{Number(selected?.quantity) + Number(addQuantity)}</span>
+                        New total: <span className="font-bold text-blue-700">{Number(selected?.quantity) + Number(addQuantity)}</span>
                       </p>
                     )}
                   </div>
@@ -244,18 +244,18 @@ const BranchInventory = () => {
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-6 py-2.5 disabled:opacity-50"
+                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-6 py-2.5 disabled:opacity-50"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
-                  <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                   <span className="relative">{submitting ? 'Saving...' : formMode === 'set' ? 'Set Stock' : 'Restock'}</span>
                 </button>
                 <button
                   onClick={() => setShowForm(false)}
-                  className="group relative overflow-hidden border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-6 py-2.5"
+                  className="group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-6 py-2.5"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
-                  <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                   <span className="relative">Cancel</span>
                 </button>
               </div>
@@ -267,9 +267,9 @@ const BranchInventory = () => {
       {/* Page header */}
       <div
         className="px-10 pt-10 pb-12"
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
-        <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-3 font-semibold">Branch Portal</p>
+        <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3 font-semibold">Branch Portal</p>
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-4 mb-1">
@@ -285,16 +285,16 @@ const BranchInventory = () => {
                 </span>
               )}
             </div>
-            <p className="font-sans text-sm text-violet-200 mt-2">Manage product stock levels for your branch</p>
+            <p className="font-sans text-sm text-blue-200 mt-2">Manage product stock levels for your branch</p>
           </div>
 
           <button
             onClick={openSetStock}
             disabled={availableToAdd.length === 0}
-            className="group relative overflow-hidden bg-white text-violet-700 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-6 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+            className="group relative overflow-hidden bg-white text-blue-700 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-6 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
           >
-            <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+            <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
             <span className="relative">+ Add Stock</span>
           </button>
         </div>
@@ -319,7 +319,7 @@ const BranchInventory = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search product or category..."
-              className="w-full pl-10 pr-8 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white"
+              className="w-full pl-10 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white"
             />
             {search && (
               <button onClick={() => setSearch('')}
@@ -333,7 +333,7 @@ const BranchInventory = () => {
           <select
             value={stockFilter}
             onChange={e => setStockFilter(e.target.value)}
-            className="px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white appearance-none cursor-pointer"
+            className="px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white appearance-none cursor-pointer"
           >
             <option value="all">All Stock</option>
             <option value="in_stock">In Stock</option>
@@ -345,28 +345,28 @@ const BranchInventory = () => {
         <div className="flex items-center justify-between mb-6">
           <p className="font-sans text-xs text-neutral-400">
             Showing{' '}
-            <span className="text-violet-600 font-semibold">
+            <span className="text-blue-600 font-semibold">
               {filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)}
             </span>{' '}
-            of <span className="text-violet-600 font-semibold">{filtered.length}</span> item{filtered.length !== 1 ? 's' : ''}
+            of <span className="text-blue-600 font-semibold">{filtered.length}</span> item{filtered.length !== 1 ? 's' : ''}
           </p>
           {hasFilters && (
-            <button onClick={clearFilters} className="font-sans text-xs uppercase tracking-[0.2em] text-violet-400 hover:text-violet-600 transition-colors">
+            <button onClick={clearFilters} className="font-sans text-xs uppercase tracking-[0.2em] text-blue-400 hover:text-blue-600 transition-colors">
               Clear Filters ×
             </button>
           )}
         </div>
 
         {/* Table head */}
-        <div className="grid grid-cols-5 pb-3 border-b border-violet-100">
+        <div className="grid grid-cols-5 pb-3 border-b border-blue-100">
           {['Product', 'Quantity', 'Low Stock At', 'Status', 'Actions'].map((h, i) => (
-            <p key={h} className={`font-sans text-[10px] uppercase tracking-[0.3em] text-violet-400 font-bold ${i === 4 ? 'text-right' : ''}`}>{h}</p>
+            <p key={h} className={`font-sans text-[10px] uppercase tracking-[0.3em] text-blue-400 font-bold ${i === 4 ? 'text-right' : ''}`}>{h}</p>
           ))}
         </div>
 
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent animate-spin" />
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent animate-spin" />
           </div>
         )}
 
@@ -377,28 +377,28 @@ const BranchInventory = () => {
             </p>
             {inventory.length === 0
               ? <p className="font-sans text-xs text-neutral-300">Click "Add Stock" to set up products for your branch</p>
-              : <button onClick={clearFilters} className="font-sans text-xs uppercase tracking-[0.2em] text-violet-400 hover:text-violet-600 transition-colors">Clear Filters →</button>
+              : <button onClick={clearFilters} className="font-sans text-xs uppercase tracking-[0.2em] text-blue-400 hover:text-blue-600 transition-colors">Clear Filters →</button>
             }
           </div>
         )}
 
-        <div className="divide-y divide-violet-50">
+        <div className="divide-y divide-blue-50">
           {!loading && paginated.map(item => {
-            const product = item.productId
+            const product = item.product
             const isLow   = item.quantity <= item.lowStockThreshold
             const isOut   = item.quantity === 0
 
             return (
               <div
-                key={item._id}
-                className={`grid grid-cols-5 items-center py-4 -mx-10 px-10 transition-colors ${isLow ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-violet-50'}`}
+                key={item.id}
+                className={`grid grid-cols-5 items-center py-4 -mx-10 px-10 transition-colors ${isLow ? 'bg-red-50/40 hover:bg-red-50/60' : 'hover:bg-blue-50'}`}
               >
                 {/* Product */}
                 <div className="flex items-center gap-3">
                   {product?.image
-                    ? <img src={product.image} alt={product.name} className="w-9 h-9 object-cover flex-shrink-0 border border-violet-100" />
+                    ? <img src={product.image} alt={product.name} className="w-9 h-9 object-cover flex-shrink-0 border border-blue-100" />
                     : (
-                      <div className="w-9 h-9 bg-violet-600 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 bg-blue-600 flex items-center justify-center flex-shrink-0">
                         <span className="text-white text-xs font-black font-sans">
                           {product?.name?.[0]?.toUpperCase() || '?'}
                         </span>
@@ -412,7 +412,7 @@ const BranchInventory = () => {
                 </div>
 
                 {/* Quantity */}
-                <p className={`font-sans font-black text-xl ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-violet-900'}`}
+                <p className={`font-sans font-black text-xl ${isOut ? 'text-red-500' : isLow ? 'text-amber-500' : 'text-blue-900'}`}
                   style={{ letterSpacing: '-0.03em' }}>
                   {item.quantity}
                 </p>
@@ -427,7 +427,7 @@ const BranchInventory = () => {
                 <div className="flex items-center justify-end gap-4">
                   <button
                     onClick={() => openRestock(item)}
-                    className="font-sans text-xs uppercase tracking-[0.2em] font-bold text-violet-500 hover:text-violet-700 transition-colors"
+                    className="font-sans text-xs uppercase tracking-[0.2em] font-bold text-blue-500 hover:text-blue-700 transition-colors"
                   >
                     Restock
                   </button>
@@ -447,7 +447,7 @@ const BranchInventory = () => {
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
             <p className="font-sans text-xs text-neutral-400 uppercase tracking-[0.2em]">
-              Page <span className="text-violet-600 font-semibold">{currentPage}</span> of {totalPages}
+              Page <span className="text-blue-600 font-semibold">{currentPage}</span> of {totalPages}
             </p>
 
             <div className="flex items-center gap-1">
@@ -455,10 +455,10 @@ const BranchInventory = () => {
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
               >
-                <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                 <span className="relative">← Prev</span>
               </button>
 
@@ -466,8 +466,8 @@ const BranchInventory = () => {
               {getPageRange()[0] > 1 && (
                 <>
                   <button onClick={() => setCurrentPage(1)}
-                    className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
-                    <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
+                    <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                     <span className="relative">1</span>
                   </button>
                   {getPageRange()[0] > 2 && <span className="font-sans text-xs text-neutral-300 px-1">…</span>}
@@ -481,12 +481,12 @@ const BranchInventory = () => {
                   onClick={() => setCurrentPage(page)}
                   className={`group relative overflow-hidden border font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9 transition-colors duration-200 ${
                     page === currentPage
-                      ? 'bg-violet-600 border-violet-600 text-white'
-                      : 'border-violet-100 text-violet-400'
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-blue-100 text-blue-400'
                   }`}
                 >
                   {page !== currentPage && (
-                    <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                    <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                   )}
                   <span className="relative">{page}</span>
                 </button>
@@ -499,8 +499,8 @@ const BranchInventory = () => {
                     <span className="font-sans text-xs text-neutral-300 px-1">…</span>
                   )}
                   <button onClick={() => setCurrentPage(totalPages)}
-                    className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
-                    <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
+                    <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                     <span className="relative">{totalPages}</span>
                   </button>
                 </>
@@ -510,10 +510,10 @@ const BranchInventory = () => {
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
               >
-                <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                 <span className="relative">Next →</span>
               </button>
             </div>

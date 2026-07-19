@@ -25,7 +25,7 @@ const BranchesList = () => {
 
         {branches.length > 0 ? branches.map((branch, index) => (
           <div
-            key={branch._id}
+            key={branch.id}
             className='grid grid-cols-[60px_2fr_1fr_1fr_1fr_1fr] gap-4 px-6 py-4 border-b border-gray-100 items-center hover:bg-gray-50 transition-colors duration-150'
           >
             <p className='text-sm text-gray-500'>{index + 1}</p>
@@ -48,7 +48,7 @@ const BranchesList = () => {
 
             <div>
               <span
-                onClick={() => changeAvailability(branch._id)}
+                onClick={() => changeAvailability(branch.id)}
                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-all duration-200 ${
                   branch.available
                     ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'

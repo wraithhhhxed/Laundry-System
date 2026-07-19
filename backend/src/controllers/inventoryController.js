@@ -35,15 +35,11 @@ const getBranchInventoryById = asyncHandler(async (req, res) => {
 const getInStockProductIds = asyncHandler(async (req, res) => {
   const { branchId } = req.params
 
-  if (!Types.ObjectId.isValid(branchId)) {
-    return res.status(200).json(new ApiResponse(200, { inStockIds: [] }, 'Invalid branchId'))
-  }
-
   const inventory = await inventoryService.getBranchInventory(branchId)
 
   const inStockIds = inventory
-    .filter(i => i.quantity > 0 && (i.productId?._id || i.productId) != null)
-    .map(i => (i.productId?._id || i.productId).toString())
+    .filter(i => i.quantity > 0 && (i.product?.id || i.productId) != null)
+    .map(i => (i.product?.id || i.productId).toString())
 
   return res.status(200).json(new ApiResponse(200, { inStockIds }, 'OK'))
 })

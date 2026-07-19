@@ -21,16 +21,18 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'out_for_delivery', label: 'Out for Delivery' },
   { value: 'delivered',        label: 'Delivered' },
   { value: 'cancelled',        label: 'Cancelled' },
+  { value: 'archived',         label: 'Archived' },
 ]
 
 const STATUS_CHIP = {
   pending_approval: 'text-amber-600 border-amber-300 bg-amber-50',
   approved:         'text-blue-600 border-blue-300 bg-blue-50',
   picked_up:        'text-indigo-600 border-indigo-300 bg-indigo-50',
-  in_progress:      'text-violet-600 border-violet-300 bg-violet-50',
+  in_progress:      'text-blue-600 border-blue-300 bg-blue-50',
   out_for_delivery: 'text-purple-600 border-purple-300 bg-purple-50',
   delivered:        'text-green-600 border-green-300 bg-green-50',
   cancelled:        'text-red-500 border-red-300 bg-red-50',
+  archived:         'text-neutral-500 border-neutral-300 bg-neutral-100',
 }
 
 const PAYMENT_STATUS_CHIP = {
@@ -85,8 +87,8 @@ const renderAmount = (appt) => {
         <>
           <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">Estimated</p>
           <p className="font-sans text-xs text-neutral-400 line-through">{fmt(estimated)}</p>
-          <p className="font-sans text-[10px] text-violet-500 uppercase tracking-wider mt-1">Actual</p>
-          <p className="font-sans text-sm font-bold text-violet-900">{fmt(actual)}</p>
+          <p className="font-sans text-[10px] text-blue-500 uppercase tracking-wider mt-1">Actual</p>
+          <p className="font-sans text-sm font-bold text-blue-900">{fmt(actual)}</p>
           {appt.overweightChargeTotal > 0 && (
             <p className="font-sans text-xs text-amber-600">Overweight: +{fmt(appt.overweightChargeTotal)}</p>
           )}
@@ -96,7 +98,7 @@ const renderAmount = (appt) => {
           {vatPercent > 0 && (
             <p className="font-sans text-xs text-neutral-400">VAT ({vatPercent}%): +{fmt(appt.vatAmount)}</p>
           )}
-          <p className="font-sans text-sm font-bold text-violet-900">
+          <p className="font-sans text-sm font-bold text-blue-900">
             {fmt(estimated)}
             <span className="font-sans text-[10px] font-normal text-neutral-400 ml-1">(est.)</span>
           </p>
@@ -116,7 +118,7 @@ const renderWeight = (appt) => {
           {svc.actualKg != null ? (
             <>
               <span className="text-neutral-400 line-through">{svc.kg}kg</span>
-              <span className="text-violet-700 font-bold">{svc.actualKg}kg</span>
+              <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
               {svc.overweightCharge > 0 && (
                 <span className="text-amber-600 text-[10px]">+OW</span>
               )}
@@ -135,13 +137,13 @@ const renderWeight = (appt) => {
 // ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
 
 const SectionLabel = ({ children }) => (
-  <p className="uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans mb-2">{children}</p>
+  <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">{children}</p>
 )
-const Divider = () => <div className="h-px bg-violet-100 mb-6" />
+const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const StatusChip = ({ status }) => {
   const color = STATUS_CHIP[status] || 'text-neutral-500 border-neutral-200 bg-neutral-50'
-  const label = DELIVERY_STEPS.find(s => s.status === status)?.label || status
+  const label = DELIVERY_STEPS.find(s => s.status === status)?.label || status || 'Archived'
   return (
     <span className={`inline-block border px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold ${color}`}>
       {label}
@@ -243,14 +245,14 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
         style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
 
         <div className="px-6 py-5 flex-shrink-0"
-          style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+          style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Print Receipt</h2>
-              <p className="font-sans text-xs text-violet-300 mt-0.5">Print receipt before marking as Out for Delivery</p>
+              <p className="font-sans text-xs text-blue-300 mt-0.5">Print receipt before marking as Out for Delivery</p>
             </div>
-            <button onClick={onClose} className="text-violet-200 hover:text-white transition-colors text-xl leading-none">×</button>
+            <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
           </div>
         </div>
 
@@ -281,7 +283,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
                 <div key={i} className="mb-2">
                   <p className="font-bold">Basket {i + 1} — {svc.name}</p>
                   <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Est. weight</span><span>{svc.kg}kg</span></div>
-                  {svc.actualKg != null && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Actual weight</span><span className="font-bold text-violet-700">{svc.actualKg}kg</span></div>}
+                  {svc.actualKg != null && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Actual weight</span><span className="font-bold text-blue-700">{svc.actualKg}kg</span></div>}
                   {svc.overweightCharge > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Overweight charge</span><span className="text-amber-600">{fmt(svc.overweightCharge)}</span></div>}
                 </div>
               ))}
@@ -309,7 +311,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
               )}
               {appt.discountAmount > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
               <div className="border-t border-dashed border-neutral-300 pt-2 mt-1 flex justify-between font-black text-sm">
-                <span>TOTAL</span><span className="text-violet-900">{fmt(finalAmt)}</span>
+                <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
               </div>
             </div>
             <div className="border-t border-dashed border-neutral-300 my-3" />
@@ -333,17 +335,17 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
           )}
         </div>
 
-        <div className="px-6 pb-4 pt-3 flex gap-3 flex-shrink-0 border-t border-violet-100">
+        <div className="px-6 pb-4 pt-3 flex gap-3 flex-shrink-0 border-t border-blue-100">
           <button onClick={handlePrint}
-            className="group relative overflow-hidden border border-violet-400 text-violet-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 flex-1 py-2.5"
+            className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 flex-1 py-2.5"
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-            <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+            <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
             <span className="relative">🖨 {printed ? 'Print Again' : 'Print Receipt'}</span>
           </button>
           <button onClick={onConfirm} disabled={!printed || loading}
-            className={`group relative overflow-hidden font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center flex-1 py-2.5 disabled:cursor-not-allowed transition-colors ${printed ? 'bg-violet-600 text-white' : 'bg-neutral-200 text-neutral-400'}`}
+            className={`group relative overflow-hidden font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center flex-1 py-2.5 disabled:cursor-not-allowed transition-colors ${printed ? 'bg-blue-600 text-white' : 'bg-neutral-200 text-neutral-400'}`}
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-            {printed && <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />}
+            {printed && <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />}
             <span className="relative">{loading ? 'Processing...' : '→ Out for Delivery'}</span>
           </button>
         </div>
@@ -378,15 +380,15 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white w-full max-w-lg" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>
                 {isEditing ? 'Update Actual Weight' : 'Confirm Actual Weight'}
               </h2>
             </div>
-            <button onClick={onClose} className="text-violet-200 hover:text-white transition-colors text-xl leading-none">×</button>
+            <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
           </div>
         </div>
         <div className="px-6 py-6 space-y-4">
@@ -396,10 +398,10 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
               : 'Enter the actual weight after physically weighing each basket. Final amount will be recomputed.'}
           </p>
           {appt.services.map((svc, idx) => (
-            <div key={idx} className="border border-violet-100 px-4 py-4">
+            <div key={idx} className="border border-blue-100 px-4 py-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="font-sans text-xs font-bold text-violet-600 uppercase tracking-wider">Basket {idx + 1} — {svc.name}</p>
+                  <p className="font-sans text-xs font-bold text-blue-600 uppercase tracking-wider">Basket {idx + 1} — {svc.name}</p>
                   <p className="font-sans text-xs text-neutral-400 mt-0.5">Estimated: {svc.kg}kg ({fmt(svc.kgPrice)})</p>
                 </div>
                 {svc.actualKg != null && (
@@ -416,7 +418,7 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
                   type="number" min="1" step="0.1"
                   value={actualKgs[idx]?.actualKg ?? ''}
                   onChange={e => handleChange(idx, e.target.value)}
-                  className="flex-1 px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white"
+                  className="flex-1 px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white"
                   placeholder={`e.g. ${svc.actualKg ?? svc.kg}`}
                 />
                 <span className="font-sans text-xs text-neutral-400 flex-shrink-0">kg</span>
@@ -431,11 +433,11 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
         </div>
         <div className="px-6 pb-6 flex gap-3">
           <button onClick={onClose}
-            className="flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-violet-50 transition-colors">
+            className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors">
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={loading}
-            className="flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-violet-700 transition-colors disabled:opacity-50">
+            className="flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-700 transition-colors disabled:opacity-50">
             {loading ? 'Saving...' : isEditing ? 'Update Weight' : 'Confirm Weight'}
           </button>
         </div>
@@ -451,19 +453,19 @@ const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white w-full max-w-md" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Confirm Cash Payment</h2>
             </div>
-            <button onClick={onClose} className="text-violet-200 hover:text-white transition-colors text-xl leading-none">×</button>
+            <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
           </div>
         </div>
         <div className="px-6 py-6 space-y-5">
-          <div className="bg-violet-50 border border-violet-100 px-5 py-4 flex items-center justify-between">
+          <div className="bg-blue-50 border border-blue-100 px-5 py-4 flex items-center justify-between">
             <span className="font-sans text-xs uppercase tracking-widest text-neutral-500">Amount Collected</span>
-            <span className="font-sans font-black text-violet-700 text-xl" style={{ letterSpacing: '-0.02em' }}>{fmt(finalAmt)}</span>
+            <span className="font-sans font-black text-blue-700 text-xl" style={{ letterSpacing: '-0.02em' }}>{fmt(finalAmt)}</span>
           </div>
           <div className="flex items-center gap-3 bg-green-50 border border-green-200 px-4 py-3">
             <span className="text-xl"></span>
@@ -479,12 +481,57 @@ const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
         </div>
         <div className="px-6 pb-6 flex gap-3">
           <button onClick={onClose}
-            className="flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-violet-50 transition-colors">
+            className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors">
             Cancel
           </button>
           <button onClick={() => onSubmit('cash')} disabled={loading}
             className="flex-1 bg-green-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-green-700 transition-colors disabled:opacity-50">
             {loading ? 'Processing...' : '✓ Confirm Cash Received'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ARCHIVE MODAL ────────────────────────────────────────────────────────────
+
+const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white w-full max-w-md" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
+              <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Archive Appointment</h2>
+            </div>
+            <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
+          </div>
+        </div>
+        <div className="px-6 py-6 space-y-5">
+          <div className="bg-amber-50 border border-amber-200 px-4 py-3">
+            <p className="font-sans text-sm text-amber-700">Are you sure you want to archive this appointment?</p>
+            <p className="font-sans text-xs text-amber-600 mt-1">This will move it to the archived section. You can still view it later.</p>
+          </div>
+          <div className="border border-blue-100 px-4 py-3">
+            <p className="font-sans text-xs text-neutral-500">Client</p>
+            <p className="font-sans text-sm font-semibold text-neutral-700">{appt.userData?.name || '—'}</p>
+            <p className="font-sans text-xs text-neutral-400 mt-1">{appt.slotDate} · {appt.slotTime}</p>
+            <p className="font-sans text-xs text-neutral-400">{renderServices(appt)}</p>
+            {appt.branchData?.name && (
+              <p className="font-sans text-xs text-neutral-400 mt-1">Branch: {appt.branchData.name}</p>
+            )}
+          </div>
+        </div>
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 bg-amber-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-amber-700 transition-colors disabled:opacity-50">
+            {loading ? 'Archiving...' : '✓ Archive'}
           </button>
         </div>
       </div>
@@ -504,6 +551,7 @@ const AllAppointments = () => {
     updateDeliveryStatus,
     confirmActualWeight,
     confirmPayment,
+    archiveAppointment, // Make sure this is available from context
   } = useContext(AdminContext)
 
   const [selectedBranch, setSelectedBranch] = useState('all')
@@ -514,6 +562,7 @@ const AllAppointments = () => {
   const [weightModal,    setWeightModal]    = useState(null)
   const [paymentModal,   setPaymentModal]   = useState(null)
   const [receiptModal,   setReceiptModal]   = useState(null)
+  const [archiveModal,   setArchiveModal]   = useState(null)
   const [modalLoading,   setModalLoading]   = useState(false)
   const [lastUpdated,    setLastUpdated]    = useState(null)
   const [secondsAgo,     setSecondsAgo]     = useState(0)
@@ -542,30 +591,44 @@ const AllAppointments = () => {
 
   const handleConfirmWeight = async (actualServices) => {
     setModalLoading(true)
-    const ok = await confirmActualWeight(weightModal._id, actualServices)
+    const ok = await confirmActualWeight(weightModal.id, actualServices)
     setModalLoading(false)
     if (ok) setWeightModal(null)
   }
 
   const handleConfirmPayment = async (method) => {
     setModalLoading(true)
-    const ok = await confirmPayment(paymentModal._id, method)
+    const ok = await confirmPayment(paymentModal.id, method)
     setModalLoading(false)
     if (ok) setPaymentModal(null)
   }
 
   const handleReceiptConfirm = async () => {
     setModalLoading(true)
-    await updateDeliveryStatus(receiptModal._id, 'out_for_delivery')
+    await updateDeliveryStatus(receiptModal.id, 'out_for_delivery')
     setModalLoading(false)
     setReceiptModal(null)
+  }
+
+  const handleArchiveConfirm = async () => {
+    setModalLoading(true)
+    const ok = await archiveAppointment(archiveModal.id)
+    setModalLoading(false)
+    if (ok) setArchiveModal(null)
   }
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return appointments.filter(appt => {
+      // Handle archived filter
+      if (statusFilter === 'archived') {
+        return appt.archived === true
+      }
+      
+      if (appt.archived) return false // Hide archived by default
+      
       if (selectedBranch !== 'all') {
-        const bid = appt.branchData?._id?.toString() ?? appt.branchId?.toString()
+        const bid = appt.branchData?.id?.toString() ?? appt.branchId?.toString()
         if (bid !== selectedBranch) return false
       }
       const isCancelled = appt.cancelled
@@ -584,12 +647,17 @@ const AllAppointments = () => {
           : (appt.service ?? '')
         const fields = [
           appt.userData?.name, appt.userData?.email,
-          appt._id, appt.branchData?.name,
+          appt.id, appt.branchData?.name,
           serviceNames, appt.promoCode, appt.slotDate,
         ].map(f => (f ?? '').toLowerCase())
         if (!fields.some(f => f.includes(q))) return false
       }
       return true
+    }).sort((a, b) => {
+      // Show archived at the bottom when viewing all
+      if (a.archived && !b.archived) return 1
+      if (!a.archived && b.archived) return -1
+      return Number(b.date) - Number(a.date)
     })
   }, [appointments, selectedBranch, search, statusFilter, paymentFilter])
 
@@ -608,7 +676,7 @@ const AllAppointments = () => {
 
   const hasFilters   = search || selectedBranch !== 'all' || statusFilter !== 'all' || paymentFilter !== 'all'
   const clearFilters = () => { setSearch(''); setSelectedBranch('all'); setStatusFilter('all'); setPaymentFilter('all') }
-  const selectClass  = 'px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white appearance-none cursor-pointer'
+  const selectClass  = 'px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white appearance-none cursor-pointer'
 
   const lastUpdatedLabel = lastUpdated
     ? secondsAgo < 5 ? 'Just now' : secondsAgo < 60 ? `${secondsAgo}s ago` : `${Math.floor(secondsAgo / 60)}m ago`
@@ -620,22 +688,23 @@ const AllAppointments = () => {
       {weightModal  && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
       {receiptModal && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} />}
+      {archiveModal && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
 
       {/* ── Header ── */}
       <div className="px-10 pt-10 pb-12"
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
-        <p className="uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans mb-3">Operations</p>
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+        <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3">Operations</p>
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-white"
               style={{ fontWeight: 700, letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}>
               All Appointments
             </h1>
-            <p className="font-sans text-sm text-violet-300 mt-2">Manage and update all branch appointments</p>
+            <p className="font-sans text-sm text-blue-300 mt-2">Manage and update all branch appointments</p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-right">
-              <p className="font-sans text-[10px] uppercase tracking-widest text-violet-300">Last updated</p>
+              <p className="font-sans text-[10px] uppercase tracking-widest text-blue-300">Last updated</p>
               <p className="font-sans text-xs text-white font-semibold">{lastUpdatedLabel}</p>
             </div>
             <button onClick={refresh} disabled={isRefreshing}
@@ -663,7 +732,7 @@ const AllAppointments = () => {
             </svg>
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Name, email, branch, service, promo, date..."
-              className="w-full pl-10 pr-8 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white" />
+              className="w-full pl-10 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white" />
             {search && (
               <button onClick={() => setSearch('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-neutral-500 text-lg leading-none">×</button>
@@ -684,34 +753,34 @@ const AllAppointments = () => {
 
           <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className={`${selectClass} sm:w-48`}>
             <option value="all">All Branches</option>
-            {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
 
         <div className="flex items-center justify-between mb-8">
           <p className="font-sans text-xs text-neutral-400">
             Showing{' '}
-            <span className="text-violet-600 font-semibold">
+            <span className="text-blue-600 font-semibold">
               {filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)}
             </span>{' '}
-            of <span className="text-violet-600 font-semibold">{filtered.length}</span> appointment{filtered.length !== 1 ? 's' : ''}
+            of <span className="text-blue-600 font-semibold">{filtered.length}</span> appointment{filtered.length !== 1 ? 's' : ''}
           </p>
           {hasFilters && (
             <button onClick={clearFilters}
-              className="font-sans text-xs uppercase tracking-[0.2em] text-violet-400 hover:text-violet-600 transition-colors">
+              className="font-sans text-xs uppercase tracking-[0.2em] text-blue-400 hover:text-blue-600 transition-colors">
               Clear Filters ×
             </button>
           )}
         </div>
 
         {filtered.length === 0 && (
-          <div className="border border-violet-100 px-7 py-16 flex flex-col items-center gap-3">
+          <div className="border border-blue-100 px-7 py-16 flex flex-col items-center gap-3">
             <p className="font-sans text-sm text-neutral-300 uppercase tracking-widest">
               {appointments.length === 0 ? 'No appointments found' : 'No appointments match your filters'}
             </p>
             {hasFilters && (
               <button onClick={clearFilters}
-                className="font-sans text-xs uppercase tracking-[0.2em] text-violet-400 hover:text-violet-600 transition-colors">
+                className="font-sans text-xs uppercase tracking-[0.2em] text-blue-400 hover:text-blue-600 transition-colors">
                 Clear Filters →
               </button>
             )}
@@ -719,38 +788,47 @@ const AllAppointments = () => {
         )}
 
         {/* ── Cards ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-violet-100">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-blue-100">
           {paginated.map((appt) => {
             const isCancelled    = appt.cancelled
             const isCompleted    = appt.isCompleted
+            const isArchived     = appt.archived
             const nextStatus     = getNextStatus(appt.deliveryStatus || 'pending_approval')
-            const showButtons    = !isCancelled && !isCompleted
+            const showButtons    = !isCancelled && !isCompleted && !isArchived
             const payStatus      = resolvePaymentStatus(appt)
             const isWeighed      = appt.services?.some(s => s.actualKg != null)
             const isPaid         = payStatus === 'paid_cash' || payStatus === 'paid_online'
             const isCashMethod   = appt.preferredPaymentMethod === 'cash' || !appt.preferredPaymentMethod
             const isOnlineMethod = appt.preferredPaymentMethod === 'online'
 
-            const canWeigh       = !isCancelled && !isCompleted && appt.deliveryStatus === 'in_progress' && !isPaid
-            const canConfirmCash = !isCancelled && !isPaid && isCashMethod && appt.deliveryStatus === 'out_for_delivery'
+            const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid
+            const canConfirmCash = !isCancelled && !isPaid && isCashMethod && appt.deliveryStatus === 'out_for_delivery' && !isArchived
 
             // ── ONLINE PAYMENT GUARD ─────────────────────────────────────────
             // Online appointments: block advance to out_for_delivery until paid.
-            // The Print & Out for Delivery button is hidden entirely when blocked.
             const blockedByOnlinePayment = isOnlineMethod && !isPaid
               && nextStatus?.status === 'out_for_delivery'
+
+            // ── CASH PAYMENT GUARD ──────────────────────────────────────────
+            // Cash appointments: block advance to delivered until paid.
+            const blockedByCashPayment = isCashMethod && !isPaid
+              && nextStatus?.status === 'delivered'
 
             const handleNextStatus = () => {
               if (!nextStatus) return
               // Guard: online unpaid → cannot advance to out_for_delivery
-              if (blockedByOnlinePayment) return
+              // Guard: cash unpaid → cannot advance to delivered
+              if (blockedByOnlinePayment || blockedByCashPayment) return
               nextStatus.status === 'out_for_delivery'
                 ? setReceiptModal(appt)
-                : updateDeliveryStatus(appt._id, nextStatus.status)
+                : updateDeliveryStatus(appt.id, nextStatus.status)
             }
 
+            // Can archive: only when delivered or cancelled
+            const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
+
             return (
-              <div key={appt._id} className="bg-white px-7 py-8 flex flex-col gap-5">
+              <div key={appt.id} className={`bg-white px-7 py-8 flex flex-col gap-5 ${isArchived ? 'opacity-75' : ''}`}>
 
                 {/* ── Header row ── */}
                 <div className="flex items-start justify-between gap-4">
@@ -758,13 +836,13 @@ const AllAppointments = () => {
                     {appt.userData?.image
                       ? <img src={appt.userData.image} className="w-10 h-10 object-cover flex-shrink-0" alt="" />
                       : (
-                        <div className="w-10 h-10 bg-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold font-sans text-sm">
+                        <div className="w-10 h-10 bg-blue-600 flex items-center justify-center flex-shrink-0 text-white font-bold font-sans text-sm">
                           {appt.userData?.name?.[0]?.toUpperCase() || '?'}
                         </div>
                       )
                     }
                     <div>
-                      <p className="text-violet-900 font-bold text-sm" style={{ letterSpacing: '-0.01em' }}>
+                      <p className="text-blue-900 font-bold text-sm" style={{ letterSpacing: '-0.01em' }}>
                         {appt.userData?.name || '—'}
                       </p>
                       <p className="font-sans text-xs text-neutral-400">{appt.userData?.email || ''}</p>
@@ -779,14 +857,19 @@ const AllAppointments = () => {
                       {isOnlineMethod ? 'Online' : 'Cash'}
                     </span>
                     {appt.branchData?.name && (
-                      <span className="inline-block border border-violet-200 bg-violet-50 text-violet-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
+                      <span className="inline-block border border-blue-200 bg-blue-50 text-blue-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
                         {appt.branchData.name}
+                      </span>
+                    )}
+                    {isArchived && (
+                      <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
+                        Archived
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="h-px bg-violet-100" />
+                <div className="h-px bg-blue-100" />
 
                 {/* ── Detail grid ── */}
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
@@ -828,18 +911,22 @@ const AllAppointments = () => {
                     </div>
                   )}
 
-
                   {/* Online waiting note — already out_for_delivery but still unpaid */}
-                  {isOnlineMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && (
+                  {isOnlineMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
                     <div className="col-span-2 bg-blue-50 border border-blue-200 px-3 py-2">
                       <p className="font-sans text-xs text-blue-600">Client will pay online. Waiting for online payment confirmation.</p>
                     </div>
                   )}
 
-
+                  {/* Cash waiting note — out_for_delivery but still unpaid */}
+                  {isCashMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
+                    <div className="col-span-2 bg-amber-50 border border-amber-200 px-3 py-2">
+                      <p className="font-sans text-xs text-amber-600">Waiting for cash payment confirmation before marking as Delivered.</p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="h-px bg-violet-100" />
+                <div className="h-px bg-blue-100" />
 
                 {/* ── Status + buttons ── */}
                 <div className="flex items-center justify-between flex-wrap gap-3">
@@ -852,9 +939,14 @@ const AllAppointments = () => {
                       )
                       : <StatusChip status={appt.deliveryStatus || 'pending_approval'} />
                     }
-                    {isWeighed && !isPaid && appt.deliveryStatus === 'in_progress' && (
+                    {isWeighed && !isPaid && appt.deliveryStatus === 'in_progress' && !isArchived && (
                       <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
                         Weight Confirmed
+                      </span>
+                    )}
+                    {isArchived && (
+                      <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+                        Archived
                       </span>
                     )}
                   </div>
@@ -865,29 +957,29 @@ const AllAppointments = () => {
                       {/* Approve / Cancel */}
                       {appt.deliveryStatus === 'pending_approval' && (
                         <>
-                          <button onClick={() => approveBooking(appt._id)}
-                            className="group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                          <button onClick={() => approveBooking(appt.id)}
+                            className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                            <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                            <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                             <span className="relative">Approve</span>
                           </button>
-                          <button onClick={() => cancelAppointment(appt._id)}
-                            className="group relative overflow-hidden border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                          <button onClick={() => cancelAppointment(appt.id)}
+                            className="group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                            <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                            <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                             <span className="relative">Cancel</span>
                           </button>
                         </>
                       )}
 
                       {/* Advance status button
-                          — hidden entirely when blocked by online payment guard
-                          — shows normally for all other stages               */}
-                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && (
+                          — hidden entirely when blocked by online payment guard (out_for_delivery)
+                          — hidden entirely when blocked by cash payment guard (delivered) */}
+                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && (
                         <button onClick={handleNextStatus}
-                          className="group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                          className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                          <div className="absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                          <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                           <span className="relative">
                             {nextStatus.status === 'out_for_delivery' ? '🖨 Print & ' : '→ '}{nextStatus.label}
                           </span>
@@ -897,9 +989,9 @@ const AllAppointments = () => {
                       {/* ⚖ Confirm Weight — in_progress ONLY */}
                       {canWeigh && (
                         <button onClick={() => setWeightModal(appt)}
-                          className="group relative overflow-hidden border border-violet-400 text-violet-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                          className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                          <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                          <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                           <span className="relative">⚖ {isWeighed ? 'Update Weight' : 'Confirm Weight'}</span>
                         </button>
                       )}
@@ -916,6 +1008,16 @@ const AllAppointments = () => {
 
                     </div>
                   )}
+
+                  {/* Archive button - only for delivered or cancelled appointments */}
+                  {canArchive && (
+                    <button onClick={() => setArchiveModal(appt)}
+                      className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
+                      style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                      <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                      <span className="relative">📦 Archive</span>
+                    </button>
+                  )}
                 </div>
 
               </div>
@@ -927,21 +1029,21 @@ const AllAppointments = () => {
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
             <p className="font-sans text-xs text-neutral-400 uppercase tracking-[0.2em]">
-              Page <span className="text-violet-600 font-semibold">{currentPage}</span> of {totalPages}
+              Page <span className="text-blue-600 font-semibold">{currentPage}</span> of {totalPages}
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
-                <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                 <span className="relative">← Prev</span>
               </button>
 
               {getPageRange()[0] > 1 && (
                 <>
                   <button onClick={() => setCurrentPage(1)}
-                    className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
-                    <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
+                    <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                     <span className="relative">1</span>
                   </button>
                   {getPageRange()[0] > 2 && <span className="font-sans text-xs text-neutral-300 px-1">…</span>}
@@ -951,9 +1053,9 @@ const AllAppointments = () => {
               {getPageRange().map(page => (
                 <button key={page} onClick={() => setCurrentPage(page)}
                   className={`group relative overflow-hidden border font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9 transition-colors duration-200 ${
-                    page === currentPage ? 'bg-violet-600 border-violet-600 text-white' : 'border-violet-100 text-violet-400'
+                    page === currentPage ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-100 text-blue-400'
                   }`}>
-                  {page !== currentPage && <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />}
+                  {page !== currentPage && <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />}
                   <span className="relative">{page}</span>
                 </button>
               ))}
@@ -962,17 +1064,17 @@ const AllAppointments = () => {
                 <>
                   {getPageRange().at(-1) < totalPages - 1 && <span className="font-sans text-xs text-neutral-300 px-1">…</span>}
                   <button onClick={() => setCurrentPage(totalPages)}
-                    className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
-                    <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
+                    <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                     <span className="relative">{totalPages}</span>
                   </button>
                 </>
               )}
 
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                className="group relative overflow-hidden border border-violet-100 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
-                <div className="absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
+                <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                 <span className="relative">Next →</span>
               </button>
             </div>

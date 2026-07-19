@@ -11,7 +11,7 @@ const RelatedBranches = ({ speciality, branchid }) => {
   useEffect(() => {
     if (branches.length > 0 && speciality) {
       const branchesData = branches
-        .filter(branch => branch._id !== branchid && branch.speciality.includes(speciality))
+        .filter(branch => branch.id !== branchid && branch.speciality.includes(speciality))
         .slice(0, 5)
       setRelBranches(branchesData)
     }
@@ -24,15 +24,15 @@ const RelatedBranches = ({ speciality, branchid }) => {
 
       {/* header */}
       <div className='flex items-end justify-between mb-3'>
-        <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-violet-400 font-sans'>
+        <span className='uppercase tracking-[0.35em] text-[10px] font-bold text-blue-400 font-sans'>
           You Might Also Like
         </span>
       </div>
-      <div className='h-px bg-violet-100 mb-10' />
+      <div className='h-px bg-blue-100 mb-10' />
 
       <div className='flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10'>
         <h2
-          className='leading-none text-violet-900'
+          className='leading-none text-blue-900'
           style={{ fontSize: 'clamp(28px, 4vw, 56px)', fontWeight: 700, letterSpacing: '-0.03em' }}
         >
           Related Branches.
@@ -47,8 +47,8 @@ const RelatedBranches = ({ speciality, branchid }) => {
         {relBranches.map((item, index) => (
           <div
             key={index}
-            onClick={() => { navigate(`/appointment/${item._id}`); scrollTo(0, 0) }}
-            className='group bg-white border border-violet-100 cursor-pointer flex flex-col overflow-hidden hover:bg-violet-600 hover:border-violet-600 transition-colors duration-300'
+            onClick={() => { navigate(`/appointment/${item.id}`); scrollTo(0, 0) }}
+            className='group bg-white border border-blue-100 cursor-pointer flex flex-col overflow-hidden hover:bg-blue-600 hover:border-blue-600 transition-colors duration-300'
           >
             {/* image */}
             <div className='overflow-hidden'>
@@ -69,7 +69,7 @@ const RelatedBranches = ({ speciality, branchid }) => {
               </div>
 
               <h3
-                className='leading-tight text-violet-900 group-hover:text-white transition-colors'
+                className='leading-tight text-blue-900 group-hover:text-white transition-colors'
                 style={{ fontSize: 'clamp(16px, 2vw, 20px)', fontWeight: 700, letterSpacing: '-0.02em' }}
               >
                 {item.name}
@@ -79,9 +79,9 @@ const RelatedBranches = ({ speciality, branchid }) => {
                 {Array.isArray(item.speciality) ? item.speciality.join(' • ') : item.speciality}
               </p>
 
-              <div className='h-px bg-violet-100 group-hover:bg-white/10 transition-colors mt-1' />
+              <div className='h-px bg-blue-100 group-hover:bg-white/10 transition-colors mt-1' />
 
-              <span className='font-sans text-xs text-violet-300 group-hover:text-white/50 uppercase tracking-widest transition-colors'>
+              <span className='font-sans text-xs text-blue-300 group-hover:text-white/50 uppercase tracking-widest transition-colors'>
                 Book now →
               </span>
             </div>

@@ -8,8 +8,8 @@ import {
   KeyRound, Eye, EyeOff
 } from 'lucide-react'
 
-const DEFAULT_IMG = 'https://ui-avatars.com/api/?background=7c3aed&color=fff&name='
-const inputCls    = 'w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+const DEFAULT_IMG = 'https://ui-avatars.com/api/?background=2563eb&color=fff&name='
+const inputCls    = 'w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
 const errorCls    = 'font-sans text-[10px] text-red-400 uppercase tracking-widest mt-1'
 
 const ModalField = ({ label, value, onChange, type = 'text', placeholder = '' }) => (
@@ -127,7 +127,7 @@ const UserMaintenance = () => {
   const handleToggleStatus = async (user) => {
     try {
       const { data } = await axios.patch(
-        backendUrl + `/api/admin/users/${user._id}/status`,
+        backendUrl + `/api/admin/users/${user.id}/status`,
         { isActive: !user.isActive },
         { headers: { token: aToken } }
       )
@@ -146,7 +146,7 @@ const UserMaintenance = () => {
     setEditLoading(true)
     try {
       const { data } = await axios.put(
-        backendUrl + `/api/admin/users/${editUser._id}`,
+        backendUrl + `/api/admin/users/${editUser.id}`,
         editForm,
         { headers: { token: aToken } }
       )
@@ -161,7 +161,7 @@ const UserMaintenance = () => {
     setDeleteLoading(true)
     try {
       const { data } = await axios.delete(
-        backendUrl + `/api/admin/users/${deleteTarget._id}`,
+        backendUrl + `/api/admin/users/${deleteTarget.id}`,
         { headers: { token: aToken } }
       )
       if (data.success) { toast.success(data.message); setDeleteTarget(null); fetchUsers() }
@@ -181,7 +181,7 @@ const UserMaintenance = () => {
     setResetLoading(true)
     try {
       const { data } = await axios.patch(
-        backendUrl + `/api/admin/users/${resetTarget._id}/reset-password`,
+        backendUrl + `/api/admin/users/${resetTarget.id}/reset-password`,
         { newPassword },
         { headers: { token: aToken } }
       )
@@ -196,8 +196,8 @@ const UserMaintenance = () => {
 
       {/* Header */}
       <div className='px-7 py-6 mb-8'
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
-        <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-1'>Branches & Users</p>
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>Branches & Users</p>
         <div className='flex items-center justify-between'>
           <h1 className='font-sans font-black text-white' style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.03em' }}>
             User Maintenance
@@ -222,31 +222,31 @@ const UserMaintenance = () => {
             { label: 'Inactive',    value: inactiveCount },
           ].map(({ label, value }) => (
             <div key={label} className='px-7 py-6'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #7c3aed' }}>
-              <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-2'>{label}</p>
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #2563eb' }}>
+              <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-2'>{label}</p>
               <p className='font-sans font-black text-white' style={{ fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', letterSpacing: '-0.03em' }}>{value}</p>
             </div>
           ))}
         </div>
 
         {/* Filter Bar */}
-        <div className='bg-white border border-violet-100 px-5 py-4 mb-5 flex flex-wrap gap-3 items-center'>
+        <div className='bg-white border border-blue-100 px-5 py-4 mb-5 flex flex-wrap gap-3 items-center'>
           <form onSubmit={handleSearch} className='flex items-center gap-2 flex-1 min-w-[200px]'>
             <div className='relative flex-1'>
               <Search size={14} className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300' />
               <input type='text' placeholder='Search by name, email, or phone...' value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className='w-full pl-9 pr-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white' />
+                className='w-full pl-9 pr-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white' />
             </div>
             <button type='submit'
-              className='group relative overflow-hidden bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5'
+              className='group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5'
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-              <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+              <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
               <span className='relative z-10'>Search</span>
             </button>
           </form>
           <select value={filterActive} onChange={(e) => { setFilterActive(e.target.value); setPage(1) }}
-            className='px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white'>
+            className='px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white'>
             <option value=''>All Status</option>
             <option value='true'>Active</option>
             <option value='false'>Inactive</option>
@@ -257,7 +257,7 @@ const UserMaintenance = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-violet-100 overflow-hidden'>
+        <div className='bg-white border border-blue-100 overflow-hidden'>
           {loading ? (
             <div className='flex justify-center items-center py-20 font-sans text-sm text-neutral-400'>Loading...</div>
           ) : users.length === 0 ? (
@@ -267,14 +267,14 @@ const UserMaintenance = () => {
             </div>
           ) : (
             <div>
-              <div className='grid grid-cols-[2fr_1fr_1fr_auto] bg-violet-50 px-7 py-3 border-b border-violet-100'>
+              <div className='grid grid-cols-[2fr_1fr_1fr_auto] bg-blue-50 px-7 py-3 border-b border-blue-100'>
                 {['User', 'Phone', 'Status', 'Actions'].map(h => (
-                  <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>{h}</span>
+                  <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>{h}</span>
                 ))}
               </div>
-              <div className='divide-y divide-violet-50'>
+              <div className='divide-y divide-blue-50'>
                 {users.map((user) => (
-                  <div key={user._id} className='grid grid-cols-[2fr_1fr_1fr_auto] items-center px-7 py-4 hover:bg-violet-50 transition-colors'>
+                  <div key={user.id} className='grid grid-cols-[2fr_1fr_1fr_auto] items-center px-7 py-4 hover:bg-blue-50 transition-colors'>
                     <div className='flex items-center gap-3'>
                       <img src={user.image || `${DEFAULT_IMG}${encodeURIComponent(user.name)}`} alt={user.name}
                         className='w-9 h-9 object-cover flex-shrink-0'
@@ -293,11 +293,11 @@ const UserMaintenance = () => {
                       )}
                     </div>
                     <div className='flex items-center gap-1'>
-                      <button onClick={() => openEdit(user)} title='Edit' className='p-1.5 text-neutral-400 hover:text-violet-600 hover:bg-violet-50 transition-colors'><Pencil size={14} /></button>
-                      <button onClick={() => handleToggleStatus(user)} title={user.isActive !== false ? 'Deactivate' : 'Activate'} className='p-1.5 text-neutral-400 hover:text-violet-600 hover:bg-violet-50 transition-colors'>
+                      <button onClick={() => openEdit(user)} title='Edit' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><Pencil size={14} /></button>
+                      <button onClick={() => handleToggleStatus(user)} title={user.isActive !== false ? 'Deactivate' : 'Activate'} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'>
                         {user.isActive !== false ? <UserX size={14} /> : <UserCheck size={14} />}
                       </button>
-                      <button onClick={() => openReset(user)} title='Reset Password' className='p-1.5 text-neutral-400 hover:text-violet-600 hover:bg-violet-50 transition-colors'><KeyRound size={14} /></button>
+                      <button onClick={() => openReset(user)} title='Reset Password' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><KeyRound size={14} /></button>
                       <button onClick={() => setDeleteTarget(user)} title='Delete' className='p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors'><Trash2 size={14} /></button>
                     </div>
                   </div>
@@ -306,23 +306,23 @@ const UserMaintenance = () => {
             </div>
           )}
           {pages > 1 && (
-            <div className='flex items-center justify-between px-7 py-4 border-t border-violet-100'>
+            <div className='flex items-center justify-between px-7 py-4 border-t border-blue-100'>
               <span className='font-sans text-xs text-neutral-400'>
                 Page <span className='font-sans font-black text-neutral-700'>{page}</span> of <span className='font-sans font-black text-neutral-700'>{pages}</span> · {total} users
               </span>
               <div className='flex gap-1'>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className='p-1.5 text-neutral-400 hover:text-violet-600 hover:bg-violet-50 disabled:opacity-30 transition-colors'><ChevronLeft size={16} /></button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 transition-colors'><ChevronLeft size={16} /></button>
                 {Array.from({ length: Math.min(pages, 5) }, (_, i) => {
                   const p = page <= 3 ? i + 1 : page - 2 + i
                   if (p < 1 || p > pages) return null
                   return (
                     <button key={p} onClick={() => setPage(p)}
-                      className={`w-8 h-8 font-sans text-xs font-bold transition-colors ${p === page ? 'bg-violet-600 text-white' : 'text-neutral-500 hover:bg-violet-50 hover:text-violet-600'}`}>
+                      className={`w-8 h-8 font-sans text-xs font-bold transition-colors ${p === page ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-blue-50 hover:text-blue-600'}`}>
                       {p}
                     </button>
                   )
                 })}
-                <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} className='p-1.5 text-neutral-400 hover:text-violet-600 hover:bg-violet-50 disabled:opacity-30 transition-colors'><ChevronRight size={16} /></button>
+                <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 transition-colors'><ChevronRight size={16} /></button>
               </div>
             </div>
           )}
@@ -335,13 +335,13 @@ const UserMaintenance = () => {
           <div className='bg-white w-full max-w-md max-h-[90vh] overflow-y-auto'
             style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
             <div className='px-6 py-5'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>User Maintenance</p>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>User Maintenance</p>
                   <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Add User</h2>
                 </div>
-                <button onClick={() => setShowAddModal(false)} className='text-violet-200 hover:text-white transition-colors'><X size={18} /></button>
+                <button onClick={() => setShowAddModal(false)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
               </div>
             </div>
             <div className='px-6 py-6 space-y-4'>
@@ -352,7 +352,7 @@ const UserMaintenance = () => {
                   Profile Photo <span className='normal-case tracking-normal font-normal text-neutral-300'>(optional)</span>
                 </label>
                 <label htmlFor='add-user-img' className='cursor-pointer inline-block'>
-                  <div className='w-20 h-20 border border-violet-100 overflow-hidden flex items-center justify-center bg-neutral-50 hover:border-violet-400 transition-colors'>
+                  <div className='w-20 h-20 border border-blue-100 overflow-hidden flex items-center justify-center bg-neutral-50 hover:border-blue-400 transition-colors'>
                     {addImg ? (
                       <img src={URL.createObjectURL(addImg)} alt='' className='w-full h-full object-cover' />
                     ) : (
@@ -388,7 +388,7 @@ const UserMaintenance = () => {
                     onChange={e => setAddForm(p => ({ ...p, password: e.target.value }))}
                     className={inputCls + ' pr-10' + (addPassShort ? ' border-red-300 focus:border-red-400' : '')} />
                   <button type='button' onClick={() => setShowAddPass(p => !p)}
-                    className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-violet-400 transition-colors'>
+                    className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
                     {showAddPass ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
@@ -407,15 +407,15 @@ const UserMaintenance = () => {
             </div>
             <div className='px-6 pb-6 flex gap-3'>
               <button onClick={() => setShowAddModal(false)}
-                className='group relative overflow-hidden flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button onClick={handleAddUser} disabled={addLoading}
-                className='group relative overflow-hidden flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
+                className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>{addLoading ? 'Creating...' : 'Create User'}</span>
               </button>
             </div>
@@ -428,13 +428,13 @@ const UserMaintenance = () => {
         <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'>
           <div className='bg-white w-full max-w-md' style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
             <div className='px-6 py-5'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>User Maintenance</p>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>User Maintenance</p>
                   <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Edit User</h2>
                 </div>
-                <button onClick={() => setEditUser(null)} className='text-violet-200 hover:text-white transition-colors'><X size={18} /></button>
+                <button onClick={() => setEditUser(null)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
               </div>
             </div>
             <div className='px-6 py-6 space-y-4'>
@@ -445,15 +445,15 @@ const UserMaintenance = () => {
             </div>
             <div className='px-6 pb-6 flex gap-3'>
               <button onClick={() => setEditUser(null)}
-                className='group relative overflow-hidden flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button onClick={handleEditSave} disabled={editLoading}
-                className='group relative overflow-hidden flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
+                className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>{editLoading ? 'Saving...' : 'Save Changes'}</span>
               </button>
             </div>
@@ -466,13 +466,13 @@ const UserMaintenance = () => {
         <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'>
           <div className='bg-white w-full max-w-sm' style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
             <div className='px-6 py-5'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>Security</p>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>Security</p>
                   <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Reset Password</h2>
                 </div>
-                <button onClick={() => setResetTarget(null)} className='text-violet-200 hover:text-white transition-colors'><X size={18} /></button>
+                <button onClick={() => setResetTarget(null)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
               </div>
             </div>
             <div className='px-6 py-6'>
@@ -487,7 +487,7 @@ const UserMaintenance = () => {
                       onChange={e => setNewPassword(e.target.value)} placeholder='Min. 8 characters'
                       className={inputCls + ' pr-10' + (passShort ? ' border-red-300 focus:border-red-400' : '')} />
                     <button type='button' onClick={() => setShowPass(p => !p)}
-                      className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-violet-400 transition-colors'>
+                      className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
                       {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
@@ -505,15 +505,15 @@ const UserMaintenance = () => {
             </div>
             <div className='px-6 pb-6 flex gap-3'>
               <button onClick={() => setResetTarget(null)}
-                className='group relative overflow-hidden flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button onClick={handleResetPassword} disabled={resetLoading}
-                className='group relative overflow-hidden flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
+                className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>{resetLoading ? 'Resetting...' : 'Reset Password'}</span>
               </button>
             </div>
@@ -526,13 +526,13 @@ const UserMaintenance = () => {
         <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'>
           <div className='bg-white w-full max-w-sm' style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
             <div className='px-6 py-5'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}>
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>Danger Zone</p>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>Danger Zone</p>
                   <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Delete User</h2>
                 </div>
-                <button onClick={() => setDeleteTarget(null)} className='text-violet-200 hover:text-white transition-colors'><X size={18} /></button>
+                <button onClick={() => setDeleteTarget(null)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
               </div>
             </div>
             <div className='px-6 py-6'>
@@ -545,9 +545,9 @@ const UserMaintenance = () => {
             </div>
             <div className='px-6 pb-6 flex gap-3'>
               <button onClick={() => setDeleteTarget(null)}
-                className='group relative overflow-hidden flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button onClick={handleDelete} disabled={deleteLoading}

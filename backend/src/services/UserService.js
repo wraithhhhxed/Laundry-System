@@ -18,15 +18,21 @@ class UserService {
     if (exists) throw new ApiError(409, 'User already exists')
 
     const hashedPassword = await bcrypt.hash(password, 10)
+
+    let parsedAddress = { line1: '', line2: '' }
+    if (address) {
+      parsedAddress = typeof address === 'string' ? JSON.parse(address) : address
+    }
+
     const user = await UserRepository.create({
       name, email,
       password: hashedPassword,
       phone,
-      address: address ? JSON.parse(address) : { line1: '', line2: '' }
+      address: parsedAddress
     })
 
     const token = jwt.sign(
-      { id: user._id, role: 'user' },
+      { id: user.id, role: 'user' },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
@@ -41,7 +47,7 @@ class UserService {
     if (!isMatch) throw new ApiError(401, 'Invalid credentials')
 
     const token = jwt.sign(
-      { id: user._id, role: 'user' },
+      { id: user.id, role: 'user' },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
@@ -62,7 +68,9 @@ class UserService {
     const { name, phone, address, dob, gender } = updates
 
     const updateData = { name, phone, dob, gender }
-    if (address) updateData.address = JSON.parse(address)
+    if (address) {
+      updateData.address = typeof address === 'string' ? JSON.parse(address) : address
+    }
 
     if (imageFile) {
       updateData.image = await uploadToCloudinary(imageFile.buffer, 'laundry-app/profiles')
@@ -77,19 +85,17 @@ class UserService {
 
     if (appointment.payment) throw new ApiError(400, 'Appointment is already paid')
 
-    const rawAmount = appointment.actualFinalAmount
-      ?? appointment.finalAmount
-      ?? appointment.totalAmount
-      ?? appointment.amount
-      ?? 0
+    // finalAmount = SNAPSHOT ng presyo noong booking, hindi na nagbabago —
+    // ito na lang ang gamitin (wala nang actualFinalAmount/amount sa bagong schema).
+    const rawAmount = appointment.finalAmount ?? appointment.totalAmount ?? 0
 
     if (!rawAmount || rawAmount <= 0) {
       throw new ApiError(400, 'Appointment has no valid amount for payment')
     }
 
     const serviceLabel = Array.isArray(appointment.services) && appointment.services.length > 0
-      ? appointment.services.map(s => s?.name ?? s?.toString()).filter(Boolean).join(', ')
-      : appointment.service ?? 'Laundry Service'
+      ? appointment.services.map(s => s?.name).filter(Boolean).join(', ')
+      : 'Laundry Service'
 
     const itemName = appointment.promoCode
       ? `Laundry booking - ${serviceLabel} (Promo: ${appointment.promoCode})`
@@ -231,11 +237,11 @@ class UserService {
         address: { line1: '', line2: '' }
       })
     } else if (!user.googleId) {
-      await UserRepository.updateById(user._id, { googleId })
+      await UserRepository.updateById(user.id, { googleId })
     }
 
     const token = jwt.sign(
-      { id: user._id, role: 'user' },
+      { id: user.id, role: 'user' },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
@@ -288,9 +294,9 @@ class UserService {
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex')
     const expires     = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
-    await UserRepository.saveResetToken(user._id, hashedToken, expires)
+    await UserRepository.saveResetToken(user.id, hashedToken, expires)
 
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${rawToken}` // ✅ fixed
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${rawToken}`
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -331,10 +337,13 @@ class UserService {
 
     const hashed = await bcrypt.hash(newPassword, 10)
 
-    user.password             = hashed
-    user.resetPasswordToken   = null
-    user.resetPasswordExpires = null
-    await user.save()
+    // Prisma objects ay plain objects, walang .save() method gaya ng
+    // Mongoose documents — kailangang dumaan sa repository.
+    await UserRepository.updateById(user.id, {
+      password: hashed,
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+    })
   }
 }
 

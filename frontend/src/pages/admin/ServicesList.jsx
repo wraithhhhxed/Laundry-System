@@ -10,6 +10,7 @@ const ServicesList = () => {
   const [editItem, setEditItem]         = useState(null)
   const [name, setName]                 = useState('')
   const [price, setPrice]               = useState('')
+  const [description, setDescription]   = useState('')
   const [imageFile, setImageFile]       = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [search, setSearch]             = useState('')
@@ -18,13 +19,13 @@ const ServicesList = () => {
   useEffect(() => { getAllServices() }, [])
 
   const openAdd = () => {
-    setEditItem(null); setName(''); setPrice('')
+    setEditItem(null); setName(''); setPrice(''); setDescription('')
     setImageFile(null); setImagePreview(null)
     setShowForm(true)
   }
 
   const openEdit = (item) => {
-    setEditItem(item); setName(item.name); setPrice(item.price)
+    setEditItem(item); setName(item.name); setPrice(item.price); setDescription(item.description || '')
     setImageFile(null); setImagePreview(item.image || null)
     setShowForm(true)
   }
@@ -38,8 +39,8 @@ const ServicesList = () => {
 
   const handleSubmit = async () => {
     if (!name.trim() || price === '') return
-    const payload = { name: name.trim(), price: Number(price), isActive: true }
-    if (editItem) await updateService(editItem._id, payload, imageFile)
+    const payload = { name: name.trim(), price: Number(price), description: description.trim(), isActive: true }
+    if (editItem) await updateService(editItem.id, payload, imageFile)
     else          await addService(payload, imageFile)
     setShowForm(false)
   }
@@ -49,7 +50,7 @@ const ServicesList = () => {
   }
 
   const handleToggle = async (item) => {
-    await updateService(item._id, { isActive: !item.isActive })
+    await updateService(item.id, { isActive: !item.isActive })
   }
 
   const filtered = services.filter(s =>
@@ -59,12 +60,12 @@ const ServicesList = () => {
   return (
     <div className='bg-neutral-50 min-h-screen w-full' style={{ fontFamily: "'Georgia', serif" }}>
 
-      {/* Violet Panel Header */}
+      {/* Blue Panel Header */}
       <div
-        className='bg-violet-600 px-7 py-6 mb-8'
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        className='bg-blue-600 px-7 py-6 mb-8'
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #1d4ed8' }}
       >
-        <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-1'>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>
           Catalog
         </p>
         <div className='flex items-center justify-between'>
@@ -88,7 +89,7 @@ const ServicesList = () => {
       <div className='px-7 pb-10'>
 
         {/* Search */}
-        <div className='bg-white border border-violet-100 px-5 py-4 mb-4'>
+        <div className='bg-white border border-blue-100 px-5 py-4 mb-4'>
           <div className='relative'>
             <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-300 pointer-events-none'
               fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -99,11 +100,11 @@ const ServicesList = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder='Search services...'
-              className='w-full pl-9 pr-8 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+              className='w-full pl-9 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
             />
             {search && (
               <button onClick={() => setSearch('')}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-violet-400 transition-colors'>
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
                 <X size={14} />
               </button>
             )}
@@ -120,12 +121,12 @@ const ServicesList = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-violet-100 overflow-hidden'>
+        <div className='bg-white border border-blue-100 overflow-hidden'>
 
           {/* Header */}
-          <div className='grid grid-cols-[2fr_1fr_1fr_auto] bg-violet-50 px-7 py-3 border-b border-violet-100'>
+          <div className='grid grid-cols-[minmax(0,2fr)_1fr_1fr_auto] bg-blue-50 px-7 py-3 border-b border-blue-100'>
             {['Service', 'Price', 'Status', 'Actions'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>
+              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
                 {h}
               </span>
             ))}
@@ -136,22 +137,27 @@ const ServicesList = () => {
               {services.length === 0 ? 'No services yet.' : 'No services match your search.'}
             </div>
           ) : (
-            <div className='divide-y divide-violet-50'>
+            <div className='divide-y divide-blue-50'>
               {filtered.map(item => (
-                <div key={item._id}
-                  className='grid grid-cols-[2fr_1fr_1fr_auto] items-center px-7 py-4 hover:bg-violet-50 transition-colors'>
+                <div key={item.id}
+                  className='grid grid-cols-[minmax(0,2fr)_1fr_1fr_auto] items-center px-7 py-4 hover:bg-blue-50 transition-colors'>
 
                   {/* Service */}
-                  <div className='flex items-center gap-3'>
+                  <div className='flex items-center gap-3 min-w-0'>
                     {item.image
                       ? <img src={item.image} className='w-9 h-9 object-cover flex-shrink-0' alt={item.name}/>
-                      : <div className='w-9 h-9 bg-violet-50 flex items-center justify-center text-base flex-shrink-0'>🧺</div>
+                      : <div className='w-9 h-9 bg-blue-50 flex items-center justify-center text-base flex-shrink-0'>🧺</div>
                     }
-                    <span className='font-sans font-semibold text-sm text-neutral-700'>{item.name}</span>
+                    <div className='min-w-0 overflow-hidden'>
+                      <span className='font-sans font-semibold text-sm text-neutral-700 block truncate'>{item.name}</span>
+                      {item.description && (
+                        <span className='font-sans text-xs text-neutral-400 block truncate' title={item.description}>{item.description}</span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Price */}
-                  <span className='font-sans font-black text-sm text-violet-600'>
+                  <span className='font-sans font-black text-sm text-blue-600'>
                     ₱{item.price}
                   </span>
 
@@ -167,14 +173,14 @@ const ServicesList = () => {
                   {/* Actions */}
                   <div className='flex items-center gap-3'>
                     <button onClick={() => handleToggle(item)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-violet-600 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-blue-600 transition-colors'>
                       {item.isActive ? 'Deactivate' : 'Activate'}
                     </button>
                     <button onClick={() => openEdit(item)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-violet-500 hover:text-violet-700 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-blue-500 hover:text-blue-700 transition-colors'>
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(item._id)}
+                    <button onClick={() => handleDelete(item.id)}
                       className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-400 hover:text-red-600 transition-colors'>
                       Delete
                     </button>
@@ -197,18 +203,18 @@ const ServicesList = () => {
             {/* Modal Header */}
             <div
               className='px-6 py-5'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #1d4ed8' }}
             >
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>
                     Catalog
                   </p>
                   <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>
                     {editItem ? 'Edit Service' : 'Add New Service'}
                   </h2>
                 </div>
-                <button onClick={() => setShowForm(false)} className='text-violet-200 hover:text-white transition-colors'>
+                <button onClick={() => setShowForm(false)} className='text-blue-200 hover:text-white transition-colors'>
                   <X size={18} />
                 </button>
               </div>
@@ -225,7 +231,7 @@ const ServicesList = () => {
                     value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder='e.g. Wash Only'
-                    className='w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+                    className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
                   />
                 </div>
                 <div>
@@ -238,21 +244,34 @@ const ServicesList = () => {
                     onChange={e => setPrice(e.target.value)}
                     placeholder='e.g. 80'
                     min='0'
-                    className='w-full px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+                    className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
                   />
                 </div>
               </div>
 
+              <div>
+                <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
+                  Description — optional
+                </label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder='e.g. Drop off your laundry with 1 detergent and 1 fabric conditioner. Max 7kg per load.'
+                  rows={3}
+                  className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white resize-none'
+                />
+              </div>
+
               {/* Image Upload */}
               <div>
-                <p className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans font-semibold mb-2'>
+                <p className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans font-semibold mb-2'>
                   Service Image — optional
                 </p>
-                <div className='h-px bg-violet-100 mb-4' />
+                <div className='h-px bg-blue-100 mb-4' />
                 <div className='flex items-center gap-4'>
                   <div
                     onClick={() => fileInputRef.current.click()}
-                    className='w-20 h-20 border border-violet-100 flex items-center justify-center cursor-pointer hover:border-violet-400 transition-colors overflow-hidden bg-neutral-50 flex-shrink-0'
+                    className='w-20 h-20 border border-blue-100 flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors overflow-hidden bg-neutral-50 flex-shrink-0'
                   >
                     {imagePreview
                       ? <img src={imagePreview} className='w-full h-full object-cover' alt='preview'/>
@@ -263,10 +282,10 @@ const ServicesList = () => {
                     <button
                       type='button'
                       onClick={() => fileInputRef.current.click()}
-                      className='group relative overflow-hidden border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2'
+                      className='group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2'
                       style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                     >
-                      <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                      <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                       <span className='relative z-10'>{imagePreview ? 'Change Image' : 'Upload Image'}</span>
                     </button>
                     {imagePreview && (
@@ -290,18 +309,18 @@ const ServicesList = () => {
             <div className='px-6 pb-6 flex gap-3'>
               <button
                 onClick={() => setShowForm(false)}
-                className='group relative overflow-hidden flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
-                <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button
                 onClick={handleSubmit}
-                className='group relative overflow-hidden flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>{editItem ? 'Save Changes' : 'Add Service'}</span>
               </button>
             </div>

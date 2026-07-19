@@ -160,35 +160,37 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  const addService = async (serviceData, imageFile) => {
-    try {
-      const formData = new FormData()
-      formData.append('name',     serviceData.name)
-      formData.append('price',    serviceData.price)
-      formData.append('isActive', serviceData.isActive ?? true)
-      if (imageFile instanceof File) formData.append('image', imageFile)
-      const { data } = await axios.post(backendUrl + '/api/admin/services', formData, { headers: authHeader(aToken) })
-      if (data.success) { toast.success(data.message); getAllServices() }
-      else toast.error(data.message)
-    } catch (error) { toast.error(error.message) }
-  }
+const addService = async (serviceData, imageFile) => {
+  try {
+    const formData = new FormData()
+    formData.append('name',        serviceData.name)
+    formData.append('price',       serviceData.price)
+    formData.append('description', serviceData.description ?? '')
+    formData.append('isActive',    serviceData.isActive ?? true)
+    if (imageFile instanceof File) formData.append('image', imageFile)
+    const { data } = await axios.post(backendUrl + '/api/admin/services', formData, { headers: authHeader(aToken) })
+    if (data.success) { toast.success(data.message); getAllServices() }
+    else toast.error(data.message)
+  } catch (error) { toast.error(error.message) }
+}
 
-  const updateService = async (id, serviceData, imageFile) => {
-    try {
-      const formData = new FormData()
-      if (serviceData.name     !== undefined) formData.append('name',     serviceData.name)
-      if (serviceData.price    !== undefined) formData.append('price',    serviceData.price)
-      if (serviceData.isActive !== undefined) formData.append('isActive', serviceData.isActive)
-      if (imageFile instanceof File)          formData.append('image',    imageFile)
-      const { data } = await axios.put(
-        backendUrl + `/api/admin/services/${id}`,
-        formData,
-        { headers: authHeader(aToken) }
-      )
-      if (data.success) { toast.success(data.message); getAllServices() }
-      else toast.error(data.message)
-    } catch (error) { toast.error(error.message) }
-  }
+const updateService = async (id, serviceData, imageFile) => {
+  try {
+    const formData = new FormData()
+    if (serviceData.name        !== undefined) formData.append('name',        serviceData.name)
+    if (serviceData.price       !== undefined) formData.append('price',       serviceData.price)
+    if (serviceData.description !== undefined) formData.append('description', serviceData.description)
+    if (serviceData.isActive    !== undefined) formData.append('isActive',    serviceData.isActive)
+    if (imageFile instanceof File)             formData.append('image',      imageFile)
+    const { data } = await axios.put(
+      backendUrl + `/api/admin/services/${id}`,
+      formData,
+      { headers: authHeader(aToken) }
+    )
+    if (data.success) { toast.success(data.message); getAllServices() }
+    else toast.error(data.message)
+  } catch (error) { toast.error(error.message) }
+}
 
   const deleteService = async (id) => {
     try {

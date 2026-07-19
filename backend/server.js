@@ -1,4 +1,12 @@
 import express from 'express'
+
+// Global fix: turuan si JSON.stringify kung paano i-convert ang BigInt
+// (ginagamit natin ito sa Branch.date at Appointment.date sa Prisma schema —
+// walang alam si JSON.stringify kung paano i-serialize ang BigInt bydefault).
+BigInt.prototype.toJSON = function () {
+  return Number(this)
+}
+
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'

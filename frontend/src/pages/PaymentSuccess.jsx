@@ -60,18 +60,18 @@ const PaymentSuccess = () => {
         {/* ── VERIFYING ── */}
         {status === 'verifying' && (
           <div>
-            <span className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans block mb-3'>
+            <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-3'>
               Please wait
             </span>
-            <div className='h-px bg-violet-100 mb-8' />
+            <div className='h-px bg-blue-100 mb-8' />
 
             {/* spinner */}
             <div className='mb-8'>
-              <div className='w-10 h-10 border-2 border-violet-100 border-t-violet-600 rounded-full animate-spin' />
+              <div className='w-10 h-10 border-2 border-blue-100 border-t-blue-600 rounded-full animate-spin' />
             </div>
 
             <h1
-              className='leading-none text-violet-900 mb-3'
+              className='leading-none text-blue-900 mb-3'
               style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, letterSpacing: '-0.03em' }}
             >
               Verifying Payment.
@@ -101,7 +101,7 @@ const PaymentSuccess = () => {
             </div>
 
             <h1
-              className='leading-none text-violet-900 mb-3'
+              className='leading-none text-blue-900 mb-3'
               style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, letterSpacing: '-0.03em' }}
             >
               Payment Successful.
@@ -110,8 +110,8 @@ const PaymentSuccess = () => {
               Redirecting you to your appointments…
             </p>
 
-            <div className='mt-8 h-px bg-violet-100' />
-            <p className='font-sans text-[10px] uppercase tracking-[0.35em] text-violet-300 mt-4'>
+            <div className='mt-8 h-px bg-blue-100' />
+            <p className='font-sans text-[10px] uppercase tracking-[0.35em] text-blue-300 mt-4'>
               Selfie Wash · Thank you
             </p>
           </div>
@@ -136,7 +136,7 @@ const PaymentSuccess = () => {
             </div>
 
             <h1
-              className='leading-none text-violet-900 mb-3'
+              className='leading-none text-blue-900 mb-3'
               style={{ fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, letterSpacing: '-0.03em' }}
             >
               Payment Not Confirmed.
@@ -147,12 +147,12 @@ const PaymentSuccess = () => {
 
             <button
               onClick={() => { window.location.href = '/my-appointments' }}
-              className='group relative overflow-hidden bg-violet-600 text-white px-8 py-3 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3'
+              className='group relative overflow-hidden bg-blue-600 text-white px-8 py-3 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3'
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
             >
               <span className='relative z-10'>Go to My Appointments</span>
               <span className='relative z-10 group-hover:translate-x-1 transition-transform duration-300'>→</span>
-              <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+              <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
             </button>
           </div>
         )}

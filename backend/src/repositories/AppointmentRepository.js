@@ -1,91 +1,143 @@
-import appointmentModel from '../../models/appointmentModel.js'
+// backend/src/repositories/AppointmentRepository.js
+import prisma from '../config/prismaClient.js';
+
+// Lahat ng related rows na kailangang isama sa bawat query — sa Postgres,
+// 'services', 'addOns', at 'clothingTypes' ay TOTOONG hiwalay na tables na
+// (AppointmentService, AppointmentAddOn, AppointmentClothingType), hindi na
+// embedded subdocuments gaya ng dati sa Mongoose.
+//
+// NOTE: hindi natin ma-i-include ang buong ClothingType detail (pangalan,
+// atbp.) dahil ang AppointmentClothingType.clothingTypeId ay plain string
+// lang sa schema natin, walang @relation papunta sa ClothingType model
+// (parehong desisyon gaya ng serviceId/productId — walang enforced FK).
+// Makukuha lang dito ang clothingTypeId; kung kailangan ng pangalan,
+// kakailanganin ng hiwalay na lookup o dagdag na "name" snapshot column.
+const INCLUDE_RELATIONS = {
+  services: true,
+  addOns: true,
+  clothingTypes: true,
+};
+
+// Mga field na TOTOONG relations sa Prisma (hindi puwedeng ipasa nang diretso
+// sa isang plain `data: updates` object) — kung sakaling may laman ang
+// `updates` na isa sa mga ito, tatanggalin natin muna para hindi mag-error
+// ang prisma.appointment.update(). Layunin: kagaya ng dating $set sa Mongoose
+// na hindi dapat basta-basta nabubura/napapalitan ang related data.
+const RELATION_FIELDS = ['services', 'addOns', 'clothingTypes'];
+
+function stripRelationFields(updates) {
+  const clean = { ...updates };
+  for (const field of RELATION_FIELDS) delete clean[field];
+  return clean;
+}
 
 class AppointmentRepository {
-  // NOTE: 'services' is an embedded subdocument array, NOT a ref to a separate
-  // collection — so .populate('services') was returning null for each item and
-  // overwriting valid data (actualKg, kgPrice, etc.) on every refresh.
-  // 'clothingTypes' IS a real ref so we keep that populate.
-
   async findById(id) {
-    return await appointmentModel.findById(id).populate('clothingTypes')
+    return await prisma.appointment.findUnique({
+      where: { id },
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async findByUserId(userId) {
-    return await appointmentModel.find({ userId }).populate('clothingTypes')
+    return await prisma.appointment.findMany({
+      where: { userId },
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async findByBranchId(branchId) {
-    return await appointmentModel.find({ branchId }).populate('clothingTypes')
+    return await prisma.appointment.findMany({
+      where: { branchId },
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async findAll() {
-    return await appointmentModel.find({}).populate('clothingTypes')
+    return await prisma.appointment.findMany({
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async create(appointmentData) {
-    return await appointmentModel.create(appointmentData)
+    // Ang services/addOns/clothingTypes ay ipinapasa bilang plain arrays
+    // (kagaya ng dating Mongoose shape) — dito na natin ino-convert papunta
+    // sa Prisma nested-write format na kailangan ng relation tables.
+    const { services = [], addOns = [], clothingTypes = [], ...rest } = appointmentData;
+    return await prisma.appointment.create({
+      data: {
+        ...rest,
+        services: { create: services },
+        addOns: { create: addOns },
+        clothingTypes: { create: clothingTypes },
+      },
+      include: INCLUDE_RELATIONS,
+    });
+  }
+
+  // Checkpoint lang — ini-record ang actualKg ng isang partikular na load
+  // (AppointmentService row), HINDI nire-recalculate ang presyo. Ginagamit
+  // ang sariling `id` ng row (hindi positional index) para ligtas at tiyak
+  // kung aling load talaga ang ina-update.
+  async updateServiceActualKg(appointmentServiceId, actualKg) {
+    return await prisma.appointmentService.update({
+      where: { id: appointmentServiceId },
+      data: { actualKg },
+    });
   }
 
   async updateById(id, updates) {
-    // Use $set so MongoDB only touches the specified fields and never
-    // accidentally replaces the entire embedded services array.
-    return await appointmentModel.findByIdAndUpdate(
-      id,
-      { $set: updates },
-      { new: true }
-    )
+    return await prisma.appointment.update({
+      where: { id },
+      data: stripRelationFields(updates),
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async cancelById(id) {
-    return await appointmentModel.findByIdAndUpdate(
-      id,
-      { $set: { cancelled: true } },
-      { new: true }
-    )
+    return await prisma.appointment.update({
+      where: { id },
+      data: { cancelled: true },
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async updateDeliveryStatus(id, deliveryStatus) {
-    return await appointmentModel.findByIdAndUpdate(
-      id,
-      { $set: { deliveryStatus } },
-      { new: true }
-    )
+    return await prisma.appointment.update({
+      where: { id },
+      data: { deliveryStatus },
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async markCompleted(id) {
-    return await appointmentModel.findByIdAndUpdate(
-      id,
-      { $set: { isCompleted: true } },
-      { new: true }
-    )
+    return await prisma.appointment.update({
+      where: { id },
+      data: { isCompleted: true },
+      include: INCLUDE_RELATIONS,
+    });
   }
 
-  // FIX: also set paymentStatus and paymentMethod so the branch portal
-  // and client appointments page both reflect the correct paid state.
-  // Previously only payment:true was set, leaving paymentStatus as
-  // 'pending_payment' which caused the UI to still show "Payment Due".
   async markPaid(id) {
-    return await appointmentModel.findByIdAndUpdate(
-      id,
-      {
-        $set: {
-          payment:       true,
-          paymentStatus: 'paid_online',
-          paymentMethod: 'online',
-          paymentPaidAt: new Date(),
-        }
+    return await prisma.appointment.update({
+      where: { id },
+      data: {
+        payment: true,
+        paymentStatus: 'paid_online',
+        paymentMethod: 'online',
+        paymentPaidAt: new Date(),
       },
-      { new: true }
-    )
+      include: INCLUDE_RELATIONS,
+    });
   }
 
   async saveSessionId(id, sessionId) {
-    return await appointmentModel.findByIdAndUpdate(
-      id,
-      { $set: { sessionId } },
-      { new: true }
-    )
+    return await prisma.appointment.update({
+      where: { id },
+      data: { sessionId },
+      include: INCLUDE_RELATIONS,
+    });
   }
 }
 
-export default new AppointmentRepository()
+export default new AppointmentRepository();

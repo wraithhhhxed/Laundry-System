@@ -1,29 +1,35 @@
-// src/repositories/ProductRepository.js
-import Product from '../../models/productModel.js'
+// backend/src/repositories/ProductRepository.js
+import prisma from '../config/prismaClient.js';
 
 class ProductRepository {
   async findAll(filter = {}) {
-    return Product.find(filter).sort({ createdAt: -1 })
+    return await prisma.product.findMany({
+      where: filter,
+      orderBy: { createdAt: 'desc' },
+    })
   }
 
   async findById(id) {
-    return Product.findById(id)
+    return await prisma.product.findUnique({ where: { id } })
   }
 
   async create(data) {
-    return Product.create(data)
+    return await prisma.product.create({ data })
   }
 
   async update(id, data) {
-    return Product.findByIdAndUpdate(id, data, { new: true })
+    return await prisma.product.update({ where: { id }, data })
   }
 
   async delete(id) {
-    return Product.findByIdAndDelete(id)
+    return await prisma.product.delete({ where: { id } })
   }
 
   async findActive() {
-    return Product.find({ isActive: true }).sort({ category: 1, name: 1 })
+    return await prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    })
   }
 }
 

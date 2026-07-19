@@ -11,7 +11,7 @@ const CATEGORIES = ['detergent', 'conditioner', 'bleach', 'other']
 
 const CAT_COLORS = {
   detergent:   'border-blue-200 text-blue-600',
-  conditioner: 'border-violet-200 text-violet-600',
+  conditioner: 'border-indigo-200 text-indigo-600',
   bleach:      'border-amber-200 text-amber-600',
   other:       'border-neutral-200 text-neutral-500',
 }
@@ -160,7 +160,7 @@ const ProductManagement = () => {
       const headers = { ...authHeader(aToken), 'Content-Type': 'multipart/form-data' }
 
       if (editItem) {
-        const { data } = await axios.put(`${backendUrl}/api/products/${editItem._id}`, formData, { headers })
+        const { data } = await axios.put(`${backendUrl}/api/products/${editItem.id}`, formData, { headers })
         if (data.success) { toast.success('Product updated'); setShowForm(false); fetchProducts() }
         else toast.error(data.message)
       } else {
@@ -179,7 +179,7 @@ const ProductManagement = () => {
   const handleToggle = async (product) => {
     try {
       const { data } = await axios.patch(
-        `${backendUrl}/api/products/${product._id}/toggle`, {},
+        `${backendUrl}/api/products/${product.id}/toggle`, {},
         { headers: authHeader(aToken) }
       )
       if (data.success) { toast.success(data.message); fetchProducts() }
@@ -193,7 +193,7 @@ const ProductManagement = () => {
     if (!window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return
     try {
       const { data } = await axios.delete(
-        `${backendUrl}/api/products/${product._id}`,
+        `${backendUrl}/api/products/${product.id}`,
         { headers: authHeader(aToken) }
       )
       if (data.success) { toast.success('Product deleted'); fetchProducts() }
@@ -225,18 +225,18 @@ const ProductManagement = () => {
     `w-full px-4 py-2.5 border font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none transition-colors bg-white ${
       errors[field]
         ? 'border-red-300 focus:border-red-400 bg-red-50/30'
-        : 'border-violet-100 focus:border-violet-400'
+        : 'border-blue-100 focus:border-blue-400'
     }`
 
   return (
     <div className='bg-neutral-50 min-h-screen w-full' style={{ fontFamily: "'Georgia', serif" }}>
 
-      {/* Violet Panel Header */}
+      {/* Blue Panel Header */}
       <div
-        className='bg-violet-600 px-7 py-6 mb-8'
-        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+        className='bg-blue-600 px-7 py-6 mb-8'
+        style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
       >
-        <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-1'>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>
           Catalog
         </p>
         <div className='flex items-center justify-between'>
@@ -260,7 +260,7 @@ const ProductManagement = () => {
       <div className='px-7 pb-10'>
 
         {/* Filters */}
-        <div className='bg-white border border-violet-100 px-5 py-4 mb-4 flex flex-wrap gap-3 items-center'>
+        <div className='bg-white border border-blue-100 px-5 py-4 mb-4 flex flex-wrap gap-3 items-center'>
 
           {/* Search */}
           <div className='relative flex-1 min-w-[200px]'>
@@ -273,12 +273,12 @@ const ProductManagement = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder='Search by name or description...'
-              className='w-full pl-9 pr-8 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+              className='w-full pl-9 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-violet-400 transition-colors'
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'
               >
                 <X size={14} />
               </button>
@@ -288,7 +288,7 @@ const ProductManagement = () => {
           <select
             value={filterCat}
             onChange={e => setFilterCat(e.target.value)}
-            className='px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+            className='px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white'
           >
             <option value='all'>All Categories</option>
             {CATEGORIES.map(c => (
@@ -299,7 +299,7 @@ const ProductManagement = () => {
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className='px-4 py-2.5 border border-violet-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-violet-400 transition-colors bg-white'
+            className='px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white'
           >
             <option value='all'>All Status</option>
             <option value='active'>Active</option>
@@ -314,7 +314,7 @@ const ProductManagement = () => {
             {hasFilters && (
               <button
                 onClick={clearFilters}
-                className='font-sans text-xs text-violet-500 hover:text-violet-700 transition-colors'
+                className='font-sans text-xs text-blue-500 hover:text-blue-700 transition-colors'
               >
                 Clear filters
               </button>
@@ -323,12 +323,12 @@ const ProductManagement = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-violet-100 overflow-hidden'>
+        <div className='bg-white border border-blue-100 overflow-hidden'>
 
           {/* Header */}
-          <div className='grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] bg-violet-50 px-7 py-3 border-b border-violet-100'>
+          <div className='grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] bg-blue-50 px-7 py-3 border-b border-blue-100'>
             {['Product', 'Category', 'Price', 'Status', 'Actions'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-violet-400'>
+              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
                 {h}
               </span>
             ))}
@@ -341,18 +341,18 @@ const ProductManagement = () => {
               {products.length === 0 ? 'No products yet.' : 'No products match your search.'}
             </div>
           ) : (
-            <div className='divide-y divide-violet-50'>
+            <div className='divide-y divide-blue-50'>
               {filtered.map(product => (
-                <div key={product._id}
-                  className='grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] items-center px-7 py-4 hover:bg-violet-50 transition-colors'>
+                <div key={product.id}
+                  className='grid grid-cols-[2fr_1fr_1fr_1fr_1.5fr] items-center px-7 py-4 hover:bg-blue-50 transition-colors'>
 
                   {/* Product */}
                   <div className='flex items-center gap-3'>
                     {product.image
                       ? <img src={product.image} alt={product.name}
-                          className='w-10 h-10 object-cover border border-violet-100 flex-shrink-0' />
-                      : <div className='w-10 h-10 bg-violet-50 flex items-center justify-center flex-shrink-0'>
-                          <span className='font-sans font-black text-violet-400 text-xs'>
+                          className='w-10 h-10 object-cover border border-blue-100 flex-shrink-0' />
+                      : <div className='w-10 h-10 bg-blue-50 flex items-center justify-center flex-shrink-0'>
+                          <span className='font-sans font-black text-blue-400 text-xs'>
                             {product.name[0]?.toUpperCase()}
                           </span>
                         </div>
@@ -373,7 +373,7 @@ const ProductManagement = () => {
                   <CategoryBadge category={product.category} />
 
                   {/* Price */}
-                  <span className='font-sans font-black text-sm text-violet-600'>
+                  <span className='font-sans font-black text-sm text-blue-600'>
                     ₱{Number(product.price).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                   </span>
 
@@ -389,11 +389,11 @@ const ProductManagement = () => {
                   {/* Actions */}
                   <div className='flex items-center gap-3 flex-wrap'>
                     <button onClick={() => openEdit(product)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-violet-500 hover:text-violet-700 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-blue-500 hover:text-blue-700 transition-colors'>
                       Edit
                     </button>
                     <button onClick={() => handleToggle(product)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-violet-600 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-blue-600 transition-colors'>
                       {product.isActive ? 'Deactivate' : 'Activate'}
                     </button>
                     <button onClick={() => handleDelete(product)}
@@ -419,18 +419,18 @@ const ProductManagement = () => {
             {/* Modal Header */}
             <div
               className='px-6 py-5 sticky top-0 z-10'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #7c3aed' }}
+              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
             >
               <div className='flex items-center justify-between'>
                 <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-violet-200 font-sans font-semibold mb-0.5'>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>
                     Catalog
                   </p>
                   <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>
                     {editItem ? 'Edit Product' : 'Add New Product'}
                   </h2>
                 </div>
-                <button onClick={() => setShowForm(false)} className='text-violet-200 hover:text-white transition-colors'>
+                <button onClick={() => setShowForm(false)} className='text-blue-200 hover:text-white transition-colors'>
                   <X size={18} />
                 </button>
               </div>
@@ -450,15 +450,15 @@ const ProductManagement = () => {
 
               {/* Image Upload */}
               <div>
-                <p className='uppercase tracking-[0.35em] text-[10px] text-violet-400 font-sans font-semibold mb-2'>
+                <p className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans font-semibold mb-2'>
                   Product Image
                 </p>
-                <div className='h-px bg-violet-100 mb-4' />
+                <div className='h-px bg-blue-100 mb-4' />
                 <div className='flex items-center gap-4'>
                   <div
                     onClick={() => fileRef.current.click()}
-                    className={`w-20 h-20 border flex items-center justify-center cursor-pointer hover:border-violet-400 transition-colors overflow-hidden bg-neutral-50 flex-shrink-0 ${
-                      errors.image ? 'border-red-300' : 'border-violet-100'
+                    className={`w-20 h-20 border flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors overflow-hidden bg-neutral-50 flex-shrink-0 ${
+                      errors.image ? 'border-red-300' : 'border-blue-100'
                     }`}
                   >
                     {imagePreview
@@ -470,14 +470,14 @@ const ProductManagement = () => {
                     <button
                       type='button'
                       onClick={() => fileRef.current.click()}
-                      className='group relative overflow-hidden border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2'
+                      className='group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2'
                       style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}
                     >
-                      <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                      <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                       <span className='relative z-10'>{imagePreview ? 'Change' : 'Upload'}</span>
                     </button>
                     <p className='font-sans text-xs text-neutral-300 mt-1.5'>JPG, PNG, WEBP · max 5MB</p>
-                    {imageFile && <p className='font-sans text-xs text-violet-500 mt-0.5'>{imageFile.name}</p>}
+                    {imageFile && <p className='font-sans text-xs text-blue-500 mt-0.5'>{imageFile.name}</p>}
                     <FieldError message={errors.image} />
                   </div>
                 </div>
@@ -563,19 +563,19 @@ const ProductManagement = () => {
             <div className='px-6 pb-6 flex gap-3'>
               <button
                 onClick={() => setShowForm(false)}
-                className='group relative overflow-hidden flex-1 border border-violet-200 text-violet-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
-                <div className='absolute inset-0 bg-violet-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className='group relative overflow-hidden flex-1 bg-violet-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
+                className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
-                <div className='absolute inset-0 bg-violet-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>
                   {submitting ? 'Saving...' : editItem ? 'Save Changes' : 'Add Product'}
                 </span>
@@ -596,7 +596,7 @@ const highlightMatch = (text, query) => {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className='bg-violet-100 text-violet-700 font-black rounded-none px-0'>
+      <mark className='bg-blue-100 text-blue-700 font-black rounded-none px-0'>
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}

@@ -25,7 +25,7 @@ const ClothingTypesList = () => {
   const handleSubmit = async () => {
     if (!name.trim()) return
     const payload = { name: name.trim(), isActive }
-    if (editItem) await updateClothingType(editItem._id, payload)
+    if (editItem) await updateClothingType(editItem.id, payload)
     else await addClothingType(payload)
     setShowForm(false)
   }
@@ -120,7 +120,7 @@ const ClothingTypesList = () => {
           ) : (
             <div className='divide-y divide-violet-50'>
               {filtered.map(item => (
-                <div key={item._id}
+                <div key={item.id}
                   className='grid grid-cols-[2fr_1fr_auto] items-center px-7 py-4 hover:bg-violet-50 transition-colors'>
 
                   {/* Name */}
@@ -141,7 +141,7 @@ const ClothingTypesList = () => {
                       className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-violet-500 hover:text-violet-700 transition-colors'>
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(item._id)}
+                    <button onClick={() => handleDelete(item.id)}
                       className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-400 hover:text-red-600 transition-colors'>
                       Delete
                     </button>

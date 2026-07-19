@@ -24,7 +24,7 @@ const KgRatesList = () => {
   const handleSubmit = async () => {
     if (!kg || price === '') return
     const payload = { kg: Number(kg), price: Number(price) }
-    if (editItem) await updateKgRate(editItem._id, payload)
+    if (editItem) await updateKgRate(editItem.id, payload)
     else await addKgRate(payload)
     setShowForm(false)
   }
@@ -34,7 +34,7 @@ const KgRatesList = () => {
   }
 
   const handleToggle = async (item) => {
-    await updateKgRate(item._id, { isActive: !item.isActive })
+    await updateKgRate(item.id, { isActive: !item.isActive })
   }
 
   const existingKgs = kgRates.map(r => r.kg)
@@ -100,7 +100,7 @@ const KgRatesList = () => {
           ) : (
             <div className='divide-y divide-violet-50'>
               {kgRates.map(item => (
-                <div key={item._id}
+                <div key={item.id}
                   className='grid grid-cols-[1fr_1fr_1fr_auto] items-center px-7 py-4 hover:bg-violet-50 transition-colors'>
 
                   {/* KG */}
@@ -132,7 +132,7 @@ const KgRatesList = () => {
                       className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-violet-500 hover:text-violet-700 transition-colors'>
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(item._id)}
+                    <button onClick={() => handleDelete(item.id)}
                       className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-400 hover:text-red-600 transition-colors'>
                       Delete
                     </button>
@@ -154,7 +154,7 @@ const KgRatesList = () => {
             <div className='flex flex-wrap gap-3'>
               {kgRates.map(r => (
                 <div
-                  key={r._id}
+                  key={r.id}
                   className='bg-violet-600 px-6 py-4 min-w-[100px] text-center'
                   style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #7c3aed' }}
                 >
