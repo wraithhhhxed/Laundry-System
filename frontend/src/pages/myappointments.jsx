@@ -149,7 +149,9 @@ const AppointmentCard = ({
   onArchive, 
   onDelete,
   onPayOnline, 
+  onResolveOverweight,
   payingId,
+  resolvingId,
   isArchivedView = false
 }) => {
   const payStatus  = resolvePaymentStatus(item)
@@ -174,6 +176,8 @@ const AppointmentCard = ({
   const statusInfo    = DELIVERY_STATUS_MAP[item.deliveryStatus]
   const payStatusInfo = PAYMENT_STATUS_MAP[payStatus] || PAYMENT_STATUS_MAP.unpaid
   const isPayingThis  = payingId === item.id
+  const hasOverweightDecision = item.overweightStatus === 'pending_decision'
+  const isResolvingThis = resolvingId === item.id
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }}
@@ -295,6 +299,34 @@ const AppointmentCard = ({
         </div>
       )}
 
+      {hasOverweightDecision && !item.cancelled && (
+        <div className='border-t border-amber-100 bg-amber-50 px-6 py-5 flex flex-col gap-3'>
+          <p className='font-sans text-sm text-amber-700'>
+            <span className='font-bold'>Your laundry weighed over the 7kg limit</span>
+            {item.overweightExcessKg != null && (
+              <span> by {item.overweightExcessKg}kg.</span>
+            )}
+            {' '}Please choose how to proceed. If no response is received by end of day, this appointment will be automatically cancelled.
+          </p>
+          <div className='flex flex-wrap gap-3'>
+            <button
+              onClick={() => onResolveOverweight(item.id, 'split')}
+              disabled={isResolvingThis}
+              className='font-sans text-sm px-6 py-2.5 bg-blue-600 text-white uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed'
+              style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
+              {isResolvingThis ? 'Processing...' : 'Split into 2 Loads'}
+            </button>
+            <button
+              onClick={() => onResolveOverweight(item.id, 'trim')}
+              disabled={isResolvingThis}
+              className='font-sans text-sm px-6 py-2.5 border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed'
+              style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
+              {isResolvingThis ? 'Processing...' : 'Set Aside Excess'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {canCancel && (
         <div className='border-t border-blue-50 px-6 py-4 flex gap-3 justify-end bg-blue-50/30'>
           <button onClick={onCancel}
@@ -313,6 +345,7 @@ const MyAppointments = () => {
   const {
     appointments, getUserAppointments,
     cancelAppointment, createPayment,
+    resolveOverweight,
     currencySymbol, token,
   } = useContext(AppContext)
 
@@ -322,6 +355,7 @@ const MyAppointments = () => {
   const [lastUpdated,  setLastUpdated]  = useState(null)
   const [secondsAgo,   setSecondsAgo]   = useState(0)
   const [payingId,     setPayingId]     = useState(null)
+  const [resolvingId,  setResolvingId]  = useState(null)
   const [archived,     setArchived]     = useState(() => {
     try { return JSON.parse(localStorage.getItem('archivedAppointments') || '[]') } catch { return [] }
   })
@@ -378,6 +412,17 @@ const MyAppointments = () => {
       await createPayment(id)
     } finally {
       setPayingId(null)
+    }
+  }
+
+  const handleResolveOverweight = async (id, resolution) => {
+    if (resolvingId) return
+    setResolvingId(id)
+    try {
+      await resolveOverweight(id, resolution)
+      await refresh()
+    } finally {
+      setResolvingId(null)
     }
   }
 
@@ -500,7 +545,9 @@ const MyAppointments = () => {
               onArchive={() => setArchiveModal(item.id)}
               onDelete={() => setDeleteModal(item.id)}
               onPayOnline={() => handlePayOnline(item.id)}
+              onResolveOverweight={handleResolveOverweight}
               payingId={payingId}
+              resolvingId={resolvingId}
               isArchivedView={isArchivedTab}
             />
           ))

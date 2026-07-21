@@ -10,6 +10,7 @@ import {
   listAppointments,
   cancelAppointment,
   requestRefund,
+  resolveOverweight,
   createPaymentLink,
   verifyPayment,
   getActiveServices,
@@ -46,6 +47,7 @@ userRouter.post('/book-appointment',   protect('user'), bookAppointment)
 userRouter.get('/appointments',        protect('user'), listAppointments)
 userRouter.post('/cancel-appointment', protect('user'), cancelAppointment)
 userRouter.post('/request-refund',     protect('user'), requestRefund)
+userRouter.post('/resolve-overweight', protect('user'), resolveOverweight)
 userRouter.post('/create-payment',     protect('user'), createPaymentLink)
 userRouter.post('/verify-payment',     protect('user'), verifyPayment)
 userRouter.post('/logout',             protect('user'), logoutUser)

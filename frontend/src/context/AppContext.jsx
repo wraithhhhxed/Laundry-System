@@ -77,6 +77,20 @@ const AppContextProvider = (props) => {
     }
   }
 
+  const resolveOverweight = async (appointmentId, resolution) => {
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/user/resolve-overweight`,
+        { appointmentId, resolution },
+        { headers: authHeader(token) }
+      )
+      if (data.success) { toast.success(data.message); getUserAppointments() }
+      else toast.error(data.message)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
   const createPayment = async (appointmentId) => {
     try {
       const { data } = await axios.post(
@@ -154,6 +168,7 @@ const AppContextProvider = (props) => {
     getUserAppointments,
     cancelAppointment,
     createPayment,
+    resolveOverweight,
     validatePromo,
     logoutUser,
   }

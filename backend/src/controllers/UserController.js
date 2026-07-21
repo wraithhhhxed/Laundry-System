@@ -98,6 +98,21 @@ const requestRefund = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, {}, 'Refund request submitted successfully'))
 })
 
+const resolveOverweight = asyncHandler(async (req, res) => {
+  const { appointmentId, resolution } = req.body
+  if (!appointmentId || !resolution)
+    throw new ApiError(400, 'appointmentId and resolution are required')
+
+  const user  = await userService.getProfile(req.user.id)
+  const actor = { userId: user._id, name: user.name, role: 'client' }
+
+  const appointment = await appointmentService.resolveOverweight(
+    appointmentId, req.user.id, resolution, actor
+  )
+
+  res.json(new ApiResponse(200, { appointment }, 'Overweight decision recorded'))
+})
+
 const createPaymentLink = asyncHandler(async (req, res) => {
   const { checkoutUrl, sessionId } = await userService.createPaymentLink(req.body.appointmentId)
   res.json(new ApiResponse(200, { checkoutUrl, sessionId }))
@@ -163,7 +178,7 @@ export {
   registerUser, loginUser, logoutUser,
   getUserProfile, updateUserProfile,
   bookAppointment, listAppointments,
-  cancelAppointment, requestRefund,
+  cancelAppointment, requestRefund, resolveOverweight,
   createPaymentLink, verifyPayment,
   getActiveServices, getActiveClothingTypes, getActiveKgRates,
   googleAuthUser,

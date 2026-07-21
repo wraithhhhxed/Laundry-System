@@ -187,6 +187,18 @@ class AppointmentService {
     }));
     // ──────────────────────────────────────────────────────────
 
+    // ── OVERWEIGHT CHECK (7kg cap per load) ─────────────────────
+    // Kung may basket na lumagpas sa 7kg, HINDI muna ito ma-finalize.
+    // Hihintayin muna ang desisyon ng client (split into 2 loads o trim
+    // to 7kg) sa halip na mag-apply ng automatic per-kg overweight fee.
+    let totalExcessKg = 0;
+    for (const { actualKg } of actualServices) {
+      const parsed = parseFloat(Number(actualKg).toFixed(2));
+      if (parsed > 7) totalExcessKg += parseFloat((parsed - 7).toFixed(2));
+    }
+    const isOverweight = totalExcessKg > 0;
+    // ─────────────────────────────────────────────────────────────
+
     for (const { serviceIndex, actualKg } of actualServices) {
       const svc = appointment.services[serviceIndex];
       if (!svc) throw new ApiError(400, `No service at index ${serviceIndex}`);
@@ -195,11 +207,32 @@ class AppointmentService {
       await AppointmentRepository.updateServiceActualKg(svc.id, parsed);
     }
 
-    const updated = await AppointmentRepository.updateById(appointmentId, {
-      weightConfirmedAt: new Date(),
-      weightConfirmedBy: branchId,
-      paymentStatus: 'pending_payment',
-    });
+    let updates;
+    if (isOverweight) {
+      const deadline = new Date();
+      deadline.setHours(17, 0, 0, 0);
+
+      updates = {
+        weightConfirmedAt: new Date(),
+        weightConfirmedBy: branchId,
+        overweightStatus: 'pending_decision',
+        overweightExcessKg: totalExcessKg,
+        overweightNotifiedAt: new Date(),
+        overweightDeadline: deadline,
+      };
+    } else {
+      updates = {
+        weightConfirmedAt: new Date(),
+        weightConfirmedBy: branchId,
+        paymentStatus: 'pending_payment',
+      };
+    }
+
+    const updated = await AppointmentRepository.updateById(appointmentId, updates);
+
+    // TODO: kapag ready na ang NotificationService (SMS mock + in-app),
+    // i-trigger dito ang notification sa client kapag isOverweight === true:
+    // await NotificationService.notifyOverweight(updated, totalExcessKg);
 
     // ── AUDIT ────────────────────────────────────────────────────
     await AuditService.logWeightConfirmed(
@@ -213,12 +246,122 @@ class AppointmentService {
           actualKg: s.actualKg,
         })),
         finalAmount: updated.finalAmount,
-        paymentStatus: 'pending_payment',
+        paymentStatus: updated.paymentStatus,
+        overweightStatus: updated.overweightStatus,
       }
     );
     // ────────────────────────────────────────────────────────────
 
     return updated;
+  }
+
+  // ─── RESOLVE OVERWEIGHT DECISION ────────────────────────────────
+  // Client's response sa overweight prompt. "split" = magdagdag ng bagong
+  // load (buong presyo, kagaya ng orihinal na service type). "trim" = i-cap
+  // na lang ang labis pabalik sa 7kg, walang dagdag na load/bayad.
+  async resolveOverweight(appointmentId, userId, resolution, actor = null) {
+    if (!['split', 'trim'].includes(resolution))
+      throw new ApiError(400, 'Resolution must be "split" or "trim"');
+
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.userId !== userId)
+      throw new ApiError(403, 'Unauthorized');
+    if (appointment.overweightStatus !== 'pending_decision')
+      throw new ApiError(400, 'No pending overweight decision for this appointment');
+
+    const before = {
+      overweightStatus: appointment.overweightStatus,
+      services: appointment.services.map((s) => ({ id: s.id, actualKg: s.actualKg })),
+    };
+
+    if (resolution === 'trim') {
+      // "trim"/"set aside" — HINDI nilalaba ang labis na kg. Isasauli na
+      // lang ito nang hindi nilabhan, kasabay ng parehong delivery.
+      for (const svc of appointment.services) {
+        if (svc.actualKg != null && svc.actualKg > 7) {
+          await AppointmentRepository.updateServiceActualKg(svc.id, 7);
+        }
+      }
+    } else {
+      // "split" — gumawa ng bagong load para sa bawat basket na lumagpas,
+      // gamit ang parehong service type/price (buong presyo, fixed package).
+      // IMPORTANTE: idadagdag din ang presyo ng bagong load sa servicesTotal/
+      // finalAmount ng buong appointment, dahil bagong buong-presyong load
+      // ito, hindi lang simpleng weight confirmation.
+      let addedPriceTotal = 0;
+      for (const svc of appointment.services) {
+        if (svc.actualKg != null && svc.actualKg > 7) {
+          const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
+          await AppointmentRepository.addSplitLoad(appointmentId, {
+            serviceId: svc.serviceId,
+            name: svc.name,
+            price: svc.price,
+            kg: excessKg > 7 ? 7 : excessKg,
+          });
+          await AppointmentRepository.updateServiceActualKg(svc.id, 7);
+          addedPriceTotal += svc.price ?? 0;
+        }
+      }
+
+      if (addedPriceTotal > 0) {
+        const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
+        const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
+        const newVatAmount = parseFloat((newSubtotal * appointment.vatRate).toFixed(2));
+        const newFinalAmount = parseFloat((newSubtotal + newVatAmount).toFixed(2));
+
+        await AppointmentRepository.updateById(appointmentId, {
+          servicesTotal: newServicesTotal,
+          totalAmount: newSubtotal,
+          vatAmount: newVatAmount,
+          finalAmount: newFinalAmount,
+        });
+      }
+    }
+
+    const updated = await AppointmentRepository.updateById(appointmentId, {
+      overweightStatus: 'resolved',
+      overweightResolution: resolution,
+      overweightResolvedAt: new Date(),
+      paymentStatus: 'pending_payment',
+    });
+
+    // ── AUDIT ────────────────────────────────────────────────────
+    await AuditService.logWeightConfirmed(
+      actor ?? { name: 'Client', role: 'client', userId },
+      appointment,
+      before,
+      {
+        overweightStatus: 'resolved',
+        overweightResolution: resolution,
+        services: updated.services.map((s) => ({ id: s.id, actualKg: s.actualKg })),
+      }
+    );
+    // ────────────────────────────────────────────────────────────
+
+    return updated;
+  }
+
+  // ─── AUTO-CANCEL EXPIRED OVERWEIGHT DECISIONS ───────────────────
+  // Kung walang sagot ang client sa loob ng araw (deadline: 5pm),
+  // awtomatikong ica-cancel ang appointment.
+  async autoCancelExpiredOverweightDecisions() {
+    const expired = await AppointmentRepository.findPendingOverweightPastDeadline();
+    for (const appointment of expired) {
+      await AppointmentRepository.cancelById(appointment.id);
+      await AppointmentRepository.updateById(appointment.id, {
+        overweightStatus: 'resolved',
+      });
+
+      await AuditService.logAppointmentCancelled(
+        { name: 'System', role: 'system' },
+        appointment,
+        'Auto-cancelled: no overweight decision received by deadline'
+      );
+    }
+    if (expired.length > 0)
+      console.log(`[AutoCancel] Cancelled ${expired.length} appointment(s) with expired overweight decisions.`);
+    return expired.length;
   }
 
   // ─── CONFIRM PAYMENT ────────────────────────────────────────────

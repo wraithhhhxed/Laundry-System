@@ -1,4 +1,3 @@
-// backend/src/repositories/AppointmentRepository.js
 import prisma from '../config/prismaClient.js';
 
 // Lahat ng related rows na kailangang isama sa bawat query — sa Postgres,
@@ -83,6 +82,38 @@ class AppointmentRepository {
     return await prisma.appointmentService.update({
       where: { id: appointmentServiceId },
       data: { actualKg },
+    });
+  }
+
+  // ─── OVERWEIGHT SPLIT LOAD ─────────────────────────────────────
+  // Ginagamit kapag "split into 2 loads" ang piniling resolution ng client
+  // para sa overweight appointment — gumagawa ng BAGONG AppointmentService
+  // row (bagong load/basket) na may sariling fixed price snapshot.
+  async addSplitLoad(appointmentId, { serviceId, name, price, kg }) {
+    return await prisma.appointmentService.create({
+      data: {
+        appointmentId,
+        serviceId,
+        name,
+        price,
+        kg,
+        actualKg: kg,
+      },
+    });
+  }
+
+  // ─── FIND PENDING OVERWEIGHT PAST DEADLINE ────────────────────
+  // Ginagamit ng auto-cancel checker/cron — hahanapin lahat ng appointments
+  // na naka-"pending_decision" pa sa overweight status at lampas na sa
+  // kanilang deadline (walang sagot ang client sa loob ng araw).
+  async findPendingOverweightPastDeadline() {
+    return await prisma.appointment.findMany({
+      where: {
+        overweightStatus: 'pending_decision',
+        overweightDeadline: { lt: new Date() },
+        cancelled: false,
+      },
+      include: INCLUDE_RELATIONS,
     });
   }
 

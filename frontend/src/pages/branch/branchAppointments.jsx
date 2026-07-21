@@ -80,7 +80,6 @@ const renderServices = (appt) => {
 }
 
 // ─── RECEIPT MODAL ────────────────────────────────────────────────
-// ─── RECEIPT MODAL ────────────────────────────────────────────────
 const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const [printed, setPrinted] = useState(false)
 
@@ -94,7 +93,76 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const receiptDate = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
   const receiptTime = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
 
-  const receiptBodyHTML = (copyLabel) => `
+  // CSS para sa 58mm thermal printer
+  const receiptStyles = `
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      color: #000;
+      background: #fff;
+      width: 58mm;
+      padding: 0;
+      margin: 0 auto;
+    }
+    @page {
+      size: 58mm 80mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .receipt-copy {
+      width: 58mm;
+      max-width: 58mm;
+      padding: 2mm 3mm;
+      page-break-after: always !important;
+      page-break-inside: avoid !important;
+      height: 80mm;
+      max-height: 80mm;
+      overflow: hidden;
+    }
+    .receipt-copy:last-child {
+      page-break-after: auto !important;
+    }
+    .center { text-align: center; }
+    .bold { font-weight: bold; }
+    .large { font-size: 12px; }
+    .xlarge { font-size: 16px; font-weight: 900; letter-spacing: -0.5px; }
+    .small { font-size: 7px; color: #555; }
+    .divider { border-top: 1px dashed #999; margin: 3px 0; }
+    .row { display: flex; justify-content: space-between; margin: 1px 0; }
+    .label { color: #555; }
+    .total { font-size: 12px; font-weight: 900; }
+    .chip {
+      display: inline-block;
+      border: 1px solid;
+      padding: 1px 5px;
+      font-size: 7px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .paid { border-color: #16a34a; color: #16a34a; }
+    .pending { border-color: #d97706; color: #d97706; }
+    .tag { font-size: 6px; letter-spacing: 2px; text-transform: uppercase; color: #888; }
+    .mt4 { margin-top: 4px; }
+    .mb4 { margin-bottom: 4px; }
+    .strike { text-decoration: line-through; color: #999; }
+    @media print {
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 58mm !important;
+        height: 80mm !important;
+      }
+      .no-print { display: none !important; }
+    }
+  `
+
+  const renderReceiptContent = (copyLabel) => `
     <div class="center mb4">
       <div class="tag">Branch Portal — ${copyLabel}</div>
       <div class="xlarge">SELFIE WASH</div>
@@ -116,7 +184,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="mb4 mt4">
       <div class="tag">Services</div>
       ${(appt.services || []).map((svc, i) => `
-        <div class="row" style="margin-top:6px"><span class="bold">Basket ${i + 1} — ${svc.name}</span></div>
+        <div class="row" style="margin-top:2px"><span class="bold">Basket ${i + 1} — ${svc.name}</span></div>
         <div class="row"><span class="label">Est. weight</span><span>${svc.kg}kg</span></div>
         ${svc.actualKg != null ? `<div class="row"><span class="label">Actual weight</span><span class="bold">${svc.actualKg}kg</span></div>` : ''}
         ${svc.overweightCharge > 0 ? `<div class="row"><span class="label">Overweight charge</span><span>${fmt(svc.overweightCharge)}</span></div>` : ''}
@@ -142,126 +210,160 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="divider"></div>
     <div class="center mt4">
       <span class="chip ${isPaid ? 'paid' : 'pending'}">${PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}</span>
-      <div class="small" style="margin-top:6px">Payment: ${appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</div>
+      <div class="small" style="margin-top:2px">Payment: ${appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</div>
     </div>
-    <div class="divider" style="margin-top:20px"></div>
-    <div class="center small" style="margin-top:8px">Thank you for choosing Selfie Wash!<br/>Please keep this receipt for your records.</div>
+    <div class="divider" style="margin-top:10px"></div>
+    <div class="center small" style="margin-top:3px">Thank you for choosing Selfie Wash!<br/>Please keep this receipt.</div>
   `
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank', 'width=400,height=700')
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Receipt — ${appt.userData?.name || 'Client'}</title>
-    <style>
-      *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'Courier New',monospace;font-size:12px;color:#111;background:#fff}
-      .copy{padding:20px;max-width:320px;margin:0 auto;page-break-after:always}
-      .copy:last-child{page-break-after:auto}
-      .center{text-align:center}.bold{font-weight:bold}.large{font-size:16px}
-      .xlarge{font-size:20px;font-weight:900;letter-spacing:-0.5px}.small{font-size:10px;color:#555}
-      .divider{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;margin:3px 0}
-      .label{color:#555}.total{font-size:15px;font-weight:900}
-      .chip{display:inline-block;border:1px solid;padding:2px 8px;font-size:10px;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
-      .paid{border-color:#16a34a;color:#16a34a}.pending{border-color:#d97706;color:#d97706}
-      .tag{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888}
-      .mt4{margin-top:12px}.mb4{margin-bottom:12px}.strike{text-decoration:line-through;color:#999}
-    </style></head><body>
-    <div class="copy">${receiptBodyHTML('Branch Copy')}</div>
-    <div class="copy">${receiptBodyHTML('Client Copy')}</div>
-    </body></html>`)
-    printWindow.document.close()
-    printWindow.focus()
-    setTimeout(() => { printWindow.print(); printWindow.close() }, 300)
-    setPrinted(true)
+    // Gumawa ng hidden iframe
+    const iframe = document.createElement('iframe')
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = 'none'
+    iframe.style.visibility = 'hidden'
+    document.body.appendChild(iframe)
+
+    const doc = iframe.contentWindow || iframe.contentDocument
+    const docWrite = doc.document ? doc.document : doc
+
+    docWrite.open()
+    docWrite.write(`<!DOCTYPE html>
+    <html>
+    <head>
+      <title>Receipt</title>
+      <style>${receiptStyles}</style>
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+            setTimeout(function() {
+              window.close();
+            }, 500);
+          }, 300);
+        }
+      <\/script>
+    </head>
+    <body>
+      <div class="receipt-copy">${renderReceiptContent('Branch Copy')}</div>
+      <div class="receipt-copy">${renderReceiptContent('Client Copy')}</div>
+    </body>
+    </html>`)
+    docWrite.close()
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+        setPrinted(true)
+      } catch (e) {
+        console.error('Print error:', e)
+        window.print()
+        setPrinted(true)
+      }
+    }, 400)
+
+    setTimeout(() => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe)
+      }
+    }, 3000)
   }
+
+  const renderPreview = () => (
+    <div className="border border-dashed border-neutral-300 bg-neutral-50 p-2.5 font-mono text-[8px] text-neutral-800" 
+         style={{ maxWidth: '58mm', margin: '0 auto' }}>
+      <div className="text-center mb-1.5">
+        <p className="text-[6px] uppercase tracking-[0.3em] text-neutral-400">Branch Portal — Preview</p>
+        <p className="font-black text-sm tracking-tight">SELFIE WASH</p>
+        <p className="text-[6px] text-neutral-400">Official Service Receipt</p>
+        <div className="border-t border-dashed border-neutral-300 mt-1 pt-1">
+          <p className="text-[6px] text-neutral-400">{receiptDate} · {receiptTime}</p>
+        </div>
+      </div>
+      <div className="mb-1.5">
+        <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Client</p>
+        <p className="font-bold text-[8px]">{appt.userData?.name || '—'}</p>
+        <p className="text-[6px] text-neutral-400">{appt.userData?.email || ''}</p>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="mb-1.5">
+        <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Schedule</p>
+        <p>{appt.slotDate} · {appt.slotTime}</p>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="mb-1.5">
+        <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Services</p>
+        {(appt.services || []).map((svc, i) => (
+          <div key={i} className="mb-1">
+            <p className="font-bold text-[7px]">Basket {i + 1} — {svc.name}</p>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Est. weight</span><span>{svc.kg}kg</span></div>
+            {svc.actualKg != null && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Actual weight</span><span className="font-bold text-blue-700">{svc.actualKg}kg</span></div>}
+            {svc.overweightCharge > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Overweight charge</span><span className="text-amber-600">{fmt(svc.overweightCharge)}</span></div>}
+          </div>
+        ))}
+      </div>
+      {appt.addOns?.length > 0 && (
+        <>
+          <div className="border-t border-dashed border-neutral-300 my-1.5" />
+          <div className="mb-1.5">
+            <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Add-ons</p>
+            {appt.addOns.map((a, i) => (
+              <div key={i} className="flex justify-between text-[7px]"><span>{a.name} ×{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="mb-1.5 space-y-0.5">
+        {hasActual ? (
+          <>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
+            {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
+          </>
+        ) : vatPercent > 0 && (
+          <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>+{fmt(appt.vatAmount)}</span></div>
+        )}
+        {appt.discountAmount > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
+        <div className="border-t border-dashed border-neutral-300 pt-1 mt-1 flex justify-between font-black text-[9px]">
+          <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
+        </div>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="text-center">
+        <span className={`inline-block border px-1.5 py-0.5 text-[6px] uppercase tracking-widest font-bold ${PAYMENT_STATUS_CHIP[payStatus] || PAYMENT_STATUS_CHIP.unpaid}`}>
+          {PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}
+        </span>
+        <p className="text-[6px] text-neutral-400 mt-0.5">Payment: {appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</p>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 mt-2 pt-1.5 text-center">
+        <p className="text-[6px] text-neutral-400">Thank you for choosing Selfie Wash!</p>
+        <p className="text-[6px] text-neutral-400">Please keep this receipt.</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white w-full max-w-lg flex flex-col max-h-[90vh]"
         style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-
         <div className="px-6 py-5 flex-shrink-0"
           style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Print Receipt</h2>
-              <p className="font-sans text-xs text-blue-300 mt-0.5">Print receipt before marking as Out for Delivery</p>
+              <p className="font-sans text-xs text-blue-300 mt-0.5">58mm thermal printer</p>
             </div>
             <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
           </div>
         </div>
-
         <div className="overflow-y-auto flex-1 px-6 py-6">
-          <div className="border border-dashed border-neutral-300 bg-neutral-50 p-6 font-mono text-xs text-neutral-800 max-w-xs mx-auto">
-            <div className="text-center mb-4">
-              <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-400">Branch Portal — Preview</p>
-              <p className="font-black text-lg tracking-tight">SELFIE WASH</p>
-              <p className="text-[9px] text-neutral-400">Official Service Receipt</p>
-              <div className="border-t border-dashed border-neutral-300 mt-2 pt-2">
-                <p className="text-[9px] text-neutral-400">{receiptDate} · {receiptTime}</p>
-              </div>
-            </div>
-            <div className="mb-3">
-              <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-0.5">Client</p>
-              <p className="font-bold">{appt.userData?.name || '—'}</p>
-              <p className="text-[9px] text-neutral-400">{appt.userData?.email || ''}</p>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="mb-3">
-              <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-0.5">Schedule</p>
-              <p>{appt.slotDate} · {appt.slotTime}</p>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="mb-3">
-              <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Services</p>
-              {(appt.services || []).map((svc, i) => (
-                <div key={i} className="mb-2">
-                  <p className="font-bold">Basket {i + 1} — {svc.name}</p>
-                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Est. weight</span><span>{svc.kg}kg</span></div>
-                  {svc.actualKg != null && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Actual weight</span><span className="font-bold text-blue-700">{svc.actualKg}kg</span></div>}
-                  {svc.overweightCharge > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Overweight charge</span><span className="text-amber-600">{fmt(svc.overweightCharge)}</span></div>}
-                </div>
-              ))}
-            </div>
-            {appt.addOns?.length > 0 && (
-              <>
-                <div className="border-t border-dashed border-neutral-300 my-3" />
-                <div className="mb-3">
-                  <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Add-ons</p>
-                  {appt.addOns.map((a, i) => (
-                    <div key={i} className="flex justify-between text-[10px]"><span>{a.name} ×{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="mb-3 space-y-1">
-              {hasActual ? (
-                <>
-                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
-                  {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
-                </>
-              ) : vatPercent > 0 && (
-                <div className="flex justify-between text-[10px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>+{fmt(appt.vatAmount)}</span></div>
-              )}
-              {appt.discountAmount > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
-              <div className="border-t border-dashed border-neutral-300 pt-2 mt-1 flex justify-between font-black text-sm">
-                <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
-              </div>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="text-center">
-              <span className={`inline-block border px-2 py-0.5 text-[9px] uppercase tracking-widest font-bold ${PAYMENT_STATUS_CHIP[payStatus] || PAYMENT_STATUS_CHIP.unpaid}`}>
-                {PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}
-              </span>
-              <p className="text-[9px] text-neutral-400 mt-1">Payment: {appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</p>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 mt-4 pt-3 text-center">
-              <p className="text-[9px] text-neutral-400">Thank you for choosing Selfie Wash!</p>
-              <p className="text-[9px] text-neutral-400">Please keep this receipt for your records.</p>
-            </div>
-          </div>
-
+          {renderPreview()}
           {printed && (
             <div className="mt-4 flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2.5 max-w-xs mx-auto">
               <span className="text-green-600 text-sm">✓</span>
@@ -269,7 +371,6 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
             </div>
           )}
         </div>
-
         <div className="px-6 pb-4 pt-3 flex gap-3 flex-shrink-0 border-t border-blue-100">
           <button onClick={handlePrint}
             className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 flex-1 py-2.5"
@@ -346,7 +447,7 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
                 <span className="font-sans text-xs text-neutral-400 flex-shrink-0">kg</span>
               </div>
               {Number(actualKgs[idx]?.actualKg) > 7 && (
-                <p className="font-sans text-xs text-amber-600 mt-1.5">⚠ Over 7kg — overweight charge of ₱20/kg applies for {(Number(actualKgs[idx].actualKg) - 7).toFixed(1)}kg extra</p>
+                <p className="font-sans text-xs text-amber-600 mt-1.5">Over 7kg by {(Number(actualKgs[idx].actualKg) - 7).toFixed(1)}kg — client will be asked to choose: split into a second load, or set the excess aside unwashed.</p>
               )}
             </div>
           ))}
@@ -495,7 +596,7 @@ const BranchAppointments = () => {
     bToken, appointments, getBranchAppointments,
     cancelAppointment, updateDeliveryStatus,
     confirmActualWeight, confirmPayment,
-    archiveAppointment, // Make sure this is available from context
+    archiveAppointment,
   } = useContext(BranchesContext)
 
   const [search,        setSearch]        = useState('')
@@ -532,14 +633,11 @@ const BranchAppointments = () => {
   }, [lastUpdated])
   useEffect(() => { setCurrentPage(1) }, [search, statusFilter, paymentFilter])
 
-const filtered = useMemo(() => appointments.filter(appt => {
-    // Handle archived filter
+  const filtered = useMemo(() => appointments.filter(appt => {
     if (statusFilter === 'archived') {
       return appt.archived === true
     }
-    
-    if (appt.archived) return false // Hide archived by default
-    
+    if (appt.archived) return false
     if (statusFilter === 'cancelled' && !appt.cancelled) return false
     if (statusFilter !== 'all' && statusFilter !== 'cancelled') {
       if (appt.cancelled) return false
@@ -558,7 +656,6 @@ const filtered = useMemo(() => appointments.filter(appt => {
     }
     return true
   }).sort((a, b) => {
-    // Show archived at the bottom when viewing all
     if (a.archived && !b.archived) return 1
     if (!a.archived && b.archived) return -1
     return Number(b.date) - Number(a.date)
@@ -605,13 +702,11 @@ const filtered = useMemo(() => appointments.filter(appt => {
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
-
       {weightModal  && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
       {receiptModal && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} />}
       {archiveModal && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
 
-      {/* Header */}
       <div className="px-10 pt-10 pb-12" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
         <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3">Branch Portal</p>
         <div className="flex items-end justify-between gap-4 flex-wrap">
@@ -683,28 +778,19 @@ const filtered = useMemo(() => appointments.filter(appt => {
             const isPaid         = appt.payment || payStatus === 'paid_cash' || payStatus === 'paid_online'
             const isCashMethod   = appt.preferredPaymentMethod === 'cash' || !appt.preferredPaymentMethod
             const isOnlineMethod = appt.preferredPaymentMethod === 'online'
+            const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
 
-            // ── FIX 1: canWeigh — hide weight button once paid (cash or online) ──
             const canWeigh = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid
-
-            // Cash confirm: ONLY at out_for_delivery
             const canConfirmCash = !isCancelled && !isPaid && isCashMethod && appt.deliveryStatus === 'out_for_delivery' && !isArchived
-
-            // ── FIX 2: block advance to out_for_delivery if online & unpaid ──
-            const blockedByOnlinePayment = isOnlineMethod && !isPaid
-              && nextStatus?.status === 'out_for_delivery'
-
-            // ── FIX 3: block advance to delivered if cash & unpaid ──
-            const blockedByCashPayment = isCashMethod && !isPaid
-              && nextStatus?.status === 'delivered'
+            const blockedByOnlinePayment = isOnlineMethod && !isPaid && nextStatus?.status === 'out_for_delivery'
+            const blockedByCashPayment = isCashMethod && !isPaid && nextStatus?.status === 'delivered'
 
             const handleNextStatus = () => {
               if (!nextStatus) return
-              if (blockedByOnlinePayment || blockedByCashPayment) return
+              if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision) return
               nextStatus.status === 'out_for_delivery' ? setReceiptModal(appt) : updateDeliveryStatus(appt.id, nextStatus.status)
             }
 
-            // Can archive: only when delivered or cancelled
             const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
 
             return (
@@ -752,17 +838,23 @@ const filtered = useMemo(() => appointments.filter(appt => {
                     </div>
                   )}
 
-                  {/* Online waiting note — already out_for_delivery but still unpaid */}
                   {isOnlineMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
                     <div className="col-span-2 bg-blue-50 border border-blue-200 px-3 py-2">
                       <p className="font-sans text-xs text-blue-600">Client will pay online. Waiting for online payment confirmation.</p>
                     </div>
                   )}
 
-                  {/* Cash waiting note — out_for_delivery but still unpaid */}
                   {isCashMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
                     <div className="col-span-2 bg-amber-50 border border-amber-200 px-3 py-2">
                       <p className="font-sans text-xs text-amber-600">Waiting for cash payment confirmation before marking as Delivered.</p>
+                    </div>
+                  )}
+
+                  {hasOverweightDecision && (
+                    <div className="col-span-2 bg-amber-50 border border-amber-200 px-3 py-2">
+                      <p className="font-sans text-xs text-amber-600">
+                        Overweight by {appt.overweightExcessKg}kg — waiting for client decision (split or trim). Auto-cancels if unresolved by end of day.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -777,6 +869,11 @@ const filtered = useMemo(() => appointments.filter(appt => {
                     }
                     {isWeighed && !isPaid && appt.deliveryStatus === 'in_progress' && !isArchived && (
                       <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">Weight Confirmed</span>
+                    )}
+                    {hasOverweightDecision && (
+                      <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+                        Awaiting Client Decision
+                      </span>
                     )}
                     {isArchived && (
                       <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">Archived</span>
@@ -802,8 +899,7 @@ const filtered = useMemo(() => appointments.filter(appt => {
                         </>
                       )}
 
-                      {/* Advance — hidden when blocked by online or cash payment */}
-                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && (
+                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && (
                         <button onClick={handleNextStatus}
                           className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
@@ -812,7 +908,6 @@ const filtered = useMemo(() => appointments.filter(appt => {
                         </button>
                       )}
 
-                      {/* Confirm Weight — in_progress + unpaid ONLY */}
                       {canWeigh && (
                         <button onClick={() => setWeightModal(appt)}
                           className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
@@ -822,7 +917,6 @@ const filtered = useMemo(() => appointments.filter(appt => {
                         </button>
                       )}
 
-                      {/* Confirm Cash — out_for_delivery ONLY */}
                       {canConfirmCash && (
                         <button onClick={() => setPaymentModal(appt)}
                           className="group relative overflow-hidden bg-green-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
@@ -834,7 +928,6 @@ const filtered = useMemo(() => appointments.filter(appt => {
                     </div>
                   )}
 
-                  {/* Archive button - only for delivered or cancelled appointments */}
                   {canArchive && (
                     <button onClick={() => setArchiveModal(appt)}
                       className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"

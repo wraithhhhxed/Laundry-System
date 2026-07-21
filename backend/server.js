@@ -25,6 +25,7 @@ import inventoryRoute from './src/routes/inventoryRoute.js'
 import salesRouter from './src/routes/salesRoute.js'
 import auditRouter from './src/routes/auditRoute.js'
 import extraServiceRouter from './src/routes/extraServiceRoute.js' // ✅ added
+import appointmentService from './src/services/AppointmentService.js'
 
 EventEmitter.defaultMaxListeners = 20
 
@@ -82,3 +83,14 @@ connectCloudinary()
 connectDB()
   .then(() => app.listen(port, () => console.log(`Server started on port ${port}`)))
   .catch((err) => console.log('DB connection failed:', err))
+
+// ─── Overweight auto-cancel checker ──────────────────────────────
+// Tumatakbo every 5 minutes, hahanapin ang mga appointment na naka-
+// "pending_decision" pa sa overweight status at lampas na sa deadline
+// (walang sagot ang client bago mag-5pm ng parehong araw).
+const OVERWEIGHT_CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
+
+setInterval(() => {
+  appointmentService.autoCancelExpiredOverweightDecisions()
+    .catch((err) => console.error('[AutoCancel] Error:', err.message))
+}, OVERWEIGHT_CHECK_INTERVAL)

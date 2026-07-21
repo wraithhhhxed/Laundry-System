@@ -800,6 +800,7 @@ const AllAppointments = () => {
             const isPaid         = payStatus === 'paid_cash' || payStatus === 'paid_online'
             const isCashMethod   = appt.preferredPaymentMethod === 'cash' || !appt.preferredPaymentMethod
             const isOnlineMethod = appt.preferredPaymentMethod === 'online'
+            const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
 
             const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid
             const canConfirmCash = !isCancelled && !isPaid && isCashMethod && appt.deliveryStatus === 'out_for_delivery' && !isArchived
@@ -818,7 +819,8 @@ const AllAppointments = () => {
               if (!nextStatus) return
               // Guard: online unpaid → cannot advance to out_for_delivery
               // Guard: cash unpaid → cannot advance to delivered
-              if (blockedByOnlinePayment || blockedByCashPayment) return
+              // Guard: overweight pending decision → cannot advance
+              if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision) return
               nextStatus.status === 'out_for_delivery'
                 ? setReceiptModal(appt)
                 : updateDeliveryStatus(appt.id, nextStatus.status)
@@ -924,6 +926,15 @@ const AllAppointments = () => {
                       <p className="font-sans text-xs text-amber-600">Waiting for cash payment confirmation before marking as Delivered.</p>
                     </div>
                   )}
+
+                  {/* Overweight pending decision notice */}
+                  {hasOverweightDecision && (
+                    <div className="col-span-2 bg-amber-50 border border-amber-200 px-3 py-2">
+                      <p className="font-sans text-xs text-amber-600">
+                        Overweight by {appt.overweightExcessKg}kg — waiting for client decision (split or trim). Auto-cancels if unresolved by end of day.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="h-px bg-blue-100" />
@@ -942,6 +953,11 @@ const AllAppointments = () => {
                     {isWeighed && !isPaid && appt.deliveryStatus === 'in_progress' && !isArchived && (
                       <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
                         Weight Confirmed
+                      </span>
+                    )}
+                    {hasOverweightDecision && (
+                      <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+                        Awaiting Client Decision
                       </span>
                     )}
                     {isArchived && (
@@ -974,8 +990,9 @@ const AllAppointments = () => {
 
                       {/* Advance status button
                           — hidden entirely when blocked by online payment guard (out_for_delivery)
-                          — hidden entirely when blocked by cash payment guard (delivered) */}
-                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && (
+                          — hidden entirely when blocked by cash payment guard (delivered)
+                          — hidden entirely when blocked by overweight pending decision */}
+                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && (
                         <button onClick={handleNextStatus}
                           className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                           style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
