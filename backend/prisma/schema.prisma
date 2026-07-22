@@ -21,38 +21,33 @@ model User {
   isActive             Boolean   @default(true)
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now()) @updatedAt
 
   @@map("users")
 }
 
-// Hiwalay na login entity mula sa Admin/User, pero same JWT mechanism
-// (protect(role) middleware, role nasa loob ng token — walang role column dito).
 model Branch {
-  id          String   @id @default(uuid())
-  name        String
-  email       String   @unique
-  password    String
-  phone       String
-  image       String
-  speciality  String[]
-  about       String
-  fees        Int      @default(0)
-  address     Json
-  available   Boolean  @default(true)
-  isActive    Boolean  @default(true)  
-  slotsBooked Json     @default("{}")
-  date        BigInt   @default(0)
-
-  inventories Inventory[]
+  id           String      @id @default(uuid())
+  name         String
+  machineCount Int         @default(10)
+  email        String      @unique
+  password     String
+  phone        String
+  image        String
+  speciality   String[]
+  about        String
+  fees         Int         @default(0)
+  address      Json
+  available    Boolean     @default(true)
+  slotsBooked  Json        @default("{}")
+  date         BigInt      @default(0)
+  isActive     Boolean     @default(true)
+  inventories  Inventory[]
 
   @@map("branches")
 }
 
-// Kapalit ng dating env-based ADMIN_EMAIL/ADMIN_PASSWORD (iisa, hardcoded).
-// Same JWT mechanism gaya ng Branch/User — role nasa token, walang role column dito.
 model Admin {
   id                   String    @id @default(uuid())
   name                 String
@@ -61,113 +56,86 @@ model Admin {
   isActive             Boolean   @default(true)
   resetPasswordToken   String?
   resetPasswordExpires DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@map("admins")
 }
 
+enum BookingSource {
+  ONLINE
+  WALK_IN
+}
+
 model Appointment {
-  id         String @id @default(uuid())
-  userId     String
-  branchId   String
-  branchData Json
-  userData   Json
-
-  // servicesTotal = sum ng AppointmentService.price (fixed package prices) sa booking time.
-  // OPEN QUESTION: potentially redundant vs. AppointmentService.price bilang source of truth —
-  // hindi pa explicit na na-confirm kung tatanggalin, kaya PINANATILI muna.
-  servicesTotal Float
-  addOnsTotal   Float @default(0)
-  totalAmount   Float
-
-  vatRate   Float @default(0)
-  vatAmount Float @default(0)
-
-  promoCodeId    String?
-  promoCode      String?
-  discountType   String?
-  discountValue  Float   @default(0)
-  discountAmount Float   @default(0)
-
-  // finalAmount = SNAPSHOT ng presyo noong booking. Hindi na ito nagbabago kahit
-  // pagkatapos ng weight confirmation — walang automatic overweight fee formula.
-  finalAmount Float
-
-  // Checkpoint lang bago mag-request ng bayad — HINDI presyo trigger.
-  // (actualKgPriceTotal, actualTotalAmount, actualVatAmount, actualFinalAmount,
-  // overweightChargeTotal — TINANGGAL: hindi na nagbabago ang presyo pagkatapos i-timbang)
-  weightConfirmedAt DateTime?
-  weightConfirmedBy String?
-
-  // Overweight (>7kg) decision flow — client must choose "split" (2nd load, full price)
-  // or "trim" (cap at 7kg). Auto-cancels if unresolved by end of day cutoff.
-  overweightStatus     String    @default("none")  // "none" | "pending_decision" | "resolved"
-  overweightExcessKg   Float?
-  overweightNotifiedAt DateTime?
-  overweightDeadline   DateTime?
-  overweightResolution String?                        // "split" | "trim"
-  overweightResolvedAt DateTime?
-
-  preferredPaymentMethod String    @default("cash")
-  paymentStatus          String    @default("unpaid")
+  id                     String                    @id @default(uuid())
+  userId                 String?
+  bookingSource          BookingSource             @default(ONLINE)
+  guestName              String?
+  guestContact           String?
+  branchId               String
+  branchData             Json
+  userData               Json
+  servicesTotal          Float
+  addOnsTotal            Float                     @default(0)
+  totalAmount            Float
+  vatRate                Float                     @default(0)
+  vatAmount              Float                     @default(0)
+  promoCodeId            String?
+  promoCode              String?
+  discountType           String?
+  discountValue          Float                     @default(0)
+  discountAmount         Float                     @default(0)
+  finalAmount            Float
+  weightConfirmedAt      DateTime?
+  weightConfirmedBy      String?
+  preferredPaymentMethod String                    @default("cash")
+  paymentStatus          String                    @default("unpaid")
   paymentMethod          String?
   paymentPaidAt          DateTime?
-  payment                Boolean   @default(false)
-
-  // Refund tracking. refundStatus: "none" (default), "requested", "approved", "rejected", "completed".
-  refundStatus        String    @default("none")
-  refundAmount        Float?
-  refundReason        String?
-  refundNote          String?
-  refundedAt           DateTime?
-  refundRejectedAt     DateTime?
-  refundRejectedBy     String?
-  refundRejectionNote  String?
-
-  slotDate String
-  slotTime String
-  date     BigInt
-
-  pickupAddress   Json?
-  deliveryAddress Json?
-
-  deliveryStatus String  @default("pending_approval")
-  cancelled      Boolean @default(false)
-  isCompleted    Boolean @default(false)
-
-  specialInstructions String?
-  sessionId           String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  services      AppointmentService[]
-  addOns        AppointmentAddOn[]
-  clothingTypes AppointmentClothingType[]
+  payment                Boolean                   @default(false)
+  slotDate               String
+  slotTime               String
+  date                   BigInt
+  pickupAddress          Json?
+  deliveryAddress        Json?
+  deliveryStatus         String                    @default("pending_approval")
+  cancelled              Boolean                   @default(false)
+  isCompleted            Boolean                   @default(false)
+  specialInstructions    String?
+  sessionId              String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  refundAmount           Float?
+  refundNote             String?
+  refundReason           String?
+  refundRejectedAt       DateTime?
+  refundRejectedBy       String?
+  refundRejectionNote    String?
+  refundStatus           String                    @default("none")
+  refundedAt             DateTime?
+  overweightDeadline     DateTime?
+  overweightExcessKg     Float?
+  overweightNotifiedAt   DateTime?
+  overweightResolution   String?
+  overweightResolvedAt   DateTime?
+  overweightStatus       String                    @default("none")
+  addOns                 AppointmentAddOn[]
+  clothingTypes          AppointmentClothingType[]
+  services               AppointmentService[]
 
   @@map("appointments")
 }
 
-// Isang row = isang LOAD (isang basket/machine, isang resibo).
 model AppointmentService {
   id            String      @id @default(uuid())
   appointmentId String
-  appointment   Appointment @relation(fields: [appointmentId], references: [id])
   serviceId     String
   name          String?
-
-  // price = SNAPSHOT ng fixed package price (Service.price) noong booking.
-  // HINDI kinukwenta mula sa kg.
-  price Float?
-
-  // kg/actualKg = 7kg CAPACITY CHECK LANG, hindi presyo driver.
-  // Kung sumobra: bawasan ng customer O gawing 2 hiwalay na load (2 buong-presyo entries).
-  // (kgPrice, actualKgPrice, overweightCharge — TINANGGAL: walang automatic
-  // "overweight fee" formula)
-  kg       Float
-  actualKg Float?
+  price         Float?
+  kg            Float
+  actualKg      Float?
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
 
   @@map("appointment_services")
 }
@@ -175,11 +143,11 @@ model AppointmentService {
 model AppointmentAddOn {
   id            String      @id @default(uuid())
   appointmentId String
-  appointment   Appointment @relation(fields: [appointmentId], references: [id])
   productId     String
   name          String
   price         Float
   quantity      Int
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
 
   @@map("appointment_addons")
 }
@@ -187,47 +155,23 @@ model AppointmentAddOn {
 model AppointmentClothingType {
   id             String      @id @default(uuid())
   appointmentId  String
-  appointment    Appointment @relation(fields: [appointmentId], references: [id])
   clothingTypeId String
+  appointment    Appointment @relation(fields: [appointmentId], references: [id])
 
   @@map("appointment_clothing_types")
 }
 
-enum AuditAction {
-  APPOINTMENT_CREATED
-  APPOINTMENT_STATUS_CHANGED
-  APPOINTMENT_WEIGHT_CONFIRMED
-  APPOINTMENT_PAYMENT_UPDATED
-  APPOINTMENT_CANCELLED
-  USER_LOGIN
-  USER_LOGIN_FAILED
-  USER_LOGOUT
-  SETTING_CHANGED
-  INVENTORY_UPDATED
-  INVENTORY_CREATED
-  INVENTORY_DELETED
-  BRANCH_CREATED
-  BRANCH_UPDATED
-  USER_CREATED
-  USER_UPDATED
-  USER_DELETED
-}
-
 model AuditLog {
-  id     String      @id @default(uuid())
-  action AuditAction
-
-  actor  Json
-  target Json?
-
-  branchId String?
-
-  before Json?
-  after  Json?
-  meta   Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String      @id @default(uuid())
+  action    AuditAction
+  actor     Json
+  target    Json?
+  branchId  String?
+  before    Json?
+  after     Json?
+  meta      Json?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   @@index([createdAt])
   @@index([branchId, createdAt])
@@ -238,10 +182,10 @@ model AuditLog {
 model ClothingType {
   id        String   @id @default(uuid())
   name      String   @unique
-  price     Float    @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  price     Float    @default(0)
 
   @@map("clothing_types")
 }
@@ -258,9 +202,6 @@ model ExtraService {
   @@map("extra_services")
 }
 
-// DEPRECATED/UNUSED sa pricing logic (fixed per-load/package pricing na ang totoong flow,
-// hindi per-kilo). PINANATILI ang table + CRUD dahil may aktibong Super Admin UI feature pa
-// rin (KgRatesList.jsx). Cleanup backlog na lang, hindi priority.
 model KgRate {
   id        String   @id @default(uuid())
   kg        Float
@@ -273,17 +214,17 @@ model KgRate {
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  name        String
-  description String   @default("")
-  price       Float
-  category    String   @default("other")
-  image       String   @default("")
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  inventories Inventory[]
+  id                String                  @id @default(uuid())
+  name              String
+  description       String                  @default("")
+  price             Float
+  category          String                  @default("other")
+  image             String                  @default("")
+  isActive          Boolean                 @default(true)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  inventories       Inventory[]
+  bundledInServices ServiceBundledProduct[]
 
   @@map("products")
 }
@@ -296,9 +237,8 @@ model Inventory {
   lowStockThreshold Float    @default(5)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
-  branch  Branch  @relation(fields: [branchId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  branch            Branch   @relation(fields: [branchId], references: [id])
+  product           Product  @relation(fields: [productId], references: [id])
 
   @@unique([branchId, productId])
   @@map("inventories")
@@ -321,25 +261,31 @@ model PromoCode {
   @@map("promo_codes")
 }
 
-// Fixed per-load/package pricing. Menu: DIY Self-Service ₱140, Drop-off ₱180 (1 sabon 1 downy),
-// Drop-off ₱250 (2 sabon 2 downy + booster), Full Service ₱235 (1 sabon 1 downy wash-dry-fold).
-// OPEN QUESTION: 5th variant (Full Service 2 sabon 2 downy + booster) — wala pang kumpirmadong presyo.
 model Service {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String   @default("")
-  price       Float
-  image       String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String                  @id @default(uuid())
+  name            String                  @unique
+  price           Float
+  image           String?
+  isActive        Boolean                 @default(true)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  description     String                  @default("")
+  bundledProducts ServiceBundledProduct[]
 
   @@map("services")
 }
 
-// Well-known keys (generic upsert, primitives/JSON lang): vatRate (number 0-1),
-// refundReasons (array — bawat item may { reason, applicableStatuses[], appliesToCancelled, isActive }),
-// faqs (array).
+model ServiceBundledProduct {
+  id        String  @id @default(uuid())
+  serviceId String
+  productId String
+  service   Service @relation(fields: [serviceId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([serviceId, productId])
+  @@map("service_bundled_products")
+}
+
 model Setting {
   id          String   @id @default(uuid())
   key         String   @unique
@@ -349,4 +295,25 @@ model Setting {
   updatedAt   DateTime @updatedAt
 
   @@map("settings")
+}
+
+enum AuditAction {
+  APPOINTMENT_CREATED
+  APPOINTMENT_EDITED
+  APPOINTMENT_STATUS_CHANGED
+  APPOINTMENT_WEIGHT_CONFIRMED
+  APPOINTMENT_PAYMENT_UPDATED
+  APPOINTMENT_CANCELLED
+  USER_LOGIN
+  USER_LOGIN_FAILED
+  USER_LOGOUT
+  SETTING_CHANGED
+  INVENTORY_UPDATED
+  INVENTORY_CREATED
+  INVENTORY_DELETED
+  BRANCH_CREATED
+  BRANCH_UPDATED
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
 }
