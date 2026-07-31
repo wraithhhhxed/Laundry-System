@@ -27,7 +27,7 @@ import PriceSettings from './pages/admin/PriceSettings'
 import ProductManagement from './pages/admin/ProductManagement'
 import SalesReport from './pages/admin/SalesReport'
 import ExtraServiceList from './pages/admin/ExtraServiceList'
-import AdminWalkIn from './pages/admin/AdminWalkIn'
+import AdminWalkIn from './pages/admin/AdminWalkin'
 
 // Branch
 import BranchNavbar from './components/branch/BranchNavbar'
