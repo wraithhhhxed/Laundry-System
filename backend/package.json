@@ -6,16 +6,17 @@
   "author": "",
   "type": "module",
   "main": "server.js",
-"scripts": {
-  "test": "echo \"Error: no test specified\" && exit 1",
-  "start": "tsx server.js",
-  "server": "nodemon --exec tsx server.js"
-},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsx server.js",
+    "server": "nodemon --exec tsx server.js"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "axios": "^1.13.5",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -35,6 +36,7 @@
     "nodemailer": "^8.0.4",
     "nodemon": "^3.1.11",
     "pg": "^8.22.0",
+    "resend": "^6.18.0",
     "streamifier": "^0.1.1",
     "validator": "^13.15.26"
   },

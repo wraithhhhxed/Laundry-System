@@ -1,6 +1,6 @@
 import * as settingRepo from '../repositories/settingRepository.js'
 import AuditService from './AuditService.js'
-import { ApiError } from '../utils/apiError.js'
+import { ApiError } from '../utils/ApiError.js'
 
 const assertValidKey = (key) => {
   if (typeof key !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_]{0,63}$/.test(key)) {

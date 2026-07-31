@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
-import { ApiError } from '../utils/apiError.js'
-import { asyncHandler } from '../utils/asynchandler.js'
+import { ApiError } from '../utils/ApiError.js'
+import { asyncHandler } from '../utils/asyncHandler.js'
 
 // Lazy-load the right model based on role
 const getModel = async (role) => {

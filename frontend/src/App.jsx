@@ -26,20 +26,21 @@ import FaqSettings from './pages/admin/FaqSettings'
 import PriceSettings from './pages/admin/PriceSettings'
 import ProductManagement from './pages/admin/ProductManagement'
 import SalesReport from './pages/admin/SalesReport'
-import ExtraServiceList from './pages/admin/ExtraServiceList' // ✅ added
+import ExtraServiceList from './pages/admin/ExtraServiceList'
+import AdminWalkIn from './pages/admin/AdminWalkIn'
 
 // Branch
 import BranchNavbar from './components/branch/BranchNavbar'
 import BranchSidebar from './components/branch/BranchSidebar'
 import BranchDashboard from './pages/branch/BranchDashboard'
 import BranchAppointments from './pages/branch/BranchAppointments'
+import BranchWalkIn from './pages/branch/BranchWalkIn'
 import BranchProfile from './pages/branch/BranchProfile'
 import BranchInventory from './pages/branch/BranchInventory'
 import BranchSalesReport from './pages/branch/BranchSalesReport'
 
 // User
-import Navbar from './components/navbar'
-import Footer from './components/Footer'
+import UserLayout from './components/UserLayout'
 import Home from './pages/home'
 import Branches from './pages/branches'
 import About from './pages/About'
@@ -69,12 +70,13 @@ const App = () => {
             <Routes>
               <Route path='/admin/dashboard'          element={<AdminDashboard />} />
               <Route path='/admin/appointments'       element={<AllAppointments />} />
+              <Route path='/admin/walk-in'            element={<AdminWalkIn />} />
               <Route path='/admin/add-branch'         element={<AddBranch />} />
               <Route path='/admin/branch-maintenance' element={<BranchMaintenance />} />
               <Route path='/admin/services'           element={<ServicesList />} />
               <Route path='/admin/clothing-types'     element={<ClothingTypesList />} />
               <Route path='/admin/kg-rates'           element={<KgRatesList />} />
-              <Route path='/admin/extra-services'     element={<ExtraServiceList />} /> {/* ✅ added */}
+              <Route path='/admin/extra-services'     element={<ExtraServiceList />} />
               <Route path='/admin/promo-codes'        element={<PromoCodesList />} />
               <Route path='/admin/products'           element={<ProductManagement />} />
               <Route path='/admin/users'              element={<UserMaintenance />} />
@@ -104,6 +106,7 @@ const App = () => {
             <Routes>
               <Route path='/branch/dashboard'    element={<BranchDashboard />} />
               <Route path='/branch/appointments' element={<BranchAppointments />} />
+              <Route path='/branch/walk-in'      element={<BranchWalkIn />} />
               <Route path='/branch/inventory'    element={<BranchInventory />} />
               <Route path='/branch/profile'      element={<BranchProfile />} />
               <Route path='/branch/sales-report' element={<BranchSalesReport />} />
@@ -118,26 +121,30 @@ const App = () => {
   return (
     <div className='mx-4 sm:mx-[10%]'>
       <ToastContainer />
-      <Navbar />
       <Routes>
-        <Route path='/'                       element={<Home />} />
-        <Route path='/branches'               element={<Branches />} />
-        <Route path='/branches/:speciality'   element={<Branches />} />
-        <Route path='/login'                  element={<Login />} />
-        <Route path='/about'                  element={<About />} />
-        <Route path='/contact'                element={<Contact />} />
-        <Route path='/my-profile'             element={<MyProfile />} />
-        <Route path='/my-appointments'        element={<MyAppointments />} />
-        <Route path='/appointment/:branchid'  element={<Appointment />} />
-        <Route path='/payment-success'        element={<PaymentSuccess />} />
-        <Route path='/payment-failed'         element={<PaymentSuccess />} />
-        <Route path='/secret-login'           element={<SecretLogin />} />
-        <Route path='/admin-login'            element={<AdminLogin />} />
-        <Route path='*'                       element={<Navigate to='/' replace />} />
-        <Route path='/forgot-password'        element={<ForgotPassword />} />
-        <Route path='/reset-password/:token'  element={<ResetPassword />} />
+        {/* Auth Routes - WITHOUT Navbar and Footer */}
+        <Route path='/login' element={<Login />} />
+        <Route path='/forgot-password' element={<ForgotPassword />} />
+        <Route path='/reset-password/:token' element={<ResetPassword />} />
+        <Route path='/secret-login' element={<SecretLogin />} />
+        <Route path='/admin-login' element={<AdminLogin />} />
+        
+        {/* Main Routes - WITH Navbar and Footer */}
+        <Route element={<UserLayout />}>
+          <Route path='/' element={<Home />} />
+          <Route path='/branches' element={<Branches />} />
+          <Route path='/branches/:speciality' element={<Branches />} />
+          <Route path='/about' element={<About />} />
+          <Route path='/contact' element={<Contact />} />
+          <Route path='/my-profile' element={<MyProfile />} />
+          <Route path='/my-appointments' element={<MyAppointments />} />
+          <Route path='/appointment/:branchid' element={<Appointment />} />
+          <Route path='/payment-success' element={<PaymentSuccess />} />
+          <Route path='/payment-failed' element={<PaymentSuccess />} />
+        </Route>
+        
+        <Route path='*' element={<Navigate to='/' replace />} />
       </Routes>
-      <Footer />
     </div>
   )
 }

@@ -50,9 +50,7 @@ const AdminLogin = () => {
 
         {/* header */}
         <div className='mb-8'>
-          <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-3'>
-            Selfie Wash · Internal Access
-          </span>
+          
           <div className='h-px bg-blue-100 mb-6' />
           <h1
             className='leading-none text-blue-900'

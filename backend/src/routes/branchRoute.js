@@ -13,6 +13,9 @@ import {
   updateDeliveryStatus,
   confirmActualWeight,
   confirmPayment,
+  createWalkInAppointment,
+  lookupPhone,
+  archiveAppointment,
 } from '../controllers/BranchController.js'
 import {
   getAllPromoCodes,
@@ -34,10 +37,17 @@ branchRouter.get('/dashboard',               protect('branch'), getBranchDashboa
 branchRouter.post('/update-delivery-status', protect('branch'), updateDeliveryStatus)
 branchRouter.post('/change-availability',    protect('branch'), changeBranchAvailability)
 branchRouter.post('/logout',                 protect('branch'), logoutBranch)
+branchRouter.post('/create-walk-in',         protect('branch'), createWalkInAppointment)
 
 // ─── Actual weight + payment ──────────────────────────────────────
 branchRouter.post('/confirm-actual-weight',  protect('branch'), confirmActualWeight)
 branchRouter.post('/confirm-payment',        protect('branch'), confirmPayment)
+
+// ─── Walk-in Phone Lookup ─────────────────────────────────────────
+branchRouter.get('/lookup-phone/:phone',     protect('branch'), lookupPhone)
+
+// ⭐ ARCHIVE APPOINTMENT ROUTE
+branchRouter.post('/archive-appointment',    protect('branch'), archiveAppointment)
 
 // ─── Promo Codes (read-only) ──────────────────────────────────────
 branchRouter.get('/promo-codes',     protect('branch'), getAllPromoCodes)

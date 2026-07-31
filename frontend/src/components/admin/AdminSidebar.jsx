@@ -8,6 +8,7 @@ const Sidebar = () => {
   const operationsItems = [
     { to: '/admin/dashboard',    label: 'Dashboard' },
     { to: '/admin/appointments', label: 'Appointments' },
+    { to: '/admin/walk-in',      label: 'Walk In' },  // ← UPDATED
     { to: '/admin/sales-report', label: 'Sales Report' },
   ]
 

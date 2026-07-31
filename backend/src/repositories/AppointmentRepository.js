@@ -1,4 +1,5 @@
 import prisma from '../config/prismaClient.js';
+import { ApiError } from '../utils/ApiError.js';
 
 // Lahat ng related rows na kailangang isama sa bawat query — sa Postgres,
 // 'services', 'addOns', at 'clothingTypes' ay TOTOONG hiwalay na tables na
@@ -71,6 +72,40 @@ class AppointmentRepository {
         clothingTypes: { create: clothingTypes },
       },
       include: INCLUDE_RELATIONS,
+    });
+  }
+
+  // ─── CREATE WITH CAPACITY CHECK (ATOMIC) ───────────────────────
+  // Sabay na tinitignan ang daily capacity (machineCount × 5) AT ginagawa
+  // ang appointment sa loob ng ISANG transaction — para hindi ma-outrace
+  // ng dalawang sabay na request (race condition). Per-DAY na ang cap
+  // (buong slotDate ng branch), hindi na per-specific-slotTime.
+  async createWithCapacityCheck(branchId, slotDate, appointmentData) {
+    const { services = [], addOns = [], clothingTypes = [], ...rest } = appointmentData;
+
+    return await prisma.$transaction(async (tx) => {
+      const branch = await tx.branch.findUnique({ where: { id: branchId } });
+      if (!branch) throw new ApiError(404, 'Branch not found');
+
+      const activeCount = await tx.appointment.count({
+        where: { branchId, slotDate, cancelled: false },
+      });
+
+      const capacity = branch.machineCount * 5;
+      if (activeCount >= capacity)
+        throw new ApiError(400, 'Branch is fully booked for this date');
+
+      return await tx.appointment.create({
+        data: {
+          ...rest,
+          branchId,
+          slotDate,
+          services: { create: services },
+          addOns: { create: addOns },
+          clothingTypes: { create: clothingTypes },
+        },
+        include: INCLUDE_RELATIONS,
+      });
     });
   }
 

@@ -122,6 +122,91 @@ const confirmPayment = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { appointment }, 'Payment confirmed'))
 })
 
+// ─── WALK-IN QUICK ADD ────────────────────────────────────────────
+const createWalkInAppointment = asyncHandler(async (req, res) => {
+  const {
+    phone,
+    guestName,
+    slotTime,
+    services,
+    addOns,
+    overweightResolution,
+    specialInstructions,
+    pickupAddress,
+    deliveryAddress,
+    fulfillmentMethod,
+    paymentMethod,   // ← BAGO
+    email,           // ← BAGO
+  } = req.body
+
+  // ─── VALIDATIONS ──────────────────────────────────────────────
+  if (!phone || !services || !Array.isArray(services) || services.length === 0)
+    throw new ApiError(400, 'phone and services (array) are required')
+
+  if (fulfillmentMethod && !['SELF_PICKUP', 'DELIVERY'].includes(fulfillmentMethod))
+    throw new ApiError(400, 'fulfillmentMethod must be SELF_PICKUP or DELIVERY')
+
+  // ✅ BAGONG VALIDATIONS para sa paymentMethod at email
+  if (paymentMethod && !['CASH', 'ONLINE'].includes(paymentMethod))
+    throw new ApiError(400, 'paymentMethod must be CASH or ONLINE')
+  
+  if (paymentMethod === 'ONLINE' && !email)
+    throw new ApiError(400, 'email is required when paymentMethod is ONLINE')
+
+  // ─── CREATE APPOINTMENT ──────────────────────────────────────
+  const branch = await branchService.getProfile(req.user.id)
+  const actor  = { userId: branch._id, name: branch.name, role: 'branchadmin' }
+
+  const appointment = await appointmentService.createWalkInAppointment(
+    phone,
+    guestName || null,
+    req.user.id,
+    slotTime || 'walk_in',
+    services,
+    overweightResolution || null,
+    {
+      specialInstructions,
+      pickupAddress,
+      deliveryAddress,
+      // ✅ BAGONG MGA FIELD
+      preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
+      email: paymentMethod === 'ONLINE' ? email : null,
+    },
+    addOns || [],
+    actor,
+    fulfillmentMethod || 'SELF_PICKUP'
+  )
+
+  res.json(new ApiResponse(201, { appointment }, 'Walk-in appointment created successfully'))
+})
+
+// ─── WALK-IN PHONE LOOKUP ─────────────────────────────────────────
+const lookupPhone = asyncHandler(async (req, res) => {
+  const { phone } = req.params
+  const user = await appointmentService.lookupUserByPhone(phone)
+  res.json(new ApiResponse(200, { user }))
+})
+
+// ⭐ ARCHIVE APPOINTMENT - SIMPLE
+const archiveAppointment = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.body
+  
+  if (!appointmentId) {
+    throw new ApiError(400, 'appointmentId is required')
+  }
+
+  const branch = await branchService.getProfile(req.user.id)
+  const actor = { userId: branch._id, name: branch.name, role: 'branchadmin' }
+
+  await appointmentService.archiveAppointment(
+    appointmentId,
+    req.user.id,
+    actor
+  )
+
+  res.json(new ApiResponse(200, {}, 'Appointment archived successfully'))
+})
+
 export {
   loginBranch,
   logoutBranch,
@@ -136,4 +221,7 @@ export {
   updateDeliveryStatus,
   confirmActualWeight,
   confirmPayment,
+  createWalkInAppointment,
+  lookupPhone,
+  archiveAppointment,
 }

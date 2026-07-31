@@ -2,3 +2,9 @@
 **/.env
 **/dist/
 admin/
+
+# Ignore accidental installer/audit files
+backend/*.exe
+backend/imports_list.txt
+backend/actual_files.txt
+backend/swloams.docx

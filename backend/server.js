@@ -60,7 +60,7 @@ app.use('/api/user/login',    rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  me
 app.use('/api/user/register', rateLimit({ windowMs: 60 * 60 * 1000, max: 10,  message: 'Too many registrations' }))
 app.use('/api/admin/login',   rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: 'Too many login attempts' }))
 app.use('/api/branch/login',  rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: 'Too many login attempts' }))
-app.use('/api',               rateLimit({ windowMs: 15 * 60 * 1000, max: 200, message: 'Too many requests' }))
+app.use('/api',               rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, message: 'Too many requests' }))
 
 // ─── Routes ──────────────────────────────────────────────────────
 app.use('/api/admin',          adminRouter)

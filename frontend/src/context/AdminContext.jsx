@@ -18,6 +18,7 @@ const AdminContextProvider = (props) => {
   const [kgRates, setKgRates]             = useState([])
   const [promoCodes, setPromoCodes]       = useState([])
   const [extraServices, setExtraServices] = useState([])
+  const [walkInServices, setWalkInServices] = useState([])  // ← ADDED
 
   // ─── Debounced appointments refresh ──────────────────────────
   const refreshTimer = useRef(null)
@@ -90,6 +91,27 @@ const AdminContextProvider = (props) => {
       if (data.success) {
         toast.success(`Status updated to ${status.replace(/_/g, ' ')}`)
         debouncedRefresh()
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
+  const archiveAppointment = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/admin/archive-appointment',
+        { appointmentId },
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        toast.success('Appointment archived successfully')
+        await getAllAppointments()
         return true
       } else {
         toast.error(data.message)
@@ -348,6 +370,51 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.message) }
   }
 
+  // ─── WALK-IN ──────────────────────────────────────────────────
+  const getWalkInServices = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + '/api/user/services')
+      if (data.success) setWalkInServices(data.data.services)
+      else toast.error(data.message)
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  const lookupPhone = async (phone) => {
+    try {
+      const { data } = await axios.get(
+        backendUrl + `/api/admin/lookup-phone/${phone}`,
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) return data.data.user
+      return null
+    } catch (error) {
+      return null
+    }
+  }
+
+  const createWalkInAppointment = async (payload) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/admin/create-walk-in',
+        payload,
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        toast.success('Walk-in appointment created successfully.')
+        debouncedRefresh()
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
   // ─── VAT SETTINGS ─────────────────────────────────────────────
   const getVatRate = async () => {
     try {
@@ -440,6 +507,7 @@ const updateService = async (id, serviceData, imageFile) => {
     setKgRates([])
     setPromoCodes([])
     setExtraServices([])
+    setWalkInServices([])  // ← ADDED
   }
 
   const value = {
@@ -450,6 +518,7 @@ const updateService = async (id, serviceData, imageFile) => {
     appointments, getAllAppointments, cancelAppointment,
     approveBooking,
     updateDeliveryStatus,
+    archiveAppointment,
     confirmActualWeight,
     confirmPayment,
     dashData, getDashboardData,
@@ -458,6 +527,9 @@ const updateService = async (id, serviceData, imageFile) => {
     kgRates, getAllKgRates, addKgRate, updateKgRate, deleteKgRate,
     promoCodes, getAllPromoCodes, addPromoCode, updatePromoCode, deletePromoCode, togglePromoCode,
     extraServices, getAllExtraServices, addExtraService, updateExtraService, toggleExtraService, deleteExtraService,
+    walkInServices, getWalkInServices,  // ← ADDED
+    lookupPhone,  // ← ADDED
+    createWalkInAppointment,  // ← ADDED
     getVatRate, updateVatRate,
     getRefundReasons, updateRefundReasons,
     getFaqs, updateFaqs,

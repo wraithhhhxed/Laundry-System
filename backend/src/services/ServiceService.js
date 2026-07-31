@@ -11,16 +11,21 @@ class ServiceService {
     return await ServiceRepository.findActive()
   }
 
-  async addService(data, imageFile) {
-    const { name, price } = data
-    if (!name || price === undefined) throw new ApiError(400, 'Name and price are required')
-    if (price < 0) throw new ApiError(400, 'Price cannot be negative')
+async addService(data, imageFile) {
+    const { name } = data
+    const price = Number(data.price)
+
+    console.log('DEBUG - raw price:', data.price, typeof data.price)
+    console.log('DEBUG - converted price:', price, typeof price)
+
+    if (!name || data.price === undefined) throw new ApiError(400, 'Name and price are required')
+    if (isNaN(price) || price < 0) throw new ApiError(400, 'Price must be a valid non-negative number')
 
     const payload = {
       name,
       price,
       description: data.description || '',
-      isActive: data.isActive !== undefined ? data.isActive : true,
+      isActive: data.isActive === 'true' || data.isActive === true,
     }
 
     if (imageFile) {
@@ -28,7 +33,7 @@ class ServiceService {
     }
 
     return await ServiceRepository.create(payload)
-  }
+}
 
   async updateService(id, data, imageFile) {
     const service = await ServiceRepository.findById(id)

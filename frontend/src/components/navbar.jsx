@@ -2,6 +2,7 @@ import { assets } from '../assets/assets'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import React, { useState, useEffect, useRef, useContext } from 'react'
 import { AppContext } from '../context/AppContext'
+import NotificationBell from './NotificationBell'
 
 const Navbar = () => {
   const navigate = useNavigate()
@@ -67,14 +68,14 @@ const Navbar = () => {
   }
 
   const navLinkClass = (isActive) =>
-    `font-sans text-[11px] tracking-[0.25em] uppercase font-bold transition-all duration-300 pb-1 ${
+    `font-sans text-[13px] tracking-[0.25em] uppercase font-bold transition-all duration-300 pb-1 ${
       isActive
         ? 'text-blue-600 border-b-2 border-blue-600'
         : 'text-neutral-500 hover:text-blue-600 border-b-2 border-transparent'
     }`
 
   const scrollLinkClass =
-    'font-sans text-[11px] tracking-[0.25em] uppercase font-bold transition-all duration-300 pb-1 text-neutral-500 hover:text-blue-600 border-b-2 border-transparent cursor-pointer'
+    'font-sans text-[13px] tracking-[0.25em] uppercase font-bold transition-all duration-300 pb-1 text-neutral-500 hover:text-blue-600 border-b-2 border-transparent cursor-pointer'
 
   return (
     <header className="w-full">
@@ -112,7 +113,7 @@ const Navbar = () => {
           {/* LEFT: Logo */}
           <div className="flex-1 flex justify-start">
             <img
-              className='w-10 cursor-pointer hover:scale-105 transition-transform'
+              className='w-12 cursor-pointer hover:scale-105 transition-transform'
               src={assets.logo}
               alt='Selfie Wash'
               onClick={() => { navigate('/'); window.scrollTo(0, 0) }}
@@ -120,7 +121,7 @@ const Navbar = () => {
           </div>
 
           {/* CENTER: Nav Links */}
-          <ul className='hidden md:flex items-center gap-8 lg:gap-12'>
+          <ul className='hidden md:flex items-center gap-10 lg:gap-14'>
             <NavLink to='/' className={({ isActive }) => navLinkClass(isActive)}>Home</NavLink>
 
             {/* Branch Dropdown */}
@@ -142,10 +143,10 @@ const Navbar = () => {
                     <div className='max-h-72 overflow-y-auto'>
                       {branches.map((branch) => (
                         <div key={branch.id}
-                             onClick={() => { navigate(`/appointment/${branch. id}`); window.scrollTo(0, 0); setShowBranchMenu(false) }}
+                             onClick={() => { navigate(`/appointment/${branch.id}`); window.scrollTo(0, 0); setShowBranchMenu(false) }}
                              className='group flex items-center gap-3 px-4 py-4 hover:bg-blue-50 cursor-pointer transition-all border-b border-blue-50/60 last:border-0'>
                           <span className={`w-1.5 h-1.5 rounded-full ${branch.available ? 'bg-green-500 animate-pulse' : 'bg-red-300'}`} />
-                          <p className='font-sans text-xs font-bold text-neutral-700 group-hover:text-blue-700 transition-colors uppercase tracking-wider flex-1 truncate'>{branch.name}</p>
+                          <p className='font-sans text-sm font-bold text-neutral-700 group-hover:text-blue-700 transition-colors uppercase tracking-wider flex-1 truncate'>{branch.name}</p>
                           <span className='text-blue-200 group-hover:text-blue-500'>→</span>
                         </div>
                       ))}
@@ -167,30 +168,36 @@ const Navbar = () => {
           </ul>
 
           {/* RIGHT: User / Sign In */}
-          <div className='flex-1 flex justify-end items-center gap-5'>
+          <div className='flex-1 flex justify-end items-center gap-6'>
             {token ? (
-              <div ref={dropdownRef} className='relative flex items-center gap-3 group'>
-                <div className='flex items-center gap-2 cursor-pointer' onClick={() => setShowDropdown(!showDropdown)}>
-                  <img className='w-9 h-9 rounded-full object-cover ring-2 ring-orange-300 group-hover:ring-orange-400 transition-all' src={userData?.image || assets.upload_icon} alt='' />
-                  <img className={`w-2 transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''}`} src={assets.dropdown_icon} alt='' />
-                </div>
-                {showDropdown && (
-                  <div className='absolute top-full right-0 mt-4 w-52 bg-white border border-blue-100 shadow-2xl z-50 py-1'
-                       style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%)' }}>
-                    <p onClick={() => { navigate('/my-profile'); setShowDropdown(false) }} className='px-5 py-3 font-sans text-xs uppercase tracking-widest text-neutral-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors font-bold'>Profile</p>
-                    <p onClick={() => { navigate('/my-appointments'); setShowDropdown(false) }} className='px-5 py-3 font-sans text-xs uppercase tracking-widest text-neutral-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors font-bold'>Appointments</p>
-                    <div className='border-t border-blue-50' />
-                    <p onClick={logout} className='px-5 py-3 font-sans text-xs uppercase tracking-widest text-red-400 hover:bg-red-50 hover:text-red-500 cursor-pointer transition-colors font-bold'>Logout</p>
+              <>
+                {/* NOTIFICATION BELL */}
+                <NotificationBell />
+                
+                {/* PROFILE DROPDOWN */}
+                <div ref={dropdownRef} className='relative flex items-center gap-3 group'>
+                  <div className='flex items-center gap-2 cursor-pointer' onClick={() => setShowDropdown(!showDropdown)}>
+                    <img className='w-10 h-10 rounded-full object-cover ring-2 ring-blue-300 group-hover:ring-blue-400 transition-all' src={userData?.image || assets.upload_icon} alt='' />
+                    <img className={`w-2 transition-transform duration-300 ${showDropdown ? 'rotate-180' : ''}`} src={assets.dropdown_icon} alt='' />
                   </div>
-                )}
-              </div>
+                  {showDropdown && (
+                    <div className='absolute top-full right-0 mt-4 w-52 bg-white border border-blue-100 shadow-2xl z-50 py-1'
+                         style={{ clipPath: 'polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%)' }}>
+                      <p onClick={() => { navigate('/my-profile'); setShowDropdown(false) }} className='px-5 py-3 font-sans text-xs uppercase tracking-widest text-neutral-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors font-bold'>Profile</p>
+                      <p onClick={() => { navigate('/my-appointments'); setShowDropdown(false) }} className='px-5 py-3 font-sans text-xs uppercase tracking-widest text-neutral-600 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors font-bold'>Appointments</p>
+                      <div className='border-t border-blue-50' />
+                      <p onClick={logout} className='px-5 py-3 font-sans text-xs uppercase tracking-widest text-red-400 hover:bg-red-50 hover:text-red-500 cursor-pointer transition-colors font-bold'>Logout</p>
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
-              <button onClick={() => navigate('/login')} className='bg-blue-600 text-white px-7 py-3 font-sans text-[10px] tracking-[0.2em] uppercase font-bold transition-colors hover:bg-blue-700'
+              <button onClick={() => navigate('/login')} className='bg-blue-600 text-white px-8 py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-bold transition-colors hover:bg-blue-700'
                       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 15px, 100% 100%, 0 100%)' }}>
                 Sign In
               </button>
             )}
-            <img onClick={() => setShowMobileMenu(true)} className='w-6 md:hidden cursor-pointer opacity-70 hover:opacity-100' src={assets.menu_icon} alt='' />
+            <img onClick={() => setShowMobileMenu(true)} className='w-7 md:hidden cursor-pointer opacity-70 hover:opacity-100' src={assets.menu_icon} alt='' />
           </div>
         </div>
       </nav>

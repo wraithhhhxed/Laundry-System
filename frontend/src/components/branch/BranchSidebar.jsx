@@ -10,6 +10,7 @@ const BranchSidebar = () => {
   const operationsItems = [
     { to: '/branch/dashboard',    label: 'Dashboard' },
     { to: '/branch/appointments', label: 'Appointments' },
+    { to: '/branch/walk-in',      label: 'Walk-In' },
     { to: '/branch/inventory',    label: 'Inventory' },
     { to: '/branch/sales-report', label: 'Sales Report' },
   ]

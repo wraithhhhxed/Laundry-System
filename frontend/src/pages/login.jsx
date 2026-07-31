@@ -4,13 +4,14 @@ import axios from 'axios'
 import { toast } from 'react-toastify'
 import { GoogleLogin } from '@react-oauth/google'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { assets } from '../assets/assets'
 
 const inputCls =
-  'w-full px-4 py-3 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
+  'w-full px-3.5 py-2 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
 
 // Eye icons
 const EyeOpen = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
     <circle cx="12" cy="12" r="3" />
@@ -18,7 +19,7 @@ const EyeOpen = () => (
 )
 
 const EyeClosed = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
     <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
@@ -37,7 +38,7 @@ const PasswordInput = ({ value, onChange, className, required, placeholder }) =>
         onChange={onChange}
         required={required}
         placeholder={placeholder}
-        style={{ paddingRight: '2.75rem' }}
+        style={{ paddingRight: '2.5rem' }}
       />
       <button
         type='button'
@@ -72,19 +73,15 @@ const Login = () => {
     e.preventDefault()
 
     if (isSignUp) {
-      // ── Name validation
       if (!/^[a-zA-Z\s.]+$/.test(name.trim()))
         return toast.error('Name must contain letters only.')
 
-      // ── Phone validation
       if (!/^09\d{9}$/.test(phone))
         return toast.error('Phone number must be 11 digits and start with 09.')
 
-      // ── Password length
       if (password.length < 8)
         return toast.error('Password must be at least 8 characters.')
 
-      // ── Confirm password
       if (password !== confirmPass)
         return toast.error('Passwords do not match.')
     }
@@ -139,7 +136,6 @@ const Login = () => {
 
   const isSignUp = state === 'Sign Up'
 
-  // ── Live validation states
   const phoneValid   = /^09\d{9}$/.test(phone)
   const phoneInvalid = phone.length > 0 && !phoneValid
   const passShort    = password.length > 0 && password.length < 8
@@ -147,73 +143,75 @@ const Login = () => {
   const passMatch    = confirmPass.length > 0 && confirmPass === password
 
   return (
-    <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white min-h-[80vh] flex'>
+    <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white min-h-screen flex p-4 md:p-8'>
 
-      {/* ── LEFT PANEL ── */}
-      <div className='hidden md:flex w-2/5 bg-blue-600 flex-col justify-between px-12 py-14 relative overflow-hidden flex-shrink-0'>
-        <div
-          className='absolute inset-0 pointer-events-none'
-          style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%)' }}
-        />
-        <div className='relative z-10'>
-          <span className='uppercase tracking-[0.35em] text-[10px] text-white/40 font-sans'>Selfie Wash</span>
-          <div className='h-px bg-white/10 mt-3' />
-        </div>
-        <div className='relative z-10'>
-          <span className='uppercase tracking-[0.35em] text-[10px] text-white/40 font-sans block mb-4'>
-            {isSignUp ? 'Join Us' : 'Welcome Back'}
-          </span>
-          <h2
-            className='leading-none text-white mb-6'
-            style={{ fontSize: 'clamp(36px, 4vw, 68px)', fontWeight: 700, letterSpacing: '-0.03em' }}
-          >
-            {isSignUp ? <>Clean<br />clothes,<br />zero<br />hassle.</> : <>Good to<br />see you<br />again.</>}
-          </h2>
-          <p className='text-white/60 font-sans text-sm leading-relaxed max-w-xs'>
-            {isSignUp
-              ? 'Create an account to start booking laundry pickups at your nearest Selfie Wash branch.'
-              : 'Log in to manage your appointments, track your laundry, and more.'}
-          </p>
-        </div>
-        <div className='relative z-10 grid grid-cols-3 gap-px bg-white/10'>
-          {['Pickup', 'Wash', 'Deliver'].map((label, i) => (
-            <div key={label} className='bg-blue-600 px-4 py-5 flex flex-col gap-1'>
-              <span className='text-white/20 font-sans font-bold leading-none' style={{ fontSize: '26px' }}>
-                0{i + 1}
-              </span>
-              <span className='font-sans text-xs text-white/60 uppercase tracking-widest'>{label}</span>
-            </div>
-          ))}
-        </div>
+{/* ── LEFT PANEL ── */}
+<div className='hidden md:flex w-2/5 bg-blue-600 flex-col justify-between px-8 py-10 relative overflow-hidden flex-shrink-0'>
+  <div
+    className='absolute inset-0 pointer-events-none'
+    style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%)' }}
+  />
+  
+  <div className='relative z-10 flex flex-col mt-32'>
+    {/* Logo - Centered at top */}
+    <div className='flex justify-center mb-9'>
+      <img src={assets.logo} alt='Selfie Wash' className='w-72' />
+    </div>
+    
+    {/* Content below logo */}
+      <div className='-mt-0.00001'>
+      <span className='uppercase tracking-[0.35em] text-[10px] text-white/80 font-sans-bold block mb-2'>
+        {isSignUp ? 'Join Us' : 'Welcome Back'}
+      </span>
+      <h2
+        className='leading-none text-white mb-3'
+        style={{ fontSize: 'clamp(28px, 3vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}
+      >
+        {isSignUp ? <>Clean clothes,<br />zero hassle.</> : <>Good to<br />see you again.</>}
+      </h2>
+      <p className='text-white/80 font-sans text-sm leading-relaxed max-w-xs'>
+        {isSignUp
+          ? 'Create an account to start booking laundry pickups at your nearest Selfie Wash branch.'
+          : 'Log in to manage your appointments, track your laundry, and more.'}
+      </p>
+    </div>
+  </div>
+  
+    <div className='relative z-10 grid grid-cols-3 gap-0.5 bg-white/40'>
+    {['Pickup', 'Wash', 'Deliver'].map((label, i) => (
+      <div key={label} className='bg-blue-600 px-3 py-3 flex flex-col gap-0.5'>
+        <span className='text-white font-sans font-bold leading-none' style={{ fontSize: '20px' }}>
+          0{i + 1}
+        </span>
+        <span className='font-sans text-[9px] text-white uppercase tracking-widest'>{label}</span>
       </div>
+    ))}
+  </div>
+</div>
 
       {/* ── RIGHT PANEL ── */}
-      <div className='flex-1 flex flex-col justify-center px-8 md:px-14 py-14 overflow-y-auto'>
-        <div className='max-w-sm w-full mx-auto'>
+<div className='flex-1 flex flex-col justify-center px-4 md:px-8 lg:px-12 py-6 overflow-y-auto'>
+  <div className='max-w-sm w-full mx-auto'>
 
-          <div className='mb-8'>
-            <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-3'>
-              {isSignUp ? 'New Account' : 'Secure Login'}
-            </span>
-            <div className='h-px bg-blue-100 mb-7' />
-            <h1
-              className='leading-none text-blue-900'
-              style={{ fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}
-            >
-              {isSignUp ? 'Create Account.' : 'Login.'}
-            </h1>
-            <p className='font-sans text-sm text-neutral-400 mt-2'>
-              Please {isSignUp ? 'sign up' : 'log in'} to book an appointment.
-            </p>
-          </div>
+    <div className='mb-5'>
+      <div className='h-px bg-blue-100 mb-4' />
+      <h1
+        className='leading-none text-blue-900'
+        style={{ fontSize: 'clamp(26px, 3vw, 40px)', fontWeight: 700, letterSpacing: '-0.03em' }}
+      >
+        {isSignUp ? 'Create Account.' : 'Login.'}
+      </h1>
+      <p className='font-sans text-sm text-black-400 mt-1'>
+        Please {isSignUp ? 'sign up' : 'log in'} to book an appointment.
+      </p>
+    </div>
 
-          <form onSubmit={onSubmitHandler} className='flex flex-col gap-4'>
+          <form onSubmit={onSubmitHandler} className='flex flex-col gap-2.5'>
 
             {isSignUp && (
               <>
-                {/* Name */}
-                <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Full Name</label>
+                <div className='flex flex-col gap-0.5'>
+                  <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Full Name</label>
                   <input
                     className={inputCls}
                     type='text'
@@ -227,9 +225,8 @@ const Login = () => {
                   />
                 </div>
 
-                {/* Phone */}
-                <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Phone Number</label>
+                <div className='flex flex-col gap-0.5'>
+                  <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Phone Number</label>
                   <input
                     className={inputCls + (phoneInvalid ? ' border-red-300 focus:border-red-400' : phoneValid ? ' border-green-300 focus:border-green-400' : '')}
                     type='tel'
@@ -242,43 +239,42 @@ const Login = () => {
                     required
                   />
                   {phoneInvalid && (
-                    <p className='font-sans text-[10px] text-red-400 uppercase tracking-widest'>Must be 11 digits starting with 09</p>
+                    <p className='font-sans text-[8px] text-red-400 uppercase tracking-widest mt-0.5'>Must be 11 digits starting with 09</p>
                   )}
                 </div>
 
-                {/* Address */}
-                <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Address Line 1</label>
-                  <input className={inputCls} type='text' value={address.line1}
-                    onChange={e => setAddress({ ...address, line1: e.target.value })}
-                    placeholder='Street, Barangay' required />
-                </div>
-                <div className='flex flex-col gap-1.5'>
-                  <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Address Line 2</label>
-                  <input className={inputCls} type='text' value={address.line2}
-                    onChange={e => setAddress({ ...address, line2: e.target.value })}
-                    placeholder='City, Province' required />
+                <div className='flex gap-2'>
+                  <div className='flex flex-col gap-0.5 flex-1'>
+                    <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Address 1</label>
+                    <input className={inputCls} type='text' value={address.line1}
+                      onChange={e => setAddress({ ...address, line1: e.target.value })}
+                      placeholder='Street, Barangay' required />
+                  </div>
+                  <div className='flex flex-col gap-0.5 flex-1'>
+                    <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Address 2</label>
+                    <input className={inputCls} type='text' value={address.line2}
+                      onChange={e => setAddress({ ...address, line2: e.target.value })}
+                      placeholder='City, Province' required />
+                  </div>
                 </div>
               </>
             )}
 
-            {/* Email */}
-            <div className='flex flex-col gap-1.5'>
-              <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Email</label>
+            <div className='flex flex-col gap-0.5'>
+              <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Email</label>
               <input className={inputCls} type='email' value={email}
                 onChange={e => setEmail(e.target.value)} required />
             </div>
 
-            {/* Password */}
-            <div className='flex flex-col gap-1.5'>
+            <div className='flex flex-col gap-0.5'>
               <div className='flex items-center justify-between'>
-                <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Password</label>
+                <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Password</label>
                 {!isSignUp && (
                   <Link
                     to='/forgot-password'
-                    className='font-sans text-[10px] text-blue-400 hover:text-blue-600 uppercase tracking-widest transition-colors'
+                    className='font-sans text-[9px] text-blue-400 hover:text-blue-600 uppercase tracking-widest transition-colors'
                   >
-                    Forgot password?
+                    Forgot?
                   </Link>
                 )}
               </div>
@@ -286,18 +282,17 @@ const Login = () => {
                 className={inputCls + (isSignUp && passShort ? ' border-red-300 focus:border-red-400' : '')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder={isSignUp ? 'At least 8 characters' : ''}
+                placeholder={isSignUp ? 'Min 8 chars' : ''}
                 required
               />
               {isSignUp && passShort && (
-                <p className='font-sans text-[10px] text-red-400 uppercase tracking-widest'>Minimum 8 characters</p>
+                <p className='font-sans text-[8px] text-red-400 uppercase tracking-widest mt-0.5'>Minimum 8 characters</p>
               )}
             </div>
 
-            {/* Confirm Password */}
             {isSignUp && (
-              <div className='flex flex-col gap-1.5'>
-                <label className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans'>Confirm Password</label>
+              <div className='flex flex-col gap-0.5'>
+                <label className='uppercase tracking-[0.35em] text-[9px] text-blue-400 font-sans'>Confirm Password</label>
                 <PasswordInput
                   className={
                     inputCls +
@@ -305,21 +300,21 @@ const Login = () => {
                   }
                   value={confirmPass}
                   onChange={e => setConfirmPass(e.target.value)}
-                  placeholder='Repeat new password'
+                  placeholder='Repeat password'
                   required
                 />
                 {passMismatch && (
-                  <p className='font-sans text-[10px] text-red-400 uppercase tracking-widest'>Passwords do not match</p>
+                  <p className='font-sans text-[8px] text-red-400 uppercase tracking-widest mt-0.5'>Passwords do not match</p>
                 )}
                 {passMatch && (
-                  <p className='font-sans text-[10px] text-green-500 uppercase tracking-widest'>Passwords match ✓</p>
+                  <p className='font-sans text-[8px] text-green-500 uppercase tracking-widest mt-0.5'>Match ✓</p>
                 )}
               </div>
             )}
 
             <button
               type='submit'
-              className='group relative overflow-hidden bg-blue-600 text-white mt-2 py-3.5 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-3'
+              className='group relative overflow-hidden bg-blue-600 text-white mt-1 py-2.5 font-sans text-[12px] tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2'
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
             >
               <span className='relative z-10'>{isSignUp ? 'Create Account' : 'Login'}</span>
@@ -329,11 +324,10 @@ const Login = () => {
 
           </form>
 
-          {/* Google OAuth */}
-          <div className='mt-5'>
-            <div className='relative flex items-center gap-3 mb-4'>
+          <div className='mt-3.5'>
+            <div className='relative flex items-center gap-2 mb-2.5'>
               <div className='flex-1 h-px bg-blue-100' />
-              <span className='font-sans text-[10px] text-neutral-400 uppercase tracking-widest'>or continue with</span>
+              <span className='font-sans text-[9px] text-neutral-400 uppercase tracking-widest'>or continue with</span>
               <div className='flex-1 h-px bg-blue-100' />
             </div>
             <div className='flex justify-center'>
@@ -348,9 +342,8 @@ const Login = () => {
             </div>
           </div>
 
-          {/* toggle */}
-          <div className='mt-6'>
-            <div className='h-px bg-blue-100 mb-5' />
+          <div className='mt-3.5'>
+            <div className='h-px bg-blue-100 mb-3' />
             <p className='font-sans text-sm text-neutral-400 text-center'>
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}
               <span

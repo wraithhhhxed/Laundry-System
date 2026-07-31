@@ -57,8 +57,8 @@ const Contact = () => {
                 Contact Information
               </span>
               <p className="font-sans text-sm text-neutral-600 leading-relaxed">
-                Tel: +63 111 111 1111<br />
-                Email: SelfieWash@gmail.com
+                Tel: +63 9295645494<br />
+                Email: customercare@biowashlaundry.com
               </p>
             </div>
 

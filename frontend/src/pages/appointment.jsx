@@ -641,19 +641,22 @@ const Appointment = () => {
 
         {/* ── STEP 3 ── */}
         {step === 3 && (
-          <div className='space-y-8'>
-            <div>
-              <SectionLabel>Step 03 — Optional Add-ons</SectionLabel>
-              <Divider />
-              <h2 className='leading-none text-blue-900 mb-2'
-                style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
-                Add-ons.
-              </h2>
-              <p className='font-sans text-sm text-neutral-400 mb-6'>
-                Add detergents, conditioners, or other products.{' '}
-                <span className='text-neutral-300'>Skip if you don't need any.</span>
-              </p>
-            </div>
+  <div className='space-y-8'>
+    <div>
+      <SectionLabel>Step 03 — Optional Add-ons</SectionLabel>
+      <Divider />
+      <h2 className='leading-none text-blue-900 mb-2'
+        style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
+        Add-ons.
+      </h2>
+      <p className='font-sans text-sm text-neutral-400 mb-6'>
+        {baskets.some(b => b.service.name.toLowerCase().includes('diy')) 
+          ? 'Forgot to bring your own supplies? Buy them here.' 
+          : 'Add extra detergents, conditioners, or other products.'}
+        {' '}
+        <span className='text-neutral-300'>Skip if you don't need any.</span>
+      </p>
+    </div>
 
             {productsList.length === 0 ? (
               <p className='font-sans text-sm text-neutral-400 py-6'>No add-on products available at this time.</p>

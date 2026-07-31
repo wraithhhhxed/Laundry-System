@@ -8,7 +8,9 @@ import {
   addBranch, allBranches, changeBranchAvailability,
   // appointments
   allAppointments, cancelAppointment, adminDashboard, approveBooking, approvePayment,
-  updateDeliveryStatus, confirmActualWeight, confirmPayment,
+  updateDeliveryStatus, confirmActualWeight, confirmPayment, archiveAppointment,
+  // walk-in
+  createWalkInAppointment, lookupPhone,
   // services
   getAllServices, addService, updateService, deleteService,
   // clothing types
@@ -61,6 +63,9 @@ adminRouter.post('/approve-payment',          protect('admin'), approvePayment)
 adminRouter.post('/update-delivery-status',   protect('admin'), updateDeliveryStatus)
 adminRouter.post('/confirm-actual-weight',    protect('admin'), confirmActualWeight)
 adminRouter.post('/confirm-payment',          protect('admin'), confirmPayment)
+adminRouter.post('/archive-appointment',      protect('admin'), archiveAppointment)
+adminRouter.post('/create-walk-in',           protect('admin'), createWalkInAppointment)  // ← ADDED
+adminRouter.get('/lookup-phone/:phone',       protect('admin'), lookupPhone)              // ← ADDED
 adminRouter.get('/dashboard',                 protect('admin'), adminDashboard)
 
 // ─── SERVICES ──────────────────────────────────────────────────────

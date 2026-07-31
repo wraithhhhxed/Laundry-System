@@ -28,6 +28,9 @@ class UserRepository {
   async findByEmail(email) {
     return await prisma.user.findUnique({ where: { email } });
   }
+  async findByPhone(phone) {
+    return await prisma.user.findUnique({ where: { phone } });
+  }
 
   async create(userData) {
     return await prisma.user.create({ data: userData });

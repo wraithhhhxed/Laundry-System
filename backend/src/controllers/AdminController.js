@@ -175,6 +175,91 @@ const confirmPayment = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { appointment }, 'Payment confirmed by admin'))
 })
 
+// ⭐ ARCHIVE APPOINTMENT (Super Admin)
+const archiveAppointment = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.body
+  if (!appointmentId) throw new ApiError(400, 'appointmentId is required')
+
+  const appointment = await AppointmentRepository.findById(appointmentId)
+  if (!appointment) throw new ApiError(404, 'Appointment not found')
+
+  await appointmentService.archiveAppointment(
+    appointmentId,
+    appointment.branchId,   // ← branchId mismo ng appointment, hindi admin ID
+    adminActor(req)
+  )
+
+  res.json(new ApiResponse(200, {}, 'Appointment archived successfully'))
+})
+
+// ─── WALK-IN QUICK ADD (Super Admin — may branch dropdown) ────────
+const createWalkInAppointment = asyncHandler(async (req, res) => {
+  const {
+    branchId,        // ← BAGO, kailangan pumili ng branch
+    phone,
+    guestName,
+    slotTime,
+    services,
+    addOns,
+    overweightResolution,
+    specialInstructions,
+    pickupAddress,
+    deliveryAddress,
+    fulfillmentMethod,
+    paymentMethod,
+    email,
+  } = req.body
+
+  // ─── VALIDATIONS ──────────────────────────────────────────────
+  if (!branchId)
+    throw new ApiError(400, 'branchId is required')
+
+  if (!phone || !services || !Array.isArray(services) || services.length === 0)
+    throw new ApiError(400, 'phone and services (array) are required')
+
+  if (fulfillmentMethod && !['SELF_PICKUP', 'DELIVERY'].includes(fulfillmentMethod))
+    throw new ApiError(400, 'fulfillmentMethod must be SELF_PICKUP or DELIVERY')
+
+  if (paymentMethod && !['CASH', 'ONLINE'].includes(paymentMethod))
+    throw new ApiError(400, 'paymentMethod must be CASH or ONLINE')
+
+  if (paymentMethod === 'ONLINE' && !email)
+    throw new ApiError(400, 'email is required when paymentMethod is ONLINE')
+
+  // ─── VERIFY BRANCH EXISTS ───────────────────────────────────────
+  const branch = await BranchRepository.findById(branchId)
+  if (!branch) throw new ApiError(404, 'Branch not found')
+
+  // ─── CREATE APPOINTMENT ──────────────────────────────────────
+  const appointment = await appointmentService.createWalkInAppointment(
+    phone,
+    guestName || null,
+    branchId,                     // ← ginamit yung pinili na branchId, hindi req.user.id
+    slotTime || 'walk_in',
+    services,
+    overweightResolution || null,
+    {
+      specialInstructions,
+      pickupAddress,
+      deliveryAddress,
+      preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
+      email: paymentMethod === 'ONLINE' ? email : null,
+    },
+    addOns || [],
+    adminActor(req),              // ← ginamit yung existing adminActor() helper
+    fulfillmentMethod || 'SELF_PICKUP'
+  )
+
+  res.json(new ApiResponse(201, { appointment }, 'Walk-in appointment created successfully'))
+})
+
+// ─── WALK-IN PHONE LOOKUP (Super Admin) ───────────────────────────
+const lookupPhone = asyncHandler(async (req, res) => {
+  const { phone } = req.params
+  const user = await appointmentService.lookupUserByPhone(phone)
+  res.json(new ApiResponse(200, { user }))
+})
+
 // ─── SERVICES ─────────────────────────────────────────────────────
 const getAllServices = asyncHandler(async (req, res) => {
   const services = await serviceService.getAllServices()
@@ -443,6 +528,9 @@ export {
   allAppointments, cancelAppointment, adminDashboard, approveBooking, approvePayment,
   updateDeliveryStatus,
   confirmActualWeight, confirmPayment,
+  archiveAppointment,
+  createWalkInAppointment,  // ← ADDED
+  lookupPhone,              // ← ADDED
   getAllServices, addService, updateService, deleteService,
   getAllClothingTypes, addClothingType, updateClothingType, deleteClothingType,
   getAllKgRates, addKgRate, updateKgRate, deleteKgRate,

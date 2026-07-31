@@ -60,7 +60,7 @@ function Header() {
       </div>
 
       {/* ── HERO BODY ── */}
-      <div className="relative flex flex-row items-center overflow-hidden min-h-[60vh] md:min-h-[88vh]">
+      <div className="relative flex flex-row items-center overflow-hidden min-h-[51vh] md:min-h-[77vh]">
 
         {/* ── BACKGROUND BLUE PANEL (Hidden on Mobile) ── */}
         <div

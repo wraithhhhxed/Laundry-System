@@ -7,6 +7,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum FulfillmentMethod {
+  SELF_PICKUP
+  DELIVERY
+}
+
 model User {
   id                   String    @id @default(uuid())
   name                 String
@@ -24,6 +29,7 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @default(now()) @updatedAt
 
+  @@unique([phone])
   @@map("users")
 }
 
@@ -99,6 +105,7 @@ model Appointment {
   date                   BigInt
   pickupAddress          Json?
   deliveryAddress        Json?
+  fulfillmentMethod      FulfillmentMethod         @default(DELIVERY)
   deliveryStatus         String                    @default("pending_approval")
   cancelled              Boolean                   @default(false)
   isCompleted            Boolean                   @default(false)
@@ -123,6 +130,9 @@ model Appointment {
   addOns                 AppointmentAddOn[]
   clothingTypes          AppointmentClothingType[]
   services               AppointmentService[]
+  archived               Boolean                   @default(false)
+  archivedAt             DateTime?
+  archivedBy             String?
 
   @@map("appointments")
 }

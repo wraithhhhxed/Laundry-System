@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import BranchRepository from '../repositories/BranchRepository.js'
 import ServiceRepository from '../repositories/ServiceRepository.js'
-import { ApiError } from '../utils/apiError.js'
+import { ApiError } from '../utils/ApiError.js'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
 
 

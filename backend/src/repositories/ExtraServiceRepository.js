@@ -1,27 +1,36 @@
-import extraServiceModel from '../../models/extraServiceModel.js'
+// backend/src/repositories/ExtraServiceRepository.js
+import prisma from '../config/prismaClient.js';
 
 class ExtraServiceRepository {
 
   async findAll({ includeInactive = false } = {}) {
-    const filter = includeInactive ? {} : { isActive: true }
-    return extraServiceModel.find(filter).sort({ createdAt: 1 })
+    const where = includeInactive ? {} : { isActive: true };
+    return await prisma.extraService.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+    });
   }
 
   async findById(id) {
-    return extraServiceModel.findById(id)
+    return await prisma.extraService.findUnique({ where: { id } });
   }
 
   async create(data) {
-    return extraServiceModel.create(data)
+    return await prisma.extraService.create({ data });
   }
 
-  async updateById(id, data) {
-    return extraServiceModel.findByIdAndUpdate(id, data, { new: true })
+  async updateById(id, updates) {
+    return await prisma.extraService.update({ where: { id }, data: updates });
   }
 
   async deleteById(id) {
-    return extraServiceModel.findByIdAndDelete(id)
+    try {
+      return await prisma.extraService.delete({ where: { id } });
+    } catch (err) {
+      if (err.code === 'P2025') return null; // record not found
+      throw err;
+    }
   }
 }
 
-export default new ExtraServiceRepository()
+export default new ExtraServiceRepository();

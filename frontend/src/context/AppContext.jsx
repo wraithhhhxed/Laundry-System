@@ -7,6 +7,8 @@ export const AppContext = createContext()
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
 const REFRESH_INTERVAL = 30000 // 30 seconds
+const NOTIFICATION_POLL = 15000 // 15 seconds (notifications)
+const NOTIFICATION_AUTO_DISMISS = 5000 // 5 seconds
 
 const AppContextProvider = (props) => {
 
@@ -17,9 +19,48 @@ const AppContextProvider = (props) => {
   const [token, setToken]               = useState(localStorage.getItem('token') || false)
   const [userData, setUserData]         = useState(false)
   const [appointments, setAppointments] = useState([])
+  
+  // ── NOTIFICATIONS ──────────────────────────────────────────────────
+  // Load notifications from localStorage on init
+  const [notifications, setNotifications] = useState(() => {
+    const saved = localStorage.getItem('notifications')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return []
+      }
+    }
+    return []
+  })
+  
+  const [unreadCount, setUnreadCount] = useState(() => {
+    const saved = localStorage.getItem('notifications')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        return parsed.filter(n => !n.read).length
+      } catch {
+        return 0
+      }
+    }
+    return 0
+  })
+  
+  const appointmentsSnapshotRef = useRef([])
+  const notificationTimerRef = useRef(null)
+  const dismissTimersRef = useRef({})
 
   const branchesTimerRef = useRef(null)
   const faqsTimerRef     = useRef(null)
+
+  // Save notifications to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('notifications', JSON.stringify(notifications))
+    // Update unread count
+    const unread = notifications.filter(n => !n.read).length
+    setUnreadCount(unread)
+  }, [notifications])
 
   const getBranchesData = async () => {
     try {
@@ -57,10 +98,108 @@ const AppContextProvider = (props) => {
       const { data } = await axios.get(`${backendUrl}/api/user/appointments`, {
         headers: authHeader(token)
       })
-      if (data.success) setAppointments(data.data.appointments.reverse())
+      if (data.success) {
+        const fetchedAppointments = data.data.appointments.reverse()
+        setAppointments(fetchedAppointments)
+        
+        // ── DETECT STATUS CHANGES ──────────────────────────────────
+        detectStatusChanges(fetchedAppointments)
+        // ───────────────────────────────────────────────────────────
+      }
     } catch (error) {
       toast.error(error.message)
     }
+  }
+
+  // ── DETECT STATUS CHANGES & CREATE NOTIFICATIONS ──────────────────
+  const detectStatusChanges = (currentAppointments) => {
+    currentAppointments.forEach((current) => {
+      const previous = appointmentsSnapshotRef.current.find(a => a.id === current.id)
+      
+      if (!previous) return // New appointment (ignore, not a status change)
+
+      const prevStatus = previous.deliveryStatus
+      const currStatus = current.deliveryStatus
+
+      // Status changed?
+      if (prevStatus !== currStatus) {
+        const notif = generateNotification(current, currStatus)
+        if (notif) addNotification(notif)
+      }
+    })
+
+    // Update snapshot for next comparison
+    appointmentsSnapshotRef.current = currentAppointments
+  }
+
+  // ── NOTIFICATION GENERATOR ────────────────────────────────────────
+  const generateNotification = (appointment, newStatus) => {
+    const statusMessages = {
+      picked_up: {
+        title: 'Laundry Picked Up',
+        message: `Our rider has picked up your laundry and it is now on its way to ${appointment.branch?.name || 'branch'} for processing.`,
+      },
+      in_progress: {
+        title: 'Laundry in Progress',
+        message: 'Your laundry is being processed. Check back soon!',
+      },
+      out_for_delivery: {
+        title: 'Out for Delivery',
+        message: 'Your laundry is on the way! Get ready to receive it.',
+      },
+      delivered: {
+        title: 'Laundry Delivered',
+        message: 'Your laundry has been successfully delivered.',
+      },
+      approved: {
+        title: 'Appointment Approved',
+        message: `Your appointment at ${appointment.branch?.name || 'branch'} has been approved.`,
+      },
+      cancelled: {
+        title: 'Appointment Cancelled',
+        message: `Your appointment at ${appointment.branch?.name || 'branch'} has been cancelled.`,
+      },
+    }
+
+    return statusMessages[newStatus]
+      ? {
+          id: `${appointment.id}-${newStatus}-${Date.now()}`,
+          appointmentId: appointment.id,
+          status: newStatus,
+          timestamp: Date.now(),
+          read: false,
+          ...statusMessages[newStatus],
+        }
+      : null
+  }
+
+  // ── ADD NOTIFICATION ───────────────────────────────────────────────
+  const addNotification = (notif) => {
+    setNotifications((prev) => {
+      // Check if notification already exists (prevent duplicates)
+      const exists = prev.some(n => n.id === notif.id)
+      if (exists) return prev
+      return [notif, ...prev].slice(0, 20) // Keep last 20
+    })
+  }
+
+  // ── REMOVE NOTIFICATION ────────────────────────────────────────────
+  const removeNotification = (notifId) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== notifId))
+  }
+
+  // ── MARK NOTIFICATION AS READ ──────────────────────────────────────
+  const markNotificationAsRead = (notifId) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notifId ? { ...n, read: true } : n))
+    )
+  }
+
+  // ── CLEAR ALL NOTIFICATIONS ────────────────────────────────────────
+  const clearAllNotifications = () => {
+    setNotifications([])
+    Object.values(dismissTimersRef.current).forEach((timer) => clearTimeout(timer))
+    dismissTimersRef.current = {}
   }
 
   const cancelAppointment = async (appointmentId) => {
@@ -126,6 +265,7 @@ const AppContextProvider = (props) => {
       localStorage.removeItem('token')
       setUserData(false)
       setAppointments([])
+      clearAllNotifications()
     }
   }
 
@@ -156,6 +296,23 @@ const AppContextProvider = (props) => {
     else setUserData(false)
   }, [token])
 
+  // ── AUTO-POLL APPOINTMENTS & DETECT CHANGES (if logged in) ────────
+  useEffect(() => {
+    if (!token) return
+
+    // Initial fetch
+    getUserAppointments()
+
+    // Poll every 15 seconds
+    notificationTimerRef.current = setInterval(() => {
+      getUserAppointments()
+    }, NOTIFICATION_POLL)
+
+    return () => {
+      if (notificationTimerRef.current) clearInterval(notificationTimerRef.current)
+    }
+  }, [token])
+
   const value = {
     branches, getBranchesData,
     faqs, getFaqs,
@@ -171,6 +328,12 @@ const AppContextProvider = (props) => {
     resolveOverweight,
     validatePromo,
     logoutUser,
+    // ── NOTIFICATIONS ──────────────────────────────────────────────
+    notifications,
+    unreadCount,
+    removeNotification,
+    markNotificationAsRead,
+    clearAllNotifications,
   }
 
   return (

@@ -14,14 +14,57 @@ const BranchesContextProvider = (props) => {
   const [appointments, setAppointments]   = useState([])
   const [dashData, setDashData]           = useState(null)
 
+  // ─── WALK-IN ──────────────────────────────────────────────────
+  const [walkInServices, setWalkInServices] = useState([])
+
+  const getWalkInServices = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + '/api/user/services')
+      if (data.success) setWalkInServices(data.data.services)
+      else toast.error(data.message)
+    } catch (error) { 
+      toast.error(error.message) 
+    }
+  }
+
+  const lookupPhone = async (phone) => {
+    try {
+      const { data } = await axios.get(
+        backendUrl + `/api/branch/lookup-phone/${phone}`,
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) return data.data.user
+      return null
+    } catch (error) {
+      return null
+    }
+  }
+
+  const createWalkInAppointment = async (payload) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/branch/create-walk-in',
+        payload,
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        toast.success('Walk-in appointment created successfully.')
+        debouncedRefresh()
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
   // ─── Debounced refresh ────────────────────────────────────────
-  // All actions (confirmPayment, updateDeliveryStatus, etc.) call
-  // this instead of getBranchAppointments() directly.
-  // Multiple calls within 1500ms collapse into a single request,
-  // preventing 429 when auto-refresh and an action fire together.
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
-  const MIN_INTERVAL = 3000 // ms — never fetch more often than this
+  const MIN_INTERVAL = 3000
 
   const getBranchAppointments = useCallback(async () => {
     try {
@@ -37,7 +80,7 @@ const BranchesContextProvider = (props) => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current)
     refreshTimer.current = setTimeout(async () => {
       const now = Date.now()
-      if (now - lastFetch.current < MIN_INTERVAL) return // still too soon
+      if (now - lastFetch.current < MIN_INTERVAL) return
       lastFetch.current = now
       await getBranchAppointments()
     }, delay)
@@ -197,7 +240,31 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // Tab visibility refresh — only fires if enough time has passed
+  // ⭐ ARCHIVE APPOINTMENT - SIMPLE
+  const archiveAppointment = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/branch/archive-appointment',
+        { appointmentId },
+        { headers: authHeader(bToken) }
+      )
+      
+      if (data.success) {
+        toast.success('Appointment archived successfully')
+        await getBranchAppointments()  // Immediate refresh, not debounced
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      console.error('Error archiving appointment:', error)
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
+  // Tab visibility refresh
   useEffect(() => {
     if (!bToken) return
     const handleVisibilityChange = () => {
@@ -217,7 +284,12 @@ const BranchesContextProvider = (props) => {
     dashData, getBranchDashboard,
     updateDeliveryStatus,
     confirmActualWeight,
+    archiveAppointment,
     confirmPayment,
+    // ── WALK-IN ──────────────────────────────────────────────────
+    walkInServices, getWalkInServices,
+    lookupPhone,
+    createWalkInAppointment,
   }
 
   return (

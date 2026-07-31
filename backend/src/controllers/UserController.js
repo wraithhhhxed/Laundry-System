@@ -6,7 +6,7 @@ import serviceService from '../services/ServiceService.js'
 import clothingTypeService from '../services/ClothingTypeService.js'
 import kgRateService from '../services/KgRateService.js'
 import AuditService from '../services/AuditService.js'
-import { ApiError } from '../utils/apiError.js'
+import { ApiError } from '../utils/ApiError.js'
 
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phone, address } = req.body

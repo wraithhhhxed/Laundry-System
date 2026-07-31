@@ -36,12 +36,20 @@ class PromoCodeRepository {
   }
 
   async create(data) {
-    return await prisma.promoCode.create({ data });
+  const payload = { ...data };
+  if (payload.expiresAt) {
+    payload.expiresAt = new Date(payload.expiresAt);
   }
+  return await prisma.promoCode.create({ data: payload });
+}
 
   async updateById(id, data) {
-    return await prisma.promoCode.update({ where: { id }, data });
+  const payload = { ...data };
+  if (payload.expiresAt) {
+    payload.expiresAt = new Date(payload.expiresAt);
   }
+  return await prisma.promoCode.update({ where: { id }, data: payload });
+}
 
   // ─── ATOMIC: check eligibility + increment in ONE transaction ─────────────
   // Postgres/Prisma walang direktang katumbas ng Mongoose findOneAndUpdate na

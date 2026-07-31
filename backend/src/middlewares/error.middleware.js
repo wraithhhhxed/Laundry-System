@@ -1,4 +1,4 @@
-import { ApiError } from '../utils/apiError.js'
+import { ApiError } from '../utils/ApiError.js'
 
 const IS_DEV = process.env.NODE_ENV === 'development'
 
