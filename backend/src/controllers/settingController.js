@@ -1,6 +1,6 @@
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
-import * as settingService from '../services/SettingService.js'
+import * as settingService from '../services/settingService.js'
 
 export const getVatRate = asyncHandler(async (req, res) => {
   const rate = await settingService.getVatRate()
