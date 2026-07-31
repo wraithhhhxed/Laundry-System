@@ -1,7 +1,6 @@
 ﻿**/node_modules/
 **/.env
 **/dist/
-admin/
 
 # Ignore accidental installer/audit files
 backend/*.exe
