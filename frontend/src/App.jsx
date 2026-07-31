@@ -32,7 +32,7 @@ import AdminWalkIn from './pages/admin/AdminWalkIn'
 // Branch
 import BranchNavbar from './components/branch/BranchNavbar'
 import BranchSidebar from './components/branch/BranchSidebar'
-import BranchDashboard from './pages/branch/BranchDashboard'
+import BranchDashboard from './pages/branch/branchDashboard'
 import BranchAppointments from './pages/branch/BranchAppointments'
 import BranchWalkIn from './pages/branch/BranchWalkIn'
 import BranchProfile from './pages/branch/BranchProfile'
