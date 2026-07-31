@@ -22,7 +22,7 @@ import { errorHandler } from './src/middlewares/error.middleware.js'
 import settingRoute from './src/routes/settingRoute.js'
 import productRoute from './src/routes/productRoute.js'
 import inventoryRoute from './src/routes/inventoryRoute.js'
-import salesRouter from './src/routes/salesRoute.js'
+import salesRouter from './src/routes/SalesRoute.js'
 import auditRouter from './src/routes/auditRoute.js'
 import extraServiceRouter from './src/routes/extraServiceRoute.js' // ✅ added
 import appointmentService from './src/services/AppointmentService.js'
