@@ -1,8 +1,6 @@
 import express from 'express'
 
 // Global fix: turuan si JSON.stringify kung paano i-convert ang BigInt
-// (ginagamit natin ito sa Branch.date at Appointment.date sa Prisma schema —
-// walang alam si JSON.stringify kung paano i-serialize ang BigInt bydefault).
 BigInt.prototype.toJSON = function () {
   return Number(this)
 }
@@ -24,8 +22,9 @@ import productRoute from './src/routes/productRoute.js'
 import inventoryRoute from './src/routes/inventoryRoute.js'
 import salesRouter from './src/routes/salesRoute.js'
 import auditRouter from './src/routes/auditRoute.js'
-import extraServiceRouter from './src/routes/extraServiceRoute.js' // ✅ added
+import extraServiceRouter from './src/routes/extraServiceRoute.js' 
 import appointmentService from './src/services/AppointmentService.js'
+import authRouter from './src/routes/authRoute.js'
 
 EventEmitter.defaultMaxListeners = 20
 
@@ -56,6 +55,7 @@ app.use(cookieParser())
 app.use(express.json())
 
 // ─── Rate limiting ───────────────────────────────────────────────
+app.use('/api/auth/login',    rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: 'Too many login attempts' }))
 app.use('/api/user/login',    rateLimit({ windowMs: 15 * 60 * 1000, max: 20,  message: 'Too many login attempts' }))
 app.use('/api/user/register', rateLimit({ windowMs: 60 * 60 * 1000, max: 10,  message: 'Too many registrations' }))
 app.use('/api/admin/login',   rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  message: 'Too many login attempts' }))
@@ -63,6 +63,7 @@ app.use('/api/branch/login',  rateLimit({ windowMs: 15 * 60 * 1000, max: 10,  me
 app.use('/api',               rateLimit({ windowMs: 15 * 60 * 1000, max: 1000, message: 'Too many requests' }))
 
 // ─── Routes ──────────────────────────────────────────────────────
+app.use('/api/auth',          authRouter)
 app.use('/api/admin',          adminRouter)
 app.use('/api/branch',         branchRouter)
 app.use('/api/user',           userRouter)
@@ -71,7 +72,7 @@ app.use('/api/products',       productRoute)
 app.use('/api/inventory',      inventoryRoute)
 app.use('/api/sales',          salesRouter)
 app.use('/api/audit-logs',     auditRouter)
-app.use('/api/extra-services', extraServiceRouter) // ✅ added
+app.use('/api/extra-services', extraServiceRouter)
 
 app.get('/', (req, res) => res.send('API WORKING'))
 
@@ -85,10 +86,7 @@ connectDB()
   .catch((err) => console.log('DB connection failed:', err))
 
 // ─── Overweight auto-cancel checker ──────────────────────────────
-// Tumatakbo every 5 minutes, hahanapin ang mga appointment na naka-
-// "pending_decision" pa sa overweight status at lampas na sa deadline
-// (walang sagot ang client bago mag-5pm ng parehong araw).
-const OVERWEIGHT_CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const OVERWEIGHT_CHECK_INTERVAL = 5 * 60 * 1000 
 
 setInterval(() => {
   appointmentService.autoCancelExpiredOverweightDecisions()

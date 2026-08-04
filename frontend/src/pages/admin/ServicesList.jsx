@@ -146,7 +146,7 @@ const ServicesList = () => {
                   <div className='flex items-center gap-3 min-w-0'>
                     {item.image
                       ? <img src={item.image} className='w-9 h-9 object-cover flex-shrink-0' alt={item.name}/>
-                      : <div className='w-9 h-9 bg-blue-50 flex items-center justify-center text-base flex-shrink-0'>🧺</div>
+                      : <div className='w-9 h-9 bg-blue-50 flex items-center justify-center text-base flex-shrink-0'>S</div>
                     }
                     <div className='min-w-0 overflow-hidden'>
                       <span className='font-sans font-semibold text-sm text-neutral-700 block truncate'>{item.name}</span>

@@ -21,7 +21,7 @@ const BranchSidebar = () => {
 
   return (
     <div
-      className="sticky top-0 h-screen overflow-y-auto bg-white border-r border-blue-100 flex flex-col flex-shrink-0 w-56"
+      className="sticky top-0 h-screen overflow-y-auto bg-white border-r border-blue-100 flex flex-col flex-shrink-0 w-56 sidebar-scroll"
       style={{ paddingTop: '70px' }}
     >
       <ul className="flex flex-col p-3 flex-1">

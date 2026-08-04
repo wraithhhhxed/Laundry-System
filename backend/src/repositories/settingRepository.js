@@ -1,4 +1,4 @@
-// backend/src/repositories/settingRepository.js
+
 import prisma from '../config/prismaClient.js';
 
 export const getSettingByKey = async (key) => {

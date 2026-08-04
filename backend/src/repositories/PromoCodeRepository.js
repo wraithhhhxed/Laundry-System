@@ -1,4 +1,3 @@
-// backend/src/repositories/PromoCodeRepository.js
 import prisma from '../config/prismaClient.js';
 
 class PromoCodeRepository {
@@ -51,15 +50,7 @@ class PromoCodeRepository {
   return await prisma.promoCode.update({ where: { id }, data: payload });
 }
 
-  // ─── ATOMIC: check eligibility + increment in ONE transaction ─────────────
-  // Postgres/Prisma walang direktang katumbas ng Mongoose findOneAndUpdate na
-  // may kumplikadong conditions sa isang atomic call. Sa halip, gumagamit
-  // tayo ng transaction + optimistic concurrency check: kinukuha muna natin
-  // ang kasalukuyang usedCount, tapos ini-include ito sa WHERE clause ng
-  // update — kung may ibang caller na nauna nang nag-increment (nagbago na
-  // ang usedCount), 0 ang matched rows at malalaman nating natalo tayo sa
-  // race, kaya babalik tayo ng null (parehong resulta gaya ng Mongoose
-  // findOneAndUpdate na walang na-match).
+
   async reserveUse(code, orderSubtotal) {
     const now = new Date();
     const normalizedCode = code.toUpperCase().trim();

@@ -1,4 +1,4 @@
-// backend/src/repositories/ProductRepository.js
+
 import prisma from '../config/prismaClient.js';
 
 class ProductRepository {

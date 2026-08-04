@@ -40,8 +40,7 @@ class AuditRepository {
     if (actorName) {
       and.push({ actor: { path: ['name'], string_contains: actorName, mode: 'insensitive' } });
     } else {
-      // Exclude ghost records — mga lumang logs na walang totoong actor name
-      // (nakatabi bilang 'System' bago na-fix ang auth middleware).
+     
       and.push({ NOT: { actor: { path: ['name'], equals: 'System' } } });
     }
 

@@ -1,4 +1,3 @@
-// backend/src/repositories/ServiceRepository.js
 import prisma from '../config/prismaClient.js';
 
 class ServiceRepository {

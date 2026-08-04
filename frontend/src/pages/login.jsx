@@ -1,5 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react'
 import { AppContext } from '../context/AppContext'
+import { AdminContext } from '../context/AdminContext'
+import { BranchesContext } from '../context/BranchesContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
 import { GoogleLogin } from '@react-oauth/google'
@@ -55,16 +57,18 @@ const PasswordInput = ({ value, onChange, className, required, placeholder }) =>
 
 const Login = () => {
   const { token, setToken, backendUrl } = useContext(AppContext)
-  const navigate  = useNavigate()
-  const location  = useLocation()
+  const { setAToken } = useContext(AdminContext)
+  const { setBToken } = useContext(BranchesContext)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const [state, setState]             = useState(location.state?.tab === 'register' ? 'Sign Up' : 'Login')
-  const [email, setEmail]             = useState('')
-  const [password, setPassword]       = useState('')
+  const [state, setState] = useState(location.state?.tab === 'register' ? 'Sign Up' : 'Login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [confirmPass, setConfirmPass] = useState('')
-  const [name, setName]               = useState('')
-  const [phone, setPhone]             = useState('')
-  const [address, setAddress]         = useState({ line1: '', line2: '' })
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState({ line1: '', line2: '' })
 
   useEffect(() => { if (token) navigate('/') }, [token])
   useEffect(() => { if (location.state?.tab === 'register') setState('Sign Up') }, [location.state])
@@ -87,15 +91,12 @@ const Login = () => {
     }
 
     try {
-      const endpoint = state === 'Sign Up' ? '/api/user/register' : '/api/user/login'
-      const payload  = state === 'Sign Up'
-        ? { name, email, password, phone, address: JSON.stringify(address) }
-        : { email, password }
+      if (state === 'Sign Up') {
+        // Registration — customer/user lang, hindi pinagsasama sa unified login
+        const payload = { name, email, password, phone, address: JSON.stringify(address) }
+        const { data } = await axios.post(backendUrl + '/api/user/register', payload)
 
-      const { data } = await axios.post(backendUrl + endpoint, payload)
-
-      if (data.success) {
-        if (state === 'Sign Up') {
+        if (data.success) {
           toast.success('Account created! Please log in.')
           setName('')
           setEmail('')
@@ -105,9 +106,29 @@ const Login = () => {
           setAddress({ line1: '', line2: '' })
           setState('Login')
         } else {
-          setToken(data.data.token)
-          localStorage.setItem('token', data.data.token)
+          toast.error(data.message)
+        }
+        return
+      }
+
+      // ─── UNIFIED LOGIN ────────────────────────────────────────────
+      const { data } = await axios.post(backendUrl + '/api/auth/login', { email, password })
+
+      if (data.success) {
+        const { token: newToken, role } = data.data
+
+        if (role === 'user') {
+          setToken(newToken)
+          localStorage.setItem('token', newToken)
           navigate('/')
+        } else if (role === 'branch') {
+          setBToken(newToken)
+          localStorage.setItem('bToken', newToken)
+          navigate('/branch/dashboard')
+        } else if (role === 'admin') {
+          setAToken(newToken)
+          localStorage.setItem('aToken', newToken)
+          navigate('/admin/dashboard')
         }
       } else {
         toast.error(data.message)
@@ -136,75 +157,75 @@ const Login = () => {
 
   const isSignUp = state === 'Sign Up'
 
-  const phoneValid   = /^09\d{9}$/.test(phone)
+  const phoneValid = /^09\d{9}$/.test(phone)
   const phoneInvalid = phone.length > 0 && !phoneValid
-  const passShort    = password.length > 0 && password.length < 8
+  const passShort = password.length > 0 && password.length < 8
   const passMismatch = confirmPass.length > 0 && confirmPass !== password
-  const passMatch    = confirmPass.length > 0 && confirmPass === password
+  const passMatch = confirmPass.length > 0 && confirmPass === password
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white min-h-screen flex p-4 md:p-8'>
 
-{/* ── LEFT PANEL ── */}
-<div className='hidden md:flex w-2/5 bg-blue-600 flex-col justify-between px-8 py-10 relative overflow-hidden flex-shrink-0'>
-  <div
-    className='absolute inset-0 pointer-events-none'
-    style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%)' }}
-  />
-  
-  <div className='relative z-10 flex flex-col mt-32'>
-    {/* Logo - Centered at top */}
-    <div className='flex justify-center mb-9'>
-      <img src={assets.logo} alt='Selfie Wash' className='w-72' />
-    </div>
-    
-    {/* Content below logo */}
-      <div className='-mt-0.00001'>
-      <span className='uppercase tracking-[0.35em] text-[10px] text-white/80 font-sans-bold block mb-2'>
-        {isSignUp ? 'Join Us' : 'Welcome Back'}
-      </span>
-      <h2
-        className='leading-none text-white mb-3'
-        style={{ fontSize: 'clamp(28px, 3vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}
-      >
-        {isSignUp ? <>Clean clothes,<br />zero hassle.</> : <>Good to<br />see you again.</>}
-      </h2>
-      <p className='text-white/80 font-sans text-sm leading-relaxed max-w-xs'>
-        {isSignUp
-          ? 'Create an account to start booking laundry pickups at your nearest Selfie Wash branch.'
-          : 'Log in to manage your appointments, track your laundry, and more.'}
-      </p>
-    </div>
-  </div>
-  
-    <div className='relative z-10 grid grid-cols-3 gap-0.5 bg-white/40'>
-    {['Pickup', 'Wash', 'Deliver'].map((label, i) => (
-      <div key={label} className='bg-blue-600 px-3 py-3 flex flex-col gap-0.5'>
-        <span className='text-white font-sans font-bold leading-none' style={{ fontSize: '20px' }}>
-          0{i + 1}
-        </span>
-        <span className='font-sans text-[9px] text-white uppercase tracking-widest'>{label}</span>
+      {/* ── LEFT PANEL ── */}
+      <div className='hidden md:flex w-2/5 bg-blue-600 flex-col justify-between px-8 py-10 relative overflow-hidden flex-shrink-0'>
+        <div
+          className='absolute inset-0 pointer-events-none'
+          style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%)' }}
+        />
+
+        <div className='relative z-10 flex flex-col mt-32'>
+          {/* Logo - Centered at top */}
+          <div className='flex justify-center mb-9'>
+            <img src={assets.logo} alt='Selfie Wash' className='w-72' />
+          </div>
+
+          {/* Content below logo */}
+          <div className='-mt-0.00001'>
+            <span className='uppercase tracking-[0.35em] text-[10px] text-white/80 font-sans-bold block mb-2'>
+              {isSignUp ? 'Join Us' : 'Welcome Back'}
+            </span>
+            <h2
+              className='leading-none text-white mb-3'
+              style={{ fontSize: 'clamp(28px, 3vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}
+            >
+              {isSignUp ? <>Clean clothes,<br />zero hassle.</> : <>Good to<br />see you again.</>}
+            </h2>
+            <p className='text-white/80 font-sans text-sm leading-relaxed max-w-xs'>
+              {isSignUp
+                ? 'Create an account to start booking laundry pickups at your nearest Selfie Wash branch.'
+                : 'Log in to manage your appointments, track your laundry, and more.'}
+            </p>
+          </div>
+        </div>
+
+        <div className='relative z-10 grid grid-cols-3 gap-0.5 bg-white/40'>
+          {['Pickup', 'Wash', 'Deliver'].map((label, i) => (
+            <div key={label} className='bg-blue-600 px-3 py-3 flex flex-col gap-0.5'>
+              <span className='text-white font-sans font-bold leading-none' style={{ fontSize: '20px' }}>
+                0{i + 1}
+              </span>
+              <span className='font-sans text-[9px] text-white uppercase tracking-widest'>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
-    ))}
-  </div>
-</div>
 
       {/* ── RIGHT PANEL ── */}
-<div className='flex-1 flex flex-col justify-center px-4 md:px-8 lg:px-12 py-6 overflow-y-auto'>
-  <div className='max-w-sm w-full mx-auto'>
+      <div className='flex-1 flex flex-col justify-center px-4 md:px-8 lg:px-12 py-6 overflow-y-auto'>
+        <div className='max-w-sm w-full mx-auto'>
 
-    <div className='mb-5'>
-      <div className='h-px bg-blue-100 mb-4' />
-      <h1
-        className='leading-none text-blue-900'
-        style={{ fontSize: 'clamp(26px, 3vw, 40px)', fontWeight: 700, letterSpacing: '-0.03em' }}
-      >
-        {isSignUp ? 'Create Account.' : 'Login.'}
-      </h1>
-      <p className='font-sans text-sm text-black-400 mt-1'>
-        Please {isSignUp ? 'sign up' : 'log in'} to book an appointment.
-      </p>
-    </div>
+          <div className='mb-5'>
+            <div className='h-px bg-blue-100 mb-4' />
+            <h1
+              className='leading-none text-blue-900'
+              style={{ fontSize: 'clamp(26px, 3vw, 40px)', fontWeight: 700, letterSpacing: '-0.03em' }}
+            >
+              {isSignUp ? 'Create Account.' : 'Login.'}
+            </h1>
+            <p className='font-sans text-sm text-black-400 mt-1'>
+              Please {isSignUp ? 'sign up' : 'log in'} to book an appointment.
+            </p>
+          </div>
 
           <form onSubmit={onSubmitHandler} className='flex flex-col gap-2.5'>
 

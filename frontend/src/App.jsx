@@ -119,7 +119,7 @@ const App = () => {
   }
 
   return (
-    <div className='mx-4 sm:mx-[10%]'>
+    <div className='mx-4 sm:mx-[10%]'> 
       <ToastContainer />
       <Routes>
         {/* Auth Routes - WITHOUT Navbar and Footer */}

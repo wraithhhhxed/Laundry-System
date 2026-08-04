@@ -1,4 +1,3 @@
-// backend/src/repositories/AdminRepository.js
 import prisma from '../config/prismaClient.js';
 
 class AdminRepository {

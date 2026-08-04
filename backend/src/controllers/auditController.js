@@ -3,14 +3,6 @@ import { ApiError } from '../utils/ApiError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
 import AuditRepository from '../repositories/AuditRepository.js'
 
-/**
- * GET /api/audit-logs
- * Super admin only.
- *
- * Query params:
- *   action, branchId, actorName, actorRole, targetType,
- *   dateFrom, dateTo, page, limit
- */
 const getAuditLogs = asyncHandler(async (req, res) => {
   const {
     action,
@@ -41,10 +33,7 @@ const getAuditLogs = asyncHandler(async (req, res) => {
   )
 })
 
-/**
- * GET /api/audit-logs/target/:type/:id
- * Super admin only. Get history for a specific record (e.g. one appointment).
- */
+
 const getAuditLogsByTarget = asyncHandler(async (req, res) => {
   const { type, id } = req.params
   const limit = Number(req.query.limit) || 20

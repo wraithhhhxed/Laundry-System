@@ -1,4 +1,4 @@
-// backend/src/repositories/InventoryRepository.js
+
 import prisma from '../config/prismaClient.js';
 
 class InventoryRepository {
@@ -37,7 +37,7 @@ class InventoryRepository {
   }
 
   // ─── ATOMIC: conditional decrement gamit ang transaction + optimistic
-  // concurrency check (parehong pattern gaya ng PromoCodeRepository.reserveUse) ──
+  //  ──
   async deduct(branchId, productId, qty) {
     return await prisma.$transaction(async (tx) => {
       const inv = await tx.inventory.findUnique({ where: { branchId_productId: { branchId, productId } } });
@@ -61,10 +61,7 @@ class InventoryRepository {
     });
   }
 
-  // NOTE: si Prisma ay walang built-in na paraan para i-compare ang dalawang
-  // column (quantity vs lowStockThreshold) diretso sa `where` nang walang raw
-  // SQL — kaya kinukuha muna natin lahat ng records ng branch, tapos
-  // fini-filter sa JavaScript. Sapat na 'to sa laki ng datos natin.
+
   async findLowStock(branchId) {
     const inventories = await prisma.inventory.findMany({
       where: { branchId },

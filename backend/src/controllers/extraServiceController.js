@@ -8,7 +8,7 @@ const getActiveExtraServices = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { extraServices }))
 })
 
-// ─── ADMIN (called from extraServiceRoute, auth handled by middleware) ───────
+// ─── ADMIN  ───────
 const getAllExtraServices = asyncHandler(async (req, res) => {
   const extraServices = await extraServiceService.getAllExtraServices()
   res.json(new ApiResponse(200, { extraServices }))

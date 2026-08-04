@@ -18,9 +18,7 @@ import AuditRepository from '../repositories/AuditRepository.js'
 import AdminRepository from '../repositories/AdminRepository.js'
 
 // ─── HELPERS ──────────────────────────────────────────────────────
-// Kumuha ng totoong logged-in admin info mula sa req.user (pinopopulate
-// ng auth.middleware.js). Fallback lang ang 'Super Admin' kung walang
-// req.user (hal. hindi dumaan sa protect() middleware).
+
 const adminActor = (req) => ({
   userId: req.user?.id   ?? null,
   name:   req.user?.name ?? 'Super Admin',
@@ -175,7 +173,7 @@ const confirmPayment = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { appointment }, 'Payment confirmed by admin'))
 })
 
-// ⭐ ARCHIVE APPOINTMENT (Super Admin)
+//  ARCHIVE APPOINTMENT (Super Admin)
 const archiveAppointment = asyncHandler(async (req, res) => {
   const { appointmentId } = req.body
   if (!appointmentId) throw new ApiError(400, 'appointmentId is required')
@@ -185,17 +183,17 @@ const archiveAppointment = asyncHandler(async (req, res) => {
 
   await appointmentService.archiveAppointment(
     appointmentId,
-    appointment.branchId,   // ← branchId mismo ng appointment, hindi admin ID
+    appointment.branchId,  
     adminActor(req)
   )
 
   res.json(new ApiResponse(200, {}, 'Appointment archived successfully'))
 })
 
-// ─── WALK-IN QUICK ADD (Super Admin — may branch dropdown) ────────
+// ─── WALK-IN QUICK ADD ────────
 const createWalkInAppointment = asyncHandler(async (req, res) => {
   const {
-    branchId,        // ← BAGO, kailangan pumili ng branch
+    branchId,      
     phone,
     guestName,
     slotTime,
@@ -234,7 +232,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
   const appointment = await appointmentService.createWalkInAppointment(
     phone,
     guestName || null,
-    branchId,                     // ← ginamit yung pinili na branchId, hindi req.user.id
+    branchId,                     
     slotTime || 'walk_in',
     services,
     overweightResolution || null,
@@ -246,7 +244,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
       email: paymentMethod === 'ONLINE' ? email : null,
     },
     addOns || [],
-    adminActor(req),              // ← ginamit yung existing adminActor() helper
+    adminActor(req),            
     fulfillmentMethod || 'SELF_PICKUP'
   )
 
@@ -524,21 +522,29 @@ const deleteExtraService = asyncHandler(async (req, res) => {
 
 export {
   loginAdmin, logoutAdmin,
+
   addBranch, allBranches, changeBranchAvailability,
+
   allAppointments, cancelAppointment, adminDashboard, approveBooking, approvePayment,
   updateDeliveryStatus,
   confirmActualWeight, confirmPayment,
   archiveAppointment,
-  createWalkInAppointment,  // ← ADDED
-  lookupPhone,              // ← ADDED
+  createWalkInAppointment, 
+  lookupPhone,              
+
   getAllServices, addService, updateService, deleteService,
+
   getAllClothingTypes, addClothingType, updateClothingType, deleteClothingType,
+
   getAllKgRates, addKgRate, updateKgRate, deleteKgRate,
+
   getAuditLogs,
   getAllUsers, getUserById, addUser, updateUser, toggleUserStatus, deleteUser,
+
   getBranches, getBranchByIdAdmin, updateBranchAdmin,
+  
   toggleBranchStatus, deleteBranchAdmin, resetBranchPassword,
-  // Extra Services Maintenance
+  
   getAllExtraServices, getExtraServiceById, addExtraService,
   updateExtraService, toggleExtraServiceStatus, deleteExtraService,
 }
