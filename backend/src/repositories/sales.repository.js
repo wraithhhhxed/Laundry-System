@@ -1,4 +1,4 @@
-// backend/src/repositories/sales.repository.js
+
 import prisma from '../config/prismaClient.js'
 
 const COMPLETED_MATCH = { isCompleted: true, cancelled: false, payment: true }
@@ -26,9 +26,7 @@ export const buildDateMatch = ({ preset, from, to }) => {
   return {}
 }
 
-// Kapareho ng dating buildGroupId sa Mongo — nagbabalik ng {y,m,d,h} object,
-// hindi flat string, para hindi masira ang frontend na malamang umaasa sa
-// _id.y / _id.m / atbp.
+
 const buildGroupKey = (date, preset) => {
   const d = new Date(date)
   if (preset === 'today') {
@@ -46,11 +44,7 @@ const sortByYMDH = (a, b) => {
 }
 
 // ── SUMMARY (grouped by date bucket) ────────────────────────────────────────
-// NOTE: Prisma/Postgres walang direktang "group by date part" katulad ng
-// Mongo $group + $year/$month — kaya kinukuha muna natin lahat ng matching
-// appointments, tapos ginagrupo sa JavaScript. Sapat na 'to sa laki ng datos
-// ng thesis project na 'to; kung lalaki na ang volume sa hinaharap, mas
-// mainam nang gumamit ng raw SQL (date_trunc) o materialized view.
+
 export const getSummary = async (match, preset) => {
   const appointments = await prisma.appointment.findMany({
     where: { ...COMPLETED_MATCH, ...match },
@@ -117,9 +111,7 @@ export const getPerBranch = async (match) => {
 }
 
 // ── PER SERVICE ──────────────────────────────────────────────────────────────
-// Mas simple na ngayon kumpara dati — hindi na kailangan ng $lookup papunta
-// sa services collection, dahil ang AppointmentService rows natin ay may
-// sarili nang name/price snapshot.
+
 export const getPerService = async (match) => {
   const appointments = await prisma.appointment.findMany({
     where: { ...COMPLETED_MATCH, ...match },
@@ -141,12 +133,8 @@ export const getPerService = async (match) => {
   return Object.values(buckets).sort((x, y) => y.revenue - x.revenue)
 }
 
-// ── KG VOLUME (dating "KG Revenue") ─────────────────────────────────────────
-// Hindi na revenue ang laman nito — dahil hindi na presyo driver ang kilo sa
-// fixed-package pricing model natin, ang kg ay 7kg CAPACITY CHECK LANG per
-// load. Pure volume stats na lang ito: total/average na kilo na na-proseso
-// (kapaki-pakinabang para sa operational insight — hal. gaano karaming
-// trabaho ang na-handle — hiwalay sa pera, na nasa ibang 4 functions na).
+// ── KG VOLUME  ─────────────────────────────────────────
+
 export const getKgRevenue = async (match) => {
   const appointments = await prisma.appointment.findMany({
     where: { ...COMPLETED_MATCH, ...match },

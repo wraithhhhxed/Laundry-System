@@ -50,8 +50,6 @@ import MyProfile from './pages/myprofiles'
 import MyAppointments from './pages/myappointments'
 import Appointment from './pages/appointment'
 import PaymentSuccess from './pages/PaymentSuccess'
-import SecretLogin from './pages/SecretLogin'
-import AdminLogin from './pages/AdminLogin'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword  from './pages/ResetPassword'
 
@@ -119,16 +117,16 @@ const App = () => {
   }
 
   return (
-    <div className='mx-4 sm:mx-[10%]'>
+    <div className='mx-4 sm:mx-[10%]'> 
       <ToastContainer />
       <Routes>
         {/* Auth Routes - WITHOUT Navbar and Footer */}
         <Route path='/login' element={<Login />} />
         <Route path='/forgot-password' element={<ForgotPassword />} />
         <Route path='/reset-password/:token' element={<ResetPassword />} />
-        <Route path='/secret-login' element={<SecretLogin />} />
-        <Route path='/admin-login' element={<AdminLogin />} />
-        
+        <Route path='/secret-login' element={<Navigate to='/login' replace />} />
+        <Route path='/admin-login' element={<Navigate to='/login' replace />} />
+
         {/* Main Routes - WITH Navbar and Footer */}
         <Route element={<UserLayout />}>
           <Route path='/' element={<Home />} />

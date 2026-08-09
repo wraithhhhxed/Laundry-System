@@ -8,18 +8,18 @@ const Sidebar = () => {
   const operationsItems = [
     { to: '/admin/dashboard',    label: 'Dashboard' },
     { to: '/admin/appointments', label: 'Appointments' },
-    { to: '/admin/walk-in',      label: 'Walk In' },  // ← UPDATED
+    { to: '/admin/walk-in',      label: 'Walk In' },
     { to: '/admin/sales-report', label: 'Sales Report' },
   ]
 
-  const catalogItems = [
+  const maintenanceItems = [
     { to: '/admin/services',        label: 'Services' },
     { to: '/admin/extra-services',  label: 'Extra Services' },
     { to: '/admin/promo-codes',     label: 'Promo Codes' },
     { to: '/admin/products',        label: 'Products' },
   ]
 
-  const peopleItems = [
+  const branchesUsersItems = [
     { to: '/admin/branch-maintenance', label: 'Branch Maintenance' },
     { to: '/admin/users',              label: 'User Management' },
   ]
@@ -34,55 +34,68 @@ const Sidebar = () => {
 
   return (
     <div
-      className='sticky top-0 h-screen overflow-y-auto bg-white border-r border-blue-100 flex flex-col flex-shrink-0 w-56'
+      className='sticky top-0 h-screen bg-white border-r border-gray-200 flex flex-col flex-shrink-0 w-64'
       style={{ paddingTop: '70px' }}
     >
-      <ul className='flex flex-col p-3 flex-1'>
+      {/* Scrollable content with visible scrollbar */}
+      <div className='flex-1 overflow-y-auto px-3 py-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400'>
+        <ul className='space-y-1'>
 
-        <SectionLabel label='Operations' />
-        <div className='h-px bg-blue-100 mb-2' />
-        {operationsItems.map(item => <NavItem key={item.to} {...item} />)}
+          {/* OPERATIONS Section */}
+          <li className='px-3 pt-2 pb-1'>
+            <span className='uppercase tracking-[0.3em] text-[11px] text-gray-400 font-semibold'>
+              Operations
+            </span>
+          </li>
+          <div className='h-px bg-gray-200 mb-2' />
+          {operationsItems.map(item => <NavItem key={item.to} {...item} />)}
 
-        <SectionLabel label='Maintenance' />
-        <div className='h-px bg-blue-100 mb-2' />
-        {catalogItems.map(item => <NavItem key={item.to} {...item} />)}
+          {/* MAINTENANCE Section */}
+          <li className='px-3 pt-4 pb-1'>
+            <span className='uppercase tracking-[0.3em] text-[11px] text-gray-400 font-semibold'>
+              Maintenance
+            </span>
+          </li>
+          <div className='h-px bg-gray-200 mb-2' />
+          {maintenanceItems.map(item => <NavItem key={item.to} {...item} />)}
 
-        <SectionLabel label='Branches & Users' />
-        <div className='h-px bg-blue-100 mb-2' />
-        {peopleItems.map(item => <NavItem key={item.to} {...item} />)}
+          {/* BRANCHES & USERS Section */}
+          <li className='px-3 pt-4 pb-1'>
+            <span className='uppercase tracking-[0.3em] text-[11px] text-gray-400 font-semibold'>
+              Branches & Users
+            </span>
+          </li>
+          <div className='h-px bg-gray-200 mb-2' />
+          {branchesUsersItems.map(item => <NavItem key={item.to} {...item} />)}
 
-        <SectionLabel label='Settings' />
-        <div className='h-px bg-blue-100 mb-2' />
-        {settingsItems.map(item => <NavItem key={item.to} {...item} />)}
+          {/* SETTINGS Section */}
+          <li className='px-3 pt-4 pb-1'>
+            <span className='uppercase tracking-[0.3em] text-[11px] text-gray-400 font-semibold'>
+              Settings
+            </span>
+          </li>
+          <div className='h-px bg-gray-200 mb-2' />
+          {settingsItems.map(item => <NavItem key={item.to} {...item} />)}
 
-      </ul>
+        </ul>
+      </div>
     </div>
   )
 }
-
-const SectionLabel = ({ label }) => (
-  <li className='px-3 pt-4 pb-1'>
-    <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans font-semibold'>
-      {label}
-    </span>
-  </li>
-)
 
 const NavItem = ({ to, label }) => (
   <li>
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 transition-colors font-sans text-sm
+        `block px-3 py-2.5 rounded-lg text-sm font-medium
         ${isActive
-          ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-semibold'
-          : 'text-neutral-400 hover:bg-blue-50 hover:text-blue-600'
+          ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 pl-5'
+          : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'
         }`
       }
     >
-      {({ isActive }) => (
-        <span className={isActive ? 'text-blue-600' : ''}>{label}</span>
-      )}
+      {label}
     </NavLink>
   </li>
 )

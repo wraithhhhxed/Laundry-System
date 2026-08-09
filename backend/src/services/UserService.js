@@ -6,7 +6,7 @@ import AppointmentRepository from '../repositories/AppointmentRepository.js'
 import { ApiError } from '../utils/ApiError.js'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
 import crypto from 'crypto'
-import nodemailer from 'nodemailer'
+import EmailService from './EmailService.js'
 
 class UserService {
   async register(name, email, password, phone, address) {
@@ -286,7 +286,7 @@ class UserService {
   }
 
   // ─── FORGOT PASSWORD ─────────────────────────────────────────────────────
-  async forgotPassword(email) {
+ async forgotPassword(email) {
     const user = await UserRepository.findByEmail(email)
     if (!user) throw new ApiError(404, 'No account found with that email.')
 
@@ -298,33 +298,9 @@ class UserService {
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${rawToken}`
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    })
-
-    await transporter.sendMail({
-      from:    `"Selfie Wash" <${process.env.GMAIL_USER}>`,
-      to:      user.email,
-      subject: 'Password Reset Link — Selfie Wash',
-      html: `
-        <div style="font-family:Georgia,serif;max-width:480px;margin:auto;padding:32px;border:1px solid #ede9fe;border-radius:8px;">
-          <h2 style="color:#7c3aed;margin-bottom:8px;">Selfie Wash</h2>
-          <p style="color:#374151;">Hi <strong>${user.name}</strong>,</p>
-          <p style="color:#374151;">We received a request to reset your password. Click the button below — this link expires in <strong>15 minutes</strong>.</p>
-          <a href="${resetUrl}" style="display:inline-block;margin:24px 0;padding:12px 28px;background:#7c3aed;color:#fff;text-decoration:none;font-family:sans-serif;font-size:14px;border-radius:4px;">
-            Reset My Password
-          </a>
-          <p style="color:#6b7280;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
-          <p style="color:#6b7280;font-size:13px;">— The Selfie Wash Team</p>
-        </div>
-      `,
-    })
+    await EmailService.sendPasswordResetEmail(user.email, user.name, resetUrl)
   }
-
+  
   // ─── RESET PASSWORD ───────────────────────────────────────────────────────
   async resetPassword(rawToken, newPassword) {
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex')

@@ -1,28 +1,14 @@
 import prisma from '../config/prismaClient.js';
 import { ApiError } from '../utils/ApiError.js';
 
-// Lahat ng related rows na kailangang isama sa bawat query — sa Postgres,
-// 'services', 'addOns', at 'clothingTypes' ay TOTOONG hiwalay na tables na
-// (AppointmentService, AppointmentAddOn, AppointmentClothingType), hindi na
-// embedded subdocuments gaya ng dati sa Mongoose.
-//
-// NOTE: hindi natin ma-i-include ang buong ClothingType detail (pangalan,
-// atbp.) dahil ang AppointmentClothingType.clothingTypeId ay plain string
-// lang sa schema natin, walang @relation papunta sa ClothingType model
-// (parehong desisyon gaya ng serviceId/productId — walang enforced FK).
-// Makukuha lang dito ang clothingTypeId; kung kailangan ng pangalan,
-// kakailanganin ng hiwalay na lookup o dagdag na "name" snapshot column.
+
 const INCLUDE_RELATIONS = {
   services: true,
   addOns: true,
   clothingTypes: true,
 };
 
-// Mga field na TOTOONG relations sa Prisma (hindi puwedeng ipasa nang diretso
-// sa isang plain `data: updates` object) — kung sakaling may laman ang
-// `updates` na isa sa mga ito, tatanggalin natin muna para hindi mag-error
-// ang prisma.appointment.update(). Layunin: kagaya ng dating $set sa Mongoose
-// na hindi dapat basta-basta nabubura/napapalitan ang related data.
+
 const RELATION_FIELDS = ['services', 'addOns', 'clothingTypes'];
 
 function stripRelationFields(updates) {

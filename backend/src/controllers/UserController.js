@@ -47,6 +47,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { userData }, 'Profile updated'))
 })
 
+
+// bookings
 const bookAppointment = asyncHandler(async (req, res) => {
   const {
     branchId, slotDate, slotTime,

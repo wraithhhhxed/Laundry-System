@@ -1,7 +1,7 @@
-// backend/src/repositories/BranchRepository.js
+
 import prisma from '../config/prismaClient.js';
 
-// Kapareho ng dating .select('-password') sa Mongoose.
+
 const SAFE_FIELDS = {
   id: true,
   name: true,
@@ -64,12 +64,12 @@ class BranchRepository {
 
   async deleteById(id) {
     try {
-      // Delete all inventories linked to this branch first (cascade on app level)
+      
       await prisma.inventory.deleteMany({
         where: { branchId: id }
       });
 
-      // Then delete the branch
+     
       const branch = await prisma.branch.delete({
         where: { id }
       });

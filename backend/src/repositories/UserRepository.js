@@ -1,8 +1,7 @@
-// backend/src/repositories/UserRepository.js
+
 import prisma from '../config/prismaClient.js';
 
-// Kapareho ng dating .select('-password') sa Mongoose — laging i-exclude ang
-// password field sa mga query na hindi nangangailangan nito (findAll, listing, atbp).
+
 const SAFE_FIELDS = {
   id: true,
   name: true,

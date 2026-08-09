@@ -2,6 +2,7 @@
 **/.env
 **/dist/
 
+
 # Ignore accidental installer/audit files
 backend/*.exe
 backend/imports_list.txt

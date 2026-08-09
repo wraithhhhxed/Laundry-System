@@ -135,8 +135,8 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
     pickupAddress,
     deliveryAddress,
     fulfillmentMethod,
-    paymentMethod,   // ← BAGO
-    email,           // ← BAGO
+    paymentMethod,   
+    email,           
   } = req.body
 
   // ─── VALIDATIONS ──────────────────────────────────────────────
@@ -146,7 +146,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
   if (fulfillmentMethod && !['SELF_PICKUP', 'DELIVERY'].includes(fulfillmentMethod))
     throw new ApiError(400, 'fulfillmentMethod must be SELF_PICKUP or DELIVERY')
 
-  // ✅ BAGONG VALIDATIONS para sa paymentMethod at email
+  // new valids
   if (paymentMethod && !['CASH', 'ONLINE'].includes(paymentMethod))
     throw new ApiError(400, 'paymentMethod must be CASH or ONLINE')
   
@@ -168,7 +168,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
       specialInstructions,
       pickupAddress,
       deliveryAddress,
-      // ✅ BAGONG MGA FIELD
+     
       preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
       email: paymentMethod === 'ONLINE' ? email : null,
     },
@@ -187,7 +187,7 @@ const lookupPhone = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { user }))
 })
 
-// ⭐ ARCHIVE APPOINTMENT - SIMPLE
+// ARCHIVE APPOINTMENT - SIMPLE
 const archiveAppointment = asyncHandler(async (req, res) => {
   const { appointmentId } = req.body
   
@@ -210,17 +210,23 @@ const archiveAppointment = asyncHandler(async (req, res) => {
 export {
   loginBranch,
   logoutBranch,
+
   getBranchProfile,
   updateBranchProfile,
+
   getBranchAppointments,
   cancelAppointment,
   completeAppointment,
+
   getBranchDashboard,
+
   branchList,
   changeBranchAvailability,
   updateDeliveryStatus,
+
   confirmActualWeight,
   confirmPayment,
+  
   createWalkInAppointment,
   lookupPhone,
   archiveAppointment,

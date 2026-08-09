@@ -1,4 +1,4 @@
-// backend/src/repositories/ExtraServiceRepository.js
+
 import prisma from '../config/prismaClient.js';
 
 class ExtraServiceRepository {
@@ -27,7 +27,7 @@ class ExtraServiceRepository {
     try {
       return await prisma.extraService.delete({ where: { id } });
     } catch (err) {
-      if (err.code === 'P2025') return null; // record not found
+      if (err.code === 'P2025') return null; 
       throw err;
     }
   }

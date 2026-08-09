@@ -123,6 +123,60 @@ class EmailService {
       throw error;
     }
   }
+
+/**
+   * Send "Password Reset" email
+   * @param {string} userEmail - recipient email
+   * @param {string} userName - user's name
+   * @param {string} resetUrl - full reset link with token
+   */
+  async sendPasswordResetEmail(userEmail, userName, resetUrl) {
+    if (!userEmail) {
+      console.warn('[Email] No email provided for password reset');
+      return;
+    }
+
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f7faff;">
+          <div style="background: #2563eb; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 700;">Password Reset</h1>
+          </div>
+
+          <div style="background: white; padding: 24px; border: 1px solid #dbeafe;">
+            <p style="font-size: 16px; color: #1f2937;">Hi ${userName || 'there'},</p>
+
+            <p style="font-size: 15px; color: #374151; line-height: 1.6;">We received a request to reset your password. Click the button below — this link expires in <strong>15 minutes</strong>.</p>
+
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="${resetUrl}" style="display: inline-block; padding: 12px 28px; background: #2563eb; color: #fff; text-decoration: none; font-size: 14px; border-radius: 4px;">
+                Reset My Password
+              </a>
+            </div>
+
+            <p style="color: #4b5563; font-size: 14px; line-height: 1.6;">If you didn't request this, you can safely ignore this email.</p>
+
+            <hr style="border: none; border-top: 1px solid #dbeafe; margin: 20px 0;">
+            <p style="color: #9ca3af; font-size: 12px; text-align: center;">Selfie Wash Laundry System | Hagonoy, Taguig</p>
+          </div>
+        </div>
+      `;
+
+      const response = await resend.emails.send({
+        from: SENDER_EMAIL,
+        to: userEmail,
+        subject: 'Password Reset Link — Selfie Wash',
+        html,
+      });
+
+      console.log(`[Email] Password reset email sent to ${userEmail}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`[Email] Failed to send password reset email: ${error.message}`);
+      throw error;
+    }
+  }
+
 }
 
 export default new EmailService();

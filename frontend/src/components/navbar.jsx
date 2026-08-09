@@ -194,7 +194,7 @@ const Navbar = () => {
             ) : (
               <button onClick={() => navigate('/login')} className='bg-blue-600 text-white px-8 py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-bold transition-colors hover:bg-blue-700'
                       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 15px, 100% 100%, 0 100%)' }}>
-                Sign In
+                Log-in
               </button>
             )}
             <img onClick={() => setShowMobileMenu(true)} className='w-7 md:hidden cursor-pointer opacity-70 hover:opacity-100' src={assets.menu_icon} alt='' />

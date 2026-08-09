@@ -1,5 +1,5 @@
 import { useEffect, useContext, useState, useMemo, useCallback } from 'react'
-import { AdminContext } from '../../context/AdminContext'
+import { BranchesContext } from '../../context/BranchesContext'
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -205,7 +205,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
       .mt4{margin-top:12px}.mb4{margin-bottom:12px}.strike{text-decoration:line-through;color:#999}
     </style></head><body>
     <div class="center mb4">
-      <div class="tag">Super Admin</div>
+      <div class="tag">Branch Portal</div>
       <div class="xlarge">SELFIE WASH</div>
       <div class="small">Official Service Receipt</div>
       <div class="divider"></div>
@@ -271,7 +271,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
           style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Print Receipt</h2>
               <p className="font-sans text-xs text-blue-300 mt-0.5">Print the receipt before marking as {isSelfPickupTarget ? 'Completed' : 'Out for Delivery'}</p>
             </div>
@@ -282,7 +282,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
         <div className="overflow-y-auto flex-1 px-6 py-6">
           <div className="border border-dashed border-neutral-300 bg-neutral-50 p-6 font-mono text-xs text-neutral-800 max-w-xs mx-auto">
             <div className="text-center mb-4">
-              <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-400">Super Admin</p>
+              <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-400">Branch Portal</p>
               <p className="font-black text-lg tracking-tight">SELFIE WASH</p>
               <p className="text-[9px] text-neutral-400">Official Service Receipt</p>
               <div className="border-t border-dashed border-neutral-300 mt-2 pt-2">
@@ -406,7 +406,7 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
         <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>
                 {isEditing ? 'Update Actual Weight' : 'Confirm Actual Weight'}
               </h2>
@@ -479,7 +479,7 @@ const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
         <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Confirm Cash Payment</h2>
             </div>
             <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
@@ -526,7 +526,7 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
         <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Archive Appointment</h2>
             </div>
             <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
@@ -542,9 +542,6 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
             <p className="font-sans text-sm font-semibold text-neutral-700">{appt.userData?.name || '—'}</p>
             <p className="font-sans text-xs text-neutral-400 mt-1">{appt.slotDate} · {appt.slotTime}</p>
             <p className="font-sans text-xs text-neutral-400">{renderServices(appt)}</p>
-            {appt.branchData?.name && (
-              <p className="font-sans text-xs text-neutral-400 mt-1">Branch: {appt.branchData.name}</p>
-            )}
           </div>
         </div>
         <div className="px-6 pb-6 flex gap-3">
@@ -566,21 +563,19 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
 
 const AllAppointments = () => {
   const {
-    aToken,
-    appointments,      getAllAppointments,
-    branches,          getAllBranches,
+    bToken,
+    appointments,      getBranchAppointments,
     cancelAppointment,
-    approveBooking,
     updateDeliveryStatus,
     confirmActualWeight,
     confirmPayment,
     archiveAppointment,
-  } = useContext(AdminContext)
+  } = useContext(BranchesContext)
 
-  const [selectedBranch, setSelectedBranch] = useState('all')
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState('all')
   const [paymentFilter,  setPaymentFilter]  = useState('all')
+  const [sourceFilter,   setSourceFilter]   = useState('all') // all | ONLINE | WALK_IN
   const [currentPage,    setCurrentPage]    = useState(1)
   const [weightModal,    setWeightModal]    = useState(null)
   const [paymentModal,   setPaymentModal]   = useState(null)
@@ -593,24 +588,24 @@ const AllAppointments = () => {
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
-    await getAllAppointments()
+    await getBranchAppointments()
     setLastUpdated(new Date())
     setSecondsAgo(0)
     setIsRefreshing(false)
-  }, [getAllAppointments])
+  }, [getBranchAppointments])
 
-  useEffect(() => { if (aToken) { refresh(); getAllBranches() } }, [aToken])
+  useEffect(() => { if (bToken) { refresh() } }, [bToken])
   useEffect(() => {
-    if (!aToken) return
+    if (!bToken) return
     const interval = setInterval(refresh, AUTO_REFRESH_INTERVAL * 1000)
     return () => clearInterval(interval)
-  }, [aToken, refresh])
+  }, [bToken, refresh])
   useEffect(() => {
     if (!lastUpdated) return
     const tick = setInterval(() => setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000)), 1000)
     return () => clearInterval(tick)
   }, [lastUpdated])
-  useEffect(() => { setCurrentPage(1) }, [search, selectedBranch, statusFilter, paymentFilter])
+  useEffect(() => { setCurrentPage(1) }, [search, statusFilter, paymentFilter, sourceFilter])
 
   const handleConfirmWeight = async (actualServices) => {
     setModalLoading(true)
@@ -646,13 +641,11 @@ const AllAppointments = () => {
       if (statusFilter === 'archived') {
         return appt.archived === true
       }
-      
+
       if (appt.archived) return false
       
-      if (selectedBranch !== 'all') {
-        const bid = appt.branchData?.id?.toString() ?? appt.branchId?.toString()
-        if (bid !== selectedBranch) return false
-      }
+      if (sourceFilter !== 'all' && appt.bookingSource !== sourceFilter) return false
+
       const isCancelled = appt.cancelled
       if (statusFilter === 'cancelled' && !isCancelled) return false
       if (statusFilter !== 'all' && statusFilter !== 'cancelled') {
@@ -669,8 +662,7 @@ const AllAppointments = () => {
           : (appt.service ?? '')
         const fields = [
           appt.userData?.name, appt.userData?.email,
-          appt.id, appt.branchData?.name,
-          serviceNames, appt.promoCode, appt.slotDate,
+          appt.id, serviceNames, appt.promoCode, appt.slotDate,
         ].map(f => (f ?? '').toLowerCase())
         if (!fields.some(f => f.includes(q))) return false
       }
@@ -680,7 +672,7 @@ const AllAppointments = () => {
       if (!a.archived && b.archived) return -1
       return Number(b.date) - Number(a.date)
     })
-  }, [appointments, selectedBranch, search, statusFilter, paymentFilter])
+  }, [appointments, search, statusFilter, paymentFilter, sourceFilter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated  = useMemo(
@@ -695,8 +687,8 @@ const AllAppointments = () => {
     const range = []; for (let i = left; i <= right; i++) range.push(i); return range
   }
 
-  const hasFilters   = search || selectedBranch !== 'all' || statusFilter !== 'all' || paymentFilter !== 'all'
-  const clearFilters = () => { setSearch(''); setSelectedBranch('all'); setStatusFilter('all'); setPaymentFilter('all') }
+  const hasFilters   = search || statusFilter !== 'all' || paymentFilter !== 'all' || sourceFilter !== 'all'
+  const clearFilters = () => { setSearch(''); setStatusFilter('all'); setPaymentFilter('all'); setSourceFilter('all') }
   const selectClass  = 'px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white appearance-none cursor-pointer'
 
   const lastUpdatedLabel = lastUpdated
@@ -741,6 +733,26 @@ const AllAppointments = () => {
 
       <div className="px-10 py-10 max-w-7xl mx-auto">
 
+        <div className="flex gap-2 mb-6">
+          {[
+            { value: 'all',     label: 'All Sources' },
+            { value: 'ONLINE',  label: 'Online' },
+            { value: 'WALK_IN', label: 'Walk-In' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSourceFilter(opt.value)}
+              className={`px-5 py-2 font-sans text-xs uppercase tracking-widest font-bold border transition-colors ${
+                sourceFilter === opt.value
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-blue-500 border-blue-200'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         <SectionLabel>Filter Appointments</SectionLabel>
         <Divider />
 
@@ -752,7 +764,7 @@ const AllAppointments = () => {
                 d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
             </svg>
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Name, email, branch, service, promo, date..."
+              placeholder="Name, email, service, promo, date..."
               className="w-full pl-10 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white" />
             {search && (
               <button onClick={() => setSearch('')}
@@ -770,11 +782,6 @@ const AllAppointments = () => {
             <option value="pending_payment">Awaiting Payment</option>
             <option value="paid_cash">Paid (Cash)</option>
             <option value="paid_online">Paid (Online)</option>
-          </select>
-
-          <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className={`${selectClass} sm:w-48`}>
-            <option value="all">All Branches</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
 
@@ -814,16 +821,15 @@ const AllAppointments = () => {
             const isCancelled    = appt.cancelled
             const isCompleted    = appt.isCompleted
             const isArchived     = appt.archived
-            
+
             const steps          = getSteps(appt)
             const nextStatus     = getNextStatus(appt.deliveryStatus || 'pending_approval', steps)
-            
+
             const showButtons    = !isCancelled && !isCompleted && !isArchived
             const payStatus      = resolvePaymentStatus(appt)
             const isWeighed      = appt.services?.some(s => s.actualKg != null)
             const isPaid         = payStatus === 'paid_cash' || payStatus === 'paid_online'
-            
-            // Step 7: Updated conditions
+
             const isCashMethod   = appt.preferredPaymentMethod === 'cash' || !appt.preferredPaymentMethod
             const isOnlineMethod = appt.preferredPaymentMethod === 'online'
             const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
@@ -836,16 +842,12 @@ const AllAppointments = () => {
                 : appt.deliveryStatus === 'out_for_delivery'
             )
 
-            // Step 7: Updated online payment guard to include Self-Pickup
             const blockedByOnlinePayment = isOnlineMethod && !isPaid
               && (nextStatus?.status === 'out_for_delivery' || (isSelfPickup && nextStatus?.status === 'delivered'))
 
-            // ── CASH PAYMENT GUARD ──────────────────────────────────────────
-            // Cash appointments: block advance to delivered until paid.
             const blockedByCashPayment = isCashMethod && !isPaid
               && nextStatus?.status === 'delivered'
 
-            // Step 7: Updated handleNextStatus (removed duplicate isSelfPickup)
             const handleNextStatus = () => {
               if (!nextStatus) return
               if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision) return
@@ -884,11 +886,6 @@ const AllAppointments = () => {
                     <span className="font-sans text-[10px] text-neutral-400">
                       {isOnlineMethod ? 'Online' : 'Cash'}
                     </span>
-                    {appt.branchData?.name && (
-                      <span className="inline-block border border-blue-200 bg-blue-50 text-blue-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
-                        {appt.branchData.name}
-                      </span>
-                    )}
                     {isArchived && (
                       <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
                         Archived
@@ -995,7 +992,7 @@ const AllAppointments = () => {
 
                       {appt.deliveryStatus === 'pending_approval' && (
                         <>
-                          <button onClick={() => approveBooking(appt.id)}
+                          <button onClick={() => updateDeliveryStatus(appt.id, 'approved')}
                             className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                             <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
