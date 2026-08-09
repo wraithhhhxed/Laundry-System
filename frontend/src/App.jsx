@@ -27,17 +27,17 @@ import PriceSettings from './pages/admin/PriceSettings'
 import ProductManagement from './pages/admin/ProductManagement'
 import SalesReport from './pages/admin/SalesReport'
 import ExtraServiceList from './pages/admin/ExtraServiceList'
-import AdminWalkIn from './pages/admin/AdminWalkIn'
+import AdminWalkIn from './pages/admin/AdminWalkin'
 
 // Branch
 import BranchNavbar from './components/branch/BranchNavbar'
 import BranchSidebar from './components/branch/BranchSidebar'
-import BranchDashboard from './pages/branch/BranchDashboard'
-import BranchAppointments from './pages/branch/BranchAppointments'
+import BranchDashboard from './pages/branch/branchDashboard'
+import BranchAppointments from './pages/branch/branchAppointments'
 import BranchWalkIn from './pages/branch/BranchWalkIn'
-import BranchProfile from './pages/branch/BranchProfile'
+import BranchProfile from './pages/branch/branchProfile'
 import BranchInventory from './pages/branch/BranchInventory'
-import BranchSalesReport from './pages/branch/BranchSalesReport'
+import BranchSalesReport from './pages/branch/branchSalesReport'
 
 // User
 import UserLayout from './components/UserLayout'
