@@ -32,6 +32,9 @@ const app = express()
 const port = process.env.PORT || 4000
 const isDev = process.env.NODE_ENV !== 'production'
 
+// ─── Trust proxy (kailangan sa Render, dahil gumagamit sila ng reverse proxy) ──
+app.set('trust proxy', 1)
+
 // ─── Security headers ────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy:     isDev ? false : undefined,
