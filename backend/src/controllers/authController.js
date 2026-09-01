@@ -4,7 +4,7 @@ import { ApiError } from '../utils/ApiError.js'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import UserRepository from '../repositories/UserRepository.js'
-import BranchRepository from '../repositories/BranchRepository.js'
+import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
 import AdminRepository from '../repositories/AdminRepository.js'
 import AuditService from '../services/AuditService.js'
 
@@ -30,20 +30,24 @@ const unifiedLogin = asyncHandler(async (req, res) => {
     return res.json(new ApiResponse(200, { token, role: 'user' }, 'Login successful'))
   }
 
-  // 2. Try Branch
-  account = await BranchRepository.findByEmail(email)
-  if (account) {
+  // 2. Try BranchStaff (Branch Admin / Staff)
+  account = await BranchStaffRepository.findByEmail(email)
+  if (account && account.isActive) {
     const isMatch = await bcrypt.compare(password, account.password)
     if (!isMatch) throw new ApiError(401, 'Invalid credentials')
 
-    const token = jwt.sign({ id: account.id, role: 'branch' }, process.env.JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign(
+  { id: account.id, role: 'branch', staffRole: account.role, branchId: account.branchId },
+  process.env.JWT_SECRET,
+  { expiresIn: '7d' }
+)
 
     await AuditService.logLogin(
-      { userId: account.id, name: account.name, role: 'branchadmin' },
+      { userId: account.id, name: `${account.firstName} ${account.lastName}`, role: account.role },
       { ip: req.ip, userAgent: req.headers['user-agent'] }
     )
 
-    return res.json(new ApiResponse(200, { token, role: 'branch' }, 'Login successful'))
+    return res.json(new ApiResponse(200, { token, role: 'branch', staffRole: account.role }, 'Login successful'))
   }
 
   // 3. Try Admin
@@ -62,7 +66,7 @@ const unifiedLogin = asyncHandler(async (req, res) => {
     return res.json(new ApiResponse(200, { token, role: 'admin' }, 'Login successful'))
   }
 
-  // Wala sa lahat ng tatlong table
+  // Wala sa lahat
   throw new ApiError(401, 'Invalid credentials')
 })
 

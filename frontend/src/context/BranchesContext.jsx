@@ -6,10 +6,24 @@ export const BranchesContext = createContext()
 
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
+// ─── JWT DECODER ──────────────────────────────────────────────────────────────
+const decodeToken = (token) => {
+  try {
+    const payload = token.split('.')[1]
+    return JSON.parse(atob(payload))
+  } catch {
+    return null
+  }
+}
+
 const BranchesContextProvider = (props) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
-  const [bToken, setBToken]               = useState(localStorage.getItem('bToken') || '')
+  const [bToken, setBToken] = useState(localStorage.getItem('bToken') || '')
+  
+  // Derive staffRole from JWT token
+  const staffRole = bToken ? decodeToken(bToken)?.staffRole : null
+
   const [branchProfile, setBranchProfile] = useState(null)
   const [appointments, setAppointments]   = useState([])
   const [dashData, setDashData]           = useState(null)
@@ -277,6 +291,7 @@ const BranchesContextProvider = (props) => {
   const value = {
     backendUrl,
     bToken, setBToken,
+    staffRole,   // ✓ IDINAGDAG — derived from JWT
     loginBranch, logoutBranch,
     branchProfile, getBranchProfile, updateBranchProfile,
     appointments, getBranchAppointments,

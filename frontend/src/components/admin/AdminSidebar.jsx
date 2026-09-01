@@ -17,6 +17,7 @@ const Sidebar = () => {
     { to: '/admin/extra-services',  label: 'Extra Services' },
     { to: '/admin/promo-codes',     label: 'Promo Codes' },
     { to: '/admin/products',        label: 'Products' },
+    { to: '/admin/inventory',       label: 'Inventory' },  // <-- BAGONG ITEM
   ]
 
   const branchesUsersItems = [

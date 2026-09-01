@@ -12,6 +12,11 @@ enum FulfillmentMethod {
   DELIVERY
 }
 
+enum StaffRole {
+  BRANCH_ADMIN
+  STAFF
+}
+
 model User {
   id                   String    @id @default(uuid())
   name                 String
@@ -37,8 +42,7 @@ model Branch {
   id           String      @id @default(uuid())
   name         String
   machineCount Int         @default(10)
-  email        String      @unique
-  password     String
+  // Tinanggal: email at password
   phone        String
   image        String
   speciality   String[]
@@ -50,6 +54,7 @@ model Branch {
   date         BigInt      @default(0)
   isActive     Boolean     @default(true)
   inventories  Inventory[]
+  staff        BranchStaff[] // Idinagdag ang relation sa BranchStaff
 
   @@map("branches")
 }
@@ -245,6 +250,7 @@ model Inventory {
   productId         String
   quantity          Float    @default(0)
   lowStockThreshold Float    @default(5)
+  lastUpdatedBy     String?  // Idinagdag - ID ng BranchStaff na huling nag-adjust
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   branch            Branch   @relation(fields: [branchId], references: [id])
@@ -305,6 +311,23 @@ model Setting {
   updatedAt   DateTime @updatedAt
 
   @@map("settings")
+}
+
+model BranchStaff {
+  id         String    @id @default(uuid())
+  firstName  String
+  lastName   String
+  email      String    @unique
+  password   String    // will be hashed
+  role       StaffRole @default(STAFF)
+  branchId   String
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  branch     Branch    @relation(fields: [branchId], references: [id])
+
+  @@map("branch_staff")
 }
 
 enum AuditAction {

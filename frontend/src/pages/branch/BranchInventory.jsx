@@ -101,9 +101,10 @@ const BranchInventory = () => {
         else toast.error(data.message)
       } else {
         if (!addQuantity || Number(addQuantity) <= 0) { toast.error('Enter a valid restock quantity'); setSubmitting(false); return }
+        // ✓ FIXED - Mas malinis, direktang ginagamit ang productId
         const { data } = await axios.post(
           `${backendUrl}/api/inventory/restock`,
-          { productId: selected.productId.id || selected.productId, addQuantity: Number(addQuantity) },
+          { productId: selected.productId, addQuantity: Number(addQuantity) },
           { headers: authHeader(bToken) }
         )
         if (data.success) { toast.success('Restocked successfully'); setShowForm(false); fetchInventory() }
@@ -116,11 +117,12 @@ const BranchInventory = () => {
     }
   }
 
+  // ✓ FIXED - Tama na ang product property
   const handleRemove = async (item) => {
-    const name = item.productId?.name || 'this product'
+    const name = item.product?.name || 'this product'
     if (!window.confirm(`Remove ${name} from your branch inventory?`)) return
     try {
-      const pid = item.productId?.id || item.productId
+      const pid = item.productId
       const { data } = await axios.delete(`${backendUrl}/api/inventory/${pid}`, { headers: authHeader(bToken) })
       if (data.success) { toast.success('Removed from inventory'); fetchInventory() }
       else toast.error(data.message)
@@ -130,9 +132,10 @@ const BranchInventory = () => {
   }
 
   const lowStockCount       = inventory.filter(i => i.quantity <= i.lowStockThreshold).length
+  // ✓ FIXED - Mas malinis na productId mapping
   const inventoryProductIds = inventory
-  .map(i => (i.productId?.id || i.productId)?.toString())
-  .filter(Boolean)
+    .map(i => i.productId?.toString())
+    .filter(Boolean)
   const availableToAdd      = products.filter(p => !inventoryProductIds.includes(p.id.toString()))
 
   // Filtered inventory
@@ -147,8 +150,8 @@ const BranchInventory = () => {
 
       if (search.trim()) {
         const q    = search.toLowerCase()
-        const name = item.productId?.name?.toLowerCase()     || ''
-        const cat  = item.productId?.category?.toLowerCase() || ''
+        const name = item.product?.name?.toLowerCase()     || ''
+        const cat  = item.product?.category?.toLowerCase() || ''
         if (!name.includes(q) && !cat.includes(q)) return false
       }
 
@@ -190,8 +193,9 @@ const BranchInventory = () => {
               style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
             >
               <SectionLabel>{formMode === 'set' ? 'Inventory' : 'Restock'}</SectionLabel>
+              {/* ✓ FIXED - Tama na ang product property */}
               <h2 className="text-white font-sans font-black text-lg" style={{ letterSpacing: '-0.02em' }}>
-                {formMode === 'set' ? 'Add Stock for Product' : `Restock: ${selected?.productId?.name || ''}`}
+                {formMode === 'set' ? 'Add Stock for Product' : `Restock: ${selected?.product?.name || ''}`}
               </h2>
             </div>
 

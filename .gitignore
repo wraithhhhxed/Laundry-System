@@ -1,11 +1,13 @@
 ﻿**/node_modules/
 **/.env
 **/dist/
-admin/
-
+**/admin/
 
 # Ignore accidental installer/audit files
 backend/*.exe
 backend/imports_list.txt
 backend/actual_files.txt
 backend/swloams.docx
+
+# Exclude AdminInventory.jsx from being ignored
+!frontend/src/pages/admin/AdminInventory.jsx

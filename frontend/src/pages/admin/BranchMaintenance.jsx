@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, UserCheck, UserX, Trash2, Pencil,
   X, Check, ChevronLeft, ChevronRight, Building2,
-  AlertTriangle, KeyRound, Eye, EyeOff
+  AlertTriangle, KeyRound, Eye, EyeOff, UserPlus, Users
 } from 'lucide-react'
 
 const DEFAULT_IMG = 'https://ui-avatars.com/api/?background=2563eb&color=fff&name='
@@ -72,6 +72,19 @@ const BranchMaintenance = () => {
 
   const [togglingId, setTogglingId] = useState(null)
 
+  // ── Staff states ────────────────────────────────────────────────────────────
+  const [staffTarget,     setStaffTarget]     = useState(null)
+  const [staffForm,       setStaffForm]       = useState({ firstName: '', lastName: '', email: '', password: '', role: 'STAFF' })
+  const [showStaffPass,   setShowStaffPass]   = useState(false)
+  const [staffLoading,    setStaffLoading]    = useState(false)
+  const [staffEmailError, setStaffEmailError] = useState('')
+
+  // ── View/Delete Staff states ──────────────────────────────────────────────
+  const [viewStaffTarget, setViewStaffTarget] = useState(null)
+  const [staffList,       setStaffList]       = useState([])
+  const [staffListLoading, setStaffListLoading] = useState(false)
+  const [deletingStaffId, setDeletingStaffId]   = useState(null)
+
   useEffect(() => { if (!services.length) getAllServices() }, [])
   const activeServices = services.filter(s => s.isActive)
 
@@ -111,11 +124,11 @@ const BranchMaintenance = () => {
     finally { setTogglingId(null) }
   }
 
+  // ✓ UPDATED - Tinanggal ang email
   const openEdit = (branch) => {
     setEditBranch(branch)
     setEditForm({
       name:          branch.name,
-      email:         branch.email,
       phone:         branch.phone || '',
       speciality:    branch.speciality || [],
       about:         branch.about || '',
@@ -135,6 +148,7 @@ const BranchMaintenance = () => {
 
   const editPhoneInvalid = editForm.phone?.length > 0 && !/^09\d{9}$/.test(editForm.phone)
 
+  // ✓ UPDATED - Tinanggal ang email sa payload
   const handleEditSave = async () => {
     if (editPhoneInvalid)          return toast.error('Phone must be 11 digits and start with 09.')
     if (!editForm.speciality.length) return toast.error('Select at least one service.')
@@ -142,7 +156,6 @@ const BranchMaintenance = () => {
     try {
       const payload = {
         name:      editForm.name,
-        email:     editForm.email,
         phone:     editForm.phone,
         speciality: editForm.speciality,
         about:     editForm.about,
@@ -177,6 +190,83 @@ const BranchMaintenance = () => {
       else toast.error(data.message)
     } catch { toast.error('Failed to reset password') }
     finally { setResetLoading(false) }
+  }
+
+  // ── Staff handlers ──────────────────────────────────────────────────────────
+  const openAddStaff = (branch) => {
+    setStaffTarget(branch)
+    setStaffForm({ firstName: '', lastName: '', email: '', password: '', role: 'STAFF' })
+    setShowStaffPass(false)
+    setStaffEmailError('')
+  }
+
+  const staffEmailInvalid = staffForm.email.length > 0 && !/^\S+@\S+\.\S+$/.test(staffForm.email)
+  const staffPassShort    = staffForm.password.length > 0 && staffForm.password.length < 8
+
+  const handleAddStaff = async () => {
+    setStaffEmailError('')
+    if (!staffForm.firstName || !staffForm.lastName) return toast.error('First and last name are required.')
+    if (staffEmailInvalid || !staffForm.email)        return toast.error('Enter a valid email.')
+    if (staffPassShort || !staffForm.password)        return toast.error('Password must be at least 8 characters.')
+
+    setStaffLoading(true)
+    try {
+      const payload = {
+        firstName: staffForm.firstName,
+        lastName:  staffForm.lastName,
+        email:     staffForm.email,
+        password:  staffForm.password,
+        role:      staffForm.role,
+        branchId:  staffTarget.id,
+      }
+      const { data } = await axios.post(backendUrl + '/api/admin/staff', payload, { headers: { token: aToken } })
+      if (data.success) { 
+        toast.success(data.message || 'Staff added successfully')
+        setStaffTarget(null)
+        fetchBranches() // Refresh to reflect any changes
+      } else {
+        if (data.message?.toLowerCase().includes('email')) setStaffEmailError(data.message)
+        else toast.error(data.message)
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Failed to add staff'
+      if (msg.toLowerCase().includes('email')) setStaffEmailError(msg)
+      else toast.error(msg)
+    } finally {
+      setStaffLoading(false)
+    }
+  }
+
+  // ── View/Delete Staff handlers ─────────────────────────────────────────────
+  const openViewStaff = async (branch) => {
+    setViewStaffTarget(branch)
+    setStaffList([])
+    setStaffListLoading(true)
+    try {
+      const { data } = await axios.get(backendUrl + `/api/admin/staff/${branch.id}`, { headers: { token: aToken } })
+      if (data.success) setStaffList(data.data.staff)
+      else toast.error(data.message)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load staff')
+    } finally {
+      setStaffListLoading(false)
+    }
+  }
+
+  const handleDeleteStaff = async (staff) => {
+    if (!window.confirm(`Remove ${staff.firstName} ${staff.lastName} from this branch?`)) return
+    setDeletingStaffId(staff.id)
+    try {
+      const { data } = await axios.delete(backendUrl + `/api/admin/staff/${staff.id}`, { headers: { token: aToken } })
+      if (data.success) {
+        toast.success(data.message)
+        setStaffList(prev => prev.filter(s => s.id !== staff.id))
+      } else toast.error(data.message)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove staff')
+    } finally {
+      setDeletingStaffId(null)
+    }
   }
 
   const activeCount   = branches.filter(b =>  b.available).length
@@ -291,6 +381,8 @@ const BranchMaintenance = () => {
                         <button onClick={() => openEdit(branch)} title='Edit' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><Pencil size={14} /></button>
                         <button onClick={() => handleToggleStatus(branch)} disabled={togglingId === branch.id} title={branch.available ? 'Deactivate' : 'Activate'} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40'>{branch.available ? <UserX size={14} /> : <UserCheck size={14} />}</button>
                         <button onClick={() => openReset(branch)} title='Reset Password' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><KeyRound size={14} /></button>
+                        <button onClick={() => openAddStaff(branch)} title='Add Staff' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><UserPlus size={14} /></button>
+                        <button onClick={() => openViewStaff(branch)} title='View Staff' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><Users size={14} /></button>
                         <button onClick={() => setDeleteTarget(branch)} title='Delete' className='p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors'><Trash2 size={14} /></button>
                       </div>
                     </div>
@@ -340,9 +432,9 @@ const BranchMaintenance = () => {
             </div>
 
             <div className='px-6 py-6 space-y-4'>
-              <div className='grid grid-cols-2 gap-4'>
+              {/* ✓ UPDATED - Isang column na lang para sa Branch Name */}
+              <div className='grid grid-cols-1 gap-4'>
                 <ModalField label='Branch Name' value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
-                <ModalField label='Email' type='email' value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
               </div>
 
               {/* Phone */}
@@ -467,6 +559,135 @@ const BranchMaintenance = () => {
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                 <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>{resetLoading ? 'Resetting...' : 'Reset Password'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Staff Modal ── */}
+      {staffTarget && (
+        <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'>
+          <div className='bg-white w-full max-w-sm' style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+            <div className='px-6 py-5' style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>Staff Management</p>
+                  <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Add Staff</h2>
+                </div>
+                <button onClick={() => setStaffTarget(null)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
+              </div>
+            </div>
+
+            <div className='px-6 py-6'>
+              <p className='font-sans text-sm text-neutral-500 mb-5'>Adding staff for <span className='font-sans font-bold text-neutral-700'>{staffTarget.name}</span></p>
+
+              <div className='space-y-4'>
+                <div className='grid grid-cols-2 gap-4'>
+                  <ModalField label='First Name' value={staffForm.firstName} onChange={e => setStaffForm(p => ({ ...p, firstName: e.target.value }))} />
+                  <ModalField label='Last Name' value={staffForm.lastName} onChange={e => setStaffForm(p => ({ ...p, lastName: e.target.value }))} />
+                </div>
+
+                <div>
+                  <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Email</label>
+                  <input type='email' value={staffForm.email}
+                    onChange={e => { setStaffForm(p => ({ ...p, email: e.target.value })); setStaffEmailError('') }}
+                    className={inputCls + ((staffEmailInvalid || staffEmailError) ? ' border-red-300 focus:border-red-400' : '')} />
+                  {staffEmailInvalid && <p className={errorCls}>Enter a valid email</p>}
+                  {staffEmailError && <p className={errorCls}>{staffEmailError}</p>}
+                </div>
+
+                <div>
+                  <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Password</label>
+                  <div className='relative'>
+                    <input type={showStaffPass ? 'text' : 'password'} value={staffForm.password}
+                      onChange={e => setStaffForm(p => ({ ...p, password: e.target.value }))}
+                      placeholder='Min. 8 characters' className={inputCls + (staffPassShort ? ' border-red-300 focus:border-red-400' : '')} />
+                    <button type='button' onClick={() => setShowStaffPass(p => !p)} className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
+                      {showStaffPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  {staffPassShort && <p className={errorCls}>Minimum 8 characters</p>}
+                </div>
+
+                <div>
+                  <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Role</label>
+                  <select value={staffForm.role} onChange={e => setStaffForm(p => ({ ...p, role: e.target.value }))}
+                    className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white'>
+                    <option value='STAFF'>Staff</option>
+                    <option value='BRANCH_ADMIN'>Branch Admin</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className='px-6 pb-6 flex gap-3'>
+              <button onClick={() => setStaffTarget(null)}
+                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <span className='relative z-10'>Cancel</span>
+              </button>
+              <button onClick={handleAddStaff} disabled={staffLoading}
+                className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5 disabled:opacity-60'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <span className='relative z-10'>{staffLoading ? 'Adding...' : 'Add Staff'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── View/Delete Staff Modal ── */}
+      {viewStaffTarget && (
+        <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'>
+          <div className='bg-white w-full max-w-md max-h-[80vh] overflow-y-auto' style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+            <div className='px-6 py-5' style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>Staff Management</p>
+                  <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Branch Staff</h2>
+                </div>
+                <button onClick={() => setViewStaffTarget(null)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
+              </div>
+            </div>
+
+            <div className='px-6 py-6'>
+              <p className='font-sans text-sm text-neutral-500 mb-5'>Staff at <span className='font-sans font-bold text-neutral-700'>{viewStaffTarget.name}</span></p>
+
+              {staffListLoading ? (
+                <div className='flex justify-center py-10 font-sans text-sm text-neutral-400'>Loading...</div>
+              ) : staffList.length === 0 ? (
+                <div className='flex flex-col items-center justify-center py-10 text-neutral-300'>
+                  <Users size={28} className='mb-2 opacity-40' />
+                  <p className='font-sans text-sm'>No staff yet</p>
+                </div>
+              ) : (
+                <div className='divide-y divide-blue-50'>
+                  {staffList.map(staff => (
+                    <div key={staff.id} className='flex items-center justify-between py-3'>
+                      <div>
+                        <p className='font-sans text-sm font-bold text-neutral-800'>{staff.firstName} {staff.lastName}</p>
+                        <p className='font-sans text-xs text-neutral-400'>{staff.email}</p>
+                        <span className='inline-block mt-1 uppercase tracking-[0.2em] text-[9px] font-sans font-bold text-blue-500'>{staff.role}</span>
+                      </div>
+                      <button onClick={() => handleDeleteStaff(staff)} disabled={deletingStaffId === staff.id}
+                        className='p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40'>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className='px-6 pb-6'>
+              <button onClick={() => setViewStaffTarget(null)}
+                className='group relative overflow-hidden w-full border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <span className='relative z-10'>Close</span>
               </button>
             </div>
           </div>

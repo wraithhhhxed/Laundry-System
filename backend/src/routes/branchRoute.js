@@ -2,7 +2,7 @@ import express from 'express'
 import upload from '../middlewares/multer.js'
 import { protect } from '../middlewares/auth.middleware.js'
 import {
-  loginBranch, logoutBranch,
+  logoutBranch,
   getBranchProfile,
   updateBranchProfile,
   getBranchAppointments,
@@ -16,6 +16,8 @@ import {
   createWalkInAppointment,
   lookupPhone,
   archiveAppointment,
+  addStaff,        
+  getBranchStaff, 
 } from '../controllers/BranchController.js'
 import {
   getAllPromoCodes,
@@ -25,7 +27,6 @@ import {
 const branchRouter = express.Router()
 
 // ─── Public ───────────────────────────────────────────────────────
-branchRouter.post('/login', loginBranch)
 
 // ─── Protected ────────────────────────────────────────────────────
 branchRouter.get('/profile',                 protect('branch'), getBranchProfile)
@@ -38,6 +39,10 @@ branchRouter.post('/update-delivery-status', protect('branch'), updateDeliverySt
 branchRouter.post('/change-availability',    protect('branch'), changeBranchAvailability)
 branchRouter.post('/logout',                 protect('branch'), logoutBranch)
 branchRouter.post('/create-walk-in',         protect('branch'), createWalkInAppointment)
+
+// ─── Staff Management ─────────────────────────────────────────────
+branchRouter.post('/staff', protect('branch'), addStaff)
+branchRouter.get('/staff',  protect('branch'), getBranchStaff)
 
 // ─── Actual weight + payment ──────────────────────────────────────
 branchRouter.post('/confirm-actual-weight',  protect('branch'), confirmActualWeight)

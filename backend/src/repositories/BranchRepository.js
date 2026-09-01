@@ -1,11 +1,8 @@
-
 import prisma from '../config/prismaClient.js';
-
 
 const SAFE_FIELDS = {
   id: true,
   name: true,
-  email: true,
   phone: true,
   image: true,
   speciality: true,
@@ -22,10 +19,6 @@ class BranchRepository {
     return await prisma.branch.findUnique({ where: { id } });
   }
 
-  async findByEmail(email) {
-    return await prisma.branch.findUnique({ where: { email } });
-  }
-
   async findAll() {
     return await prisma.branch.findMany();
   }
@@ -36,7 +29,6 @@ class BranchRepository {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -64,12 +56,10 @@ class BranchRepository {
 
   async deleteById(id) {
     try {
-      
       await prisma.inventory.deleteMany({
         where: { branchId: id }
       });
 
-     
       const branch = await prisma.branch.delete({
         where: { id }
       });

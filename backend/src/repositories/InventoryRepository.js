@@ -1,4 +1,3 @@
-
 import prisma from '../config/prismaClient.js';
 
 class InventoryRepository {
@@ -27,17 +26,16 @@ class InventoryRepository {
     });
   }
 
-  async upsert(branchId, productId, quantity, lowStockThreshold) {
+  async upsert(branchId, productId, quantity, lowStockThreshold, lastUpdatedBy = null) {
     return await prisma.inventory.upsert({
       where: { branchId_productId: { branchId, productId } },
-      update: { quantity, lowStockThreshold },
-      create: { branchId, productId, quantity, lowStockThreshold },
+      update: { quantity, lowStockThreshold, lastUpdatedBy },
+      create: { branchId, productId, quantity, lowStockThreshold, lastUpdatedBy },
       include: { product: true },
     });
   }
 
-  // ─── ATOMIC: conditional decrement gamit ang transaction + optimistic
-  //  ──
+  // ─── ATOMIC: conditional decrement gamit ang transaction + optimistic ──
   async deduct(branchId, productId, qty) {
     return await prisma.$transaction(async (tx) => {
       const inv = await tx.inventory.findUnique({ where: { branchId_productId: { branchId, productId } } });
@@ -54,13 +52,15 @@ class InventoryRepository {
     });
   }
 
-  async restock(branchId, productId, qty) {
+  async restock(branchId, productId, qty, lastUpdatedBy = null) {
     return await prisma.inventory.update({
       where: { branchId_productId: { branchId, productId } },
-      data: { quantity: { increment: qty } },
+      data: {
+        quantity: { increment: qty },
+        ...(lastUpdatedBy !== null ? { lastUpdatedBy } : {}),
+      },
     });
   }
-
 
   async findLowStock(branchId) {
     const inventories = await prisma.inventory.findMany({

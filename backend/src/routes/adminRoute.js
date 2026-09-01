@@ -24,6 +24,7 @@ import {
   // branch maintenance
   getBranches, getBranchByIdAdmin, updateBranchAdmin,
   toggleBranchStatus, deleteBranchAdmin, resetBranchPassword,
+  addStaffAdmin, getStaffByBranchAdmin, deleteStaffAdmin,
   // extra services maintenance
   getAllExtraServices, getExtraServiceById, addExtraService,
   updateExtraService, toggleExtraServiceStatus, deleteExtraService,
@@ -64,8 +65,8 @@ adminRouter.post('/update-delivery-status',   protect('admin'), updateDeliverySt
 adminRouter.post('/confirm-actual-weight',    protect('admin'), confirmActualWeight)
 adminRouter.post('/confirm-payment',          protect('admin'), confirmPayment)
 adminRouter.post('/archive-appointment',      protect('admin'), archiveAppointment)
-adminRouter.post('/create-walk-in',           protect('admin'), createWalkInAppointment)  // ← ADDED
-adminRouter.get('/lookup-phone/:phone',       protect('admin'), lookupPhone)              // ← ADDED
+adminRouter.post('/create-walk-in',           protect('admin'), createWalkInAppointment)
+adminRouter.get('/lookup-phone/:phone',       protect('admin'), lookupPhone)
 adminRouter.get('/dashboard',                 protect('admin'), adminDashboard)
 
 // ─── SERVICES ──────────────────────────────────────────────────────
@@ -117,6 +118,11 @@ adminRouter.put('/branches/:id',                  protect('admin'), updateBranch
 adminRouter.patch('/branches/:id/toggle-status',  protect('admin'), toggleBranchStatus)
 adminRouter.delete('/branches/:id',               protect('admin'), deleteBranchAdmin)
 adminRouter.patch('/branches/:id/reset-password', protect('admin'), resetBranchPassword)
+
+// ─── STAFF MANAGEMENT ─────────────────────────────── 
+adminRouter.post('/staff',               protect('admin'), addStaffAdmin)
+adminRouter.get('/staff/:branchId',      protect('admin'), getStaffByBranchAdmin)
+adminRouter.delete('/staff/:id',         protect('admin'), deleteStaffAdmin)
 
 // ─── EXTRA SERVICES MAINTENANCE ────────────────────────────────────
 adminRouter.get('/extra-services',                 protect('admin'), getAllExtraServices)

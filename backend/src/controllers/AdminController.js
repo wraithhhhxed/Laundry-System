@@ -16,6 +16,8 @@ import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
 import extraServiceService from '../services/ExtraServiceService.js'
 import AuditRepository from '../repositories/AuditRepository.js'
 import AdminRepository from '../repositories/AdminRepository.js'
+import branchStaffService from '../services/BranchStaffService.js' 
+import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
 
 // ─── HELPERS ──────────────────────────────────────────────────────
 
@@ -480,12 +482,34 @@ const resetBranchPassword = asyncHandler(async (req, res) => {
   const { newPassword } = req.body
   if (!newPassword || newPassword.length < 8)
     throw new ApiError(400, 'Password must be at least 8 characters')
+
   const branch = await BranchRepository.findById(req.params.id)
   if (!branch) throw new ApiError(404, 'Branch not found')
-  const salt = await bcrypt.genSalt(10)
-  const hashedPassword = await bcrypt.hash(newPassword, salt)
-  await BranchRepository.updateById(req.params.id, { password: hashedPassword })
-  res.json(new ApiResponse(200, {}, 'Branch password reset successfully'))
+
+  const staffList = await BranchStaffRepository.findAllByBranch(req.params.id)
+  const branchAdmin = staffList.find(s => s.role === 'BRANCH_ADMIN')
+  if (!branchAdmin) throw new ApiError(404, 'No Branch Admin account found for this branch')
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10)
+  await BranchStaffRepository.updateById(branchAdmin.id, { password: hashedPassword })
+
+  res.json(new ApiResponse(200, {}, `Password reset for ${branchAdmin.firstName} ${branchAdmin.lastName} (Branch Admin)`))
+})
+
+// ─── STAFF MANAGEMENT (Super Admin) ───────────────────────────────
+const addStaffAdmin = asyncHandler(async (req, res) => {
+  const staff = await branchStaffService.createStaff(adminActor(req), req.body)
+  res.json(new ApiResponse(201, { staff }, 'Staff added successfully'))
+})
+
+const getStaffByBranchAdmin = asyncHandler(async (req, res) => {
+  const staff = await branchStaffService.listByBranch(req.params.branchId)
+  res.json(new ApiResponse(200, { staff }))
+})
+
+const deleteStaffAdmin = asyncHandler(async (req, res) => {
+  const staff = await branchStaffService.deleteStaff(req.params.id)
+  res.json(new ApiResponse(200, {}, `${staff.firstName} ${staff.lastName} removed successfully`))
 })
 
 // ─── EXTRA SERVICES MAINTENANCE ───────────────────────────────────
@@ -544,6 +568,7 @@ export {
   getBranches, getBranchByIdAdmin, updateBranchAdmin,
   
   toggleBranchStatus, deleteBranchAdmin, resetBranchPassword,
+  addStaffAdmin, getStaffByBranchAdmin, deleteStaffAdmin,
   
   getAllExtraServices, getExtraServiceById, addExtraService,
   updateExtraService, toggleExtraServiceStatus, deleteExtraService,
