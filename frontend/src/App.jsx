@@ -120,35 +120,36 @@ const App = () => {
     )
   }
 
-  return (
-    <div className='mx-4 sm:mx-[10%]'> 
-      <ToastContainer />
-      <Routes>
-        {/* Auth Routes - WITHOUT Navbar and Footer */}
-        <Route path='/login' element={<Login />} />
-        <Route path='/forgot-password' element={<ForgotPassword />} />
-        <Route path='/reset-password/:token' element={<ResetPassword />} />
-        <Route path='/secret-login' element={<Navigate to='/login' replace />} />
-        <Route path='/admin-login' element={<Navigate to='/login' replace />} />
+return (
+  <>
+    <ToastContainer />
+    <Routes>
+      {/* Auth Routes - WITHOUT Navbar and Footer, WITHOUT margins */}
+      <Route path='/login' element={<Login />} />
+      <Route path='/forgot-password' element={<ForgotPassword />} />
+      <Route path='/reset-password/:token' element={<ResetPassword />} />
+      <Route path='/secret-login' element={<Navigate to='/login' replace />} />
+      <Route path='/admin-login' element={<Navigate to='/login' replace />} />
 
-        {/* Main Routes - WITH Navbar and Footer */}
-        <Route element={<UserLayout />}>
-          <Route path='/' element={<Home />} />
-          <Route path='/branches' element={<Branches />} />
-          <Route path='/branches/:speciality' element={<Branches />} />
-          <Route path='/about' element={<About />} />
-          <Route path='/contact' element={<Contact />} />
-          <Route path='/my-profile' element={<MyProfile />} />
-          <Route path='/my-appointments' element={<MyAppointments />} />
-          <Route path='/appointment/:branchid' element={<Appointment />} />
-          <Route path='/payment-success' element={<PaymentSuccess />} />
-          <Route path='/payment-failed' element={<PaymentSuccess />} />
-        </Route>
-        
-        <Route path='*' element={<Navigate to='/' replace />} />
-      </Routes>
-    </div>
-  )
+      {/* Main Routes - WITH Navbar and Footer, WITH margins */}
+      <Route element={<div className='mx-4 sm:mx-[10%]'><UserLayout /></div>}>
+        <Route path='/' element={<Home />} />
+        <Route path='/branches' element={<Branches />} />
+        <Route path='/branches/:speciality' element={<Branches />} />
+        <Route path='/about' element={<About />} />
+        <Route path='/contact' element={<Contact />} />
+        <Route path='/my-profile' element={<MyProfile />} />
+        <Route path='/my-appointments' element={<MyAppointments />} />
+        <Route path='/appointment/:branchid' element={<Appointment />} />
+        <Route path='/payment-success' element={<PaymentSuccess />} />
+        <Route path='/payment-failed' element={<PaymentSuccess />} />
+      </Route>
+      
+      <Route path='*' element={<Navigate to='/' replace />} />
+    </Routes>
+  </>
+)
+
 }
 
 export default App

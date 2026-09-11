@@ -89,7 +89,7 @@ const NavItem = ({ to, label }) => (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `block px-3 py-2.5 rounded-lg text-sm font-medium
+        `block px-3 py-2.5 text-sm font-medium
         ${isActive
           ? 'bg-blue-50 text-blue-600 border-l-4 border-blue-600 pl-5'
           : 'text-gray-600 hover:bg-gray-50 hover:text-blue-600'

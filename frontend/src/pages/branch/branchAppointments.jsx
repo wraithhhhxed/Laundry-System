@@ -1044,7 +1044,7 @@ const AllAppointments = () => {
                       className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
                       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                       <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                      <span className="relative">📦 Archive</span>
+                      <span className="relative">Archive</span>
                     </button>
                   )}
                 </div>
