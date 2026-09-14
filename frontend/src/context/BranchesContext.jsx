@@ -17,6 +17,12 @@ const decodeToken = (token) => {
 }
 
 const BranchesContextProvider = (props) => {
+  // ─── MOCK QR MODE (for testing while waiting PayMongo) ──────────
+  const USE_MOCK_QR = true  // ← SWITCH TO FALSE kapag PayMongo ready na
+
+  // ✅ Mock poll counter — tracks how many times each appointment has been polled
+  const mockPollAttempts = useRef({})
+
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
   const [bToken, setBToken] = useState(localStorage.getItem('bToken') || '')
@@ -64,14 +70,20 @@ const BranchesContextProvider = (props) => {
       if (data.success) {
         toast.success('Walk-in appointment created successfully.')
         debouncedRefresh()
-        return true
+        // Return the appointment object so caller can grab the id for QR flow
+        return (
+          data.data?.appointment ||
+          data.appointment ||
+          data.data ||
+          true
+        )
       } else {
         toast.error(data.message)
-        return false
+        return null
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message)
-      return false
+      return null
     }
   }
 
@@ -124,6 +136,7 @@ const BranchesContextProvider = (props) => {
       console.error('Logout audit failed:', error)
     } finally {
       if (refreshTimer.current) clearTimeout(refreshTimer.current)
+      mockPollAttempts.current = {}          // ✅ reset mock poll counter on logout
       localStorage.removeItem('bToken')
       setBToken('')
       setBranchProfile(null)
@@ -254,6 +267,69 @@ const BranchesContextProvider = (props) => {
     }
   }
 
+  // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
+  const generateQrPayment = async (appointmentId) => {
+    try {
+      if (USE_MOCK_QR) {
+        // ✅ Reset poll counter for this appointment
+        mockPollAttempts.current[appointmentId] = 0
+
+        // ✅ MOCK MODE — fake QR image
+        return {
+          qrImageUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjMzMzIj5Nb2NrIFFSIENvZGU8L3RleHQ+PC9zdmc+',
+          paymentIntentId: 'mock_' + appointmentId
+        }
+      } else {
+        // 🔴 REAL MODE — call actual PayMongo
+        const { data } = await axios.post(
+          backendUrl + `/api/branch/appointments/${appointmentId}/qr-payment`,
+          {},
+          { headers: authHeader(bToken) }
+        )
+        if (data.success) {
+          return data.data
+        } else {
+          toast.error(data.message)
+          throw new Error(data.message)
+        }
+      }
+    } catch (error) {
+      console.error('Generate QR error:', error)
+      toast.error(error.response?.data?.message || error.message)
+      throw error
+    }
+  }
+
+  const getQrPaymentStatus = async (appointmentId) => {
+    try {
+      if (USE_MOCK_QR) {
+        // ✅ MOCK MODE — smarter mock: pending for first 2 polls, then paid on 3rd
+        const attempts = (mockPollAttempts.current[appointmentId] || 0) + 1
+        mockPollAttempts.current[appointmentId] = attempts
+
+        if (attempts >= 3) {
+          return { paid: true, status: 'succeeded' }
+        }
+        return { paid: false, status: 'pending' }
+      } else {
+        // 🔴 REAL MODE — check actual PayMongo status
+        const { data } = await axios.get(
+          backendUrl + `/api/branch/appointments/${appointmentId}/qr-payment/status`,
+          { headers: authHeader(bToken) }
+        )
+        if (data.success) {
+          return data.data
+        } else {
+          console.error('QR status check failed:', data.message)
+          throw new Error(data.message)
+        }
+      }
+    } catch (error) {
+      console.error('Check QR status error:', error)
+      throw error
+    }
+  }
+
   // ⭐ ARCHIVE APPOINTMENT - SIMPLE
   const archiveAppointment = async (appointmentId) => {
     try {
@@ -305,6 +381,9 @@ const BranchesContextProvider = (props) => {
     walkInServices, getWalkInServices,
     lookupPhone,
     createWalkInAppointment,
+    // ── QR PAYMENT ───────────────────────────────────────────────
+    generateQrPayment,
+    getQrPaymentStatus,
   }
 
   return (

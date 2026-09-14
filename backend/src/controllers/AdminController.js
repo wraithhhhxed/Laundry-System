@@ -548,7 +548,7 @@ const generateQrPayment = asyncHandler(async (req, res) => {
   const { qrImageUrl, paymentIntentId } = await appointmentService.generateWalkInQrPayment(appointmentId)
   
   res.json(new ApiResponse(200, { qrImageUrl, paymentIntentId }, 'QR code generated successfully'))
-})
+}) 
 
 const getQrPaymentStatus = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params

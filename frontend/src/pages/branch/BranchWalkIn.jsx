@@ -26,6 +26,8 @@ const BranchWalkIn = () => {
   const {
     walkInServices, getWalkInServices,
     lookupPhone, createWalkInAppointment,
+    generateQrPayment, getQrPaymentStatus,
+    confirmPayment,                       // ✅ ADDED
   } = useContext(BranchesContext)
 
   useEffect(() => { getWalkInServices() }, [])
@@ -109,7 +111,7 @@ const BranchWalkIn = () => {
   // ─── Fulfillment method (self pickup vs delivery) ───────────────
   const [fulfillmentMethod, setFulfillmentMethod] = useState('SELF_PICKUP')
 
-  // ─── Payment method (cash vs online) at email ────────────────────
+  // ─── Payment method (cash vs online) ────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
@@ -131,14 +133,21 @@ const BranchWalkIn = () => {
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
 
-  // ─── Check if any basket has actualKg but no service ─────────────
+  // ─── Check if any basket has actualKg but no service ────────────
   const hasIncompleteBasket = baskets.some(b => b.actualKg && !b.serviceId)
-
   // ─── Check if any basket has service but no weight ──────────────
   const hasServiceNoWeight = baskets.some(b => b.serviceId && !b.actualKg)
-
   // ─── Check if any basket weight is invalid ──────────────────────
   const hasInvalidWeight = baskets.some(b => b.actualKg && Number(b.actualKg) < 0)
+
+  // ─── QR PAYMENT STATES ──────────────────────────────────────────
+  const [showQrModal, setShowQrModal]         = useState(false)
+  const [qrImageUrl, setQrImageUrl]           = useState('')
+  const [isPolling, setIsPolling]             = useState(false)
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false)
+  const [createdAppointmentId, setCreatedAppointmentId] = useState('')
+  const [qrError, setQrError]                 = useState('')
+  const pollTimer = useRef(null)
 
   const resetForm = () => {
     setPhone(''); setPhoneError(''); setGuestName(''); setNameError(''); setFoundUser(null); setLookupState('idle')
@@ -163,6 +172,81 @@ const BranchWalkIn = () => {
     (!anyOverweight || overweightResolution) &&
     (paymentMethod !== 'ONLINE' || (email.trim().length > 0 && !emailError))
 
+  // ─── QR: Open modal + generate QR ───────────────────────────────
+  const openQrFlow = async (appointmentId) => {
+    setShowQrModal(true)
+    setQrError('')
+    setPaymentConfirmed(false)
+    setQrImageUrl('')
+
+    try {
+      const res = await generateQrPayment(appointmentId)
+      if (!res || !res.qrImageUrl) {
+        setQrError('Could not generate QR code. Please try again.')
+        return
+      }
+      setQrImageUrl(res.qrImageUrl)
+      setIsPolling(true)
+    } catch (err) {
+      setQrError(err?.response?.data?.message || 'Could not generate QR code.')
+    }
+  }
+
+  // ─── QR: Polling effect ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isPolling || !createdAppointmentId) return
+
+    const poll = async () => {
+      try {
+        const status = await getQrPaymentStatus(createdAppointmentId)
+        const paid = status?.paid === true || status?.payment === true
+        if (paid) {
+          // ✅ Confirm the payment on the backend before closing the modal
+          await confirmPayment(createdAppointmentId, 'online')
+
+          setPaymentConfirmed(true)
+          setIsPolling(false)
+          setSuccessMsg('Payment confirmed! Walk-in appointment is fully paid.')
+          setTimeout(() => {
+            setShowQrModal(false)
+            resetForm()
+            setCreatedAppointmentId('')
+            setQrImageUrl('')
+            setPaymentConfirmed(false)
+          }, 2500)
+        }
+      } catch (err) {
+        // silent — polling shouldn't spam
+      }
+    }
+
+    poll()
+    pollTimer.current = setInterval(poll, 4000)
+
+    return () => {
+      if (pollTimer.current) clearInterval(pollTimer.current)
+    }
+  }, [isPolling, createdAppointmentId, confirmPayment])
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollTimer.current) clearInterval(pollTimer.current)
+    }
+  }, [])
+
+  const closeQrModal = () => {
+    if (pollTimer.current) clearInterval(pollTimer.current)
+    setIsPolling(false)
+    setShowQrModal(false)
+    setQrImageUrl('')
+    setQrError('')
+    setPaymentConfirmed(false)
+    setCreatedAppointmentId('')
+    resetForm()
+    setSuccessMsg('Walk-in appointment created. QR payment pending — client can still pay later.')
+  }
+
   const handleSubmit = async () => {
     if (!canSubmit) return
     setSubmitting(true)
@@ -178,11 +262,22 @@ const BranchWalkIn = () => {
       email: paymentMethod === 'ONLINE' ? email.trim() : null,
     }
 
-    const ok = await createWalkInAppointment(payload)
+    const result = await createWalkInAppointment(payload)
     setSubmitting(false)
-    if (ok) {
-      setSuccessMsg('Walk-in appointment created! Client will now appear under Appointments.')
-      resetForm()
+
+    if (result) {
+      if (paymentMethod === 'ONLINE') {
+        const appointmentId = result.id || result.appointmentId || result._id
+        if (!appointmentId) {
+          setSuccessMsg('Appointment created, but QR could not be generated (missing ID).')
+          return
+        }
+        setCreatedAppointmentId(appointmentId)
+        openQrFlow(appointmentId)
+      } else {
+        setSuccessMsg('Walk-in appointment created! Client will now appear under Appointments.')
+        resetForm()
+      }
     }
   }
 
@@ -369,14 +464,14 @@ const BranchWalkIn = () => {
           </button>
           <button onClick={() => setPaymentMethod('ONLINE')}
             className={`flex-1 py-2.5 font-sans text-xs uppercase tracking-widest font-bold border transition-colors ${paymentMethod === 'ONLINE' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}>
-            Online Payment
+            Online Payment (QR)
           </button>
         </div>
 
         {paymentMethod === 'ONLINE' && (
           <div className="mb-10">
             <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
-              Client Email <span className="text-amber-500 normal-case">(required — payment link will be sent here)</span>
+              Client Email <span className="text-amber-500 normal-case">(optional — receipt will be sent here)</span>
             </label>
             <input 
               type="email" 
@@ -406,8 +501,64 @@ const BranchWalkIn = () => {
           <span className="relative">{submitting ? 'Creating...' : '✓ Create Walk-In Appointment'}</span>
         </button>
 
-        
       </div>
+
+      {/* ─── QR PAYMENT MODAL ───────────────────────────────────── */}
+      {showQrModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white max-w-md w-full p-8 relative"
+               style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+            
+            {!paymentConfirmed && (
+              <button onClick={closeQrModal}
+                className="absolute top-3 right-3 text-neutral-300 hover:text-neutral-500 text-2xl leading-none">
+                ×
+              </button>
+            )}
+
+            <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">
+              Online Payment
+            </p>
+            <h2 className="text-neutral-800 mb-1" style={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: '1.5rem' }}>
+              Scan to Pay
+            </h2>
+            <p className="font-sans text-xs text-neutral-500 mb-6">
+              Ask the client to scan this QR code using GCash, Maya, or any supported e-wallet.
+            </p>
+
+            <div className="flex items-center justify-center mb-6 min-h-[220px]">
+              {qrError ? (
+                <div className="text-center">
+                  <p className="font-sans text-sm text-red-500 mb-2">{qrError}</p>
+                  <button
+                    onClick={() => openQrFlow(createdAppointmentId)}
+                    className="font-sans text-xs uppercase tracking-widest text-blue-600 hover:text-blue-800 font-bold">
+                    Retry
+                  </button>
+                </div>
+              ) : qrImageUrl ? (
+                <img src={qrImageUrl} alt="Payment QR Code" className="w-56 h-56 object-contain" />
+              ) : (
+                <p className="font-sans text-sm text-neutral-400">Generating QR code...</p>
+              )}
+            </div>
+
+            {paymentConfirmed ? (
+              <div className="bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-3">
+                <span className="text-green-600 text-lg">✓</span>
+                <p className="font-sans text-sm text-green-700">Payment confirmed! Closing...</p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-100 px-4 py-3 flex items-center gap-3">
+                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <p className="font-sans text-xs text-blue-600">
+                  Waiting for payment confirmation...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

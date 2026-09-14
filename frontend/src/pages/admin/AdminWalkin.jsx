@@ -25,6 +25,7 @@ const AdminWalkIn = () => {
     walkInServices, getWalkInServices,
     lookupPhone, createWalkInAppointment,
     generateQrPayment, getQrPaymentStatus,
+    confirmPayment,                       // ✅ ADDED
   } = useContext(AdminContext)
 
   useEffect(() => { if (aToken) { getAllBranches(); getWalkInServices() } }, [aToken])
@@ -169,6 +170,9 @@ const AdminWalkIn = () => {
       const status = await getQrPaymentStatus(createdAppointmentId)
       const paid = status?.paid === true || status?.payment === true
       if (paid) {
+        // ✅ Confirm the payment on the backend before closing the modal
+        await confirmPayment(createdAppointmentId, 'online')
+
         setPaymentConfirmed(true)
         setIsPolling(false)
         setSuccessMsg('Payment confirmed! Walk-in appointment is fully paid.')
@@ -188,7 +192,7 @@ const AdminWalkIn = () => {
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current)
     }
-  }, [isPolling, createdAppointmentId])
+  }, [isPolling, createdAppointmentId, confirmPayment])
 
   useEffect(() => {
     return () => {

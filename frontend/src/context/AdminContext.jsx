@@ -6,6 +6,9 @@ export const AdminContext = createContext()
 
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
+// ✅ TEMPORARY: Set to false once real PayMongo is wired up
+const USE_MOCK_QR = true
+
 const AdminContextProvider = (props) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
@@ -24,6 +27,9 @@ const AdminContextProvider = (props) => {
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
   const MIN_INTERVAL = 3000
+
+  // ✅ MOCK: track poll attempts per appointment so we can auto-complete after 3 polls
+  const mockPollAttempts = useRef({})
 
   const getAllAppointments = useCallback(async () => {
     try {
@@ -394,7 +400,6 @@ const AdminContextProvider = (props) => {
     }
   }
 
-  // ✅ FIXED: returns the appointment object (so we can grab its id for QR flow)
   const createWalkInAppointment = async (payload) => {
     try {
       const { data } = await axios.post(
@@ -405,7 +410,6 @@ const AdminContextProvider = (props) => {
       if (data.success) {
         toast.success('Walk-in appointment created successfully.')
         debouncedRefresh()
-        // Return the appointment object — try common shapes
         return (
           data.data?.appointment ||
           data.appointment ||
@@ -424,6 +428,17 @@ const AdminContextProvider = (props) => {
 
   // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────
   const generateQrPayment = async (appointmentId) => {
+    // ✅ MOCK MODE — returns a fake QR + intent ID, no backend call
+    if (USE_MOCK_QR) {
+      // Reset poll counter for this appointment
+      mockPollAttempts.current[appointmentId] = 0
+      return {
+        qrImageUrl: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="white" width="200" height="200"/%3E%3Crect fill="black" x="20" y="20" width="160" height="160"/%3E%3Ctext x="100" y="105" font-size="14" text-anchor="middle" fill="white"%3EMOCK QR%3C/text%3E%3C/svg%3E',
+        paymentIntentId: 'mock_' + appointmentId,
+      }
+    }
+
+    // ── REAL implementation (PayMongo via backend) ──
     try {
       const { data } = await axios.post(
         backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment`,
@@ -445,6 +460,18 @@ const AdminContextProvider = (props) => {
   }
 
   const getQrPaymentStatus = async (appointmentId) => {
+    // ✅ MOCK MODE — auto-succeed after 3 polls so UI flow can be tested
+    if (USE_MOCK_QR) {
+      const attempts = (mockPollAttempts.current[appointmentId] || 0) + 1
+      mockPollAttempts.current[appointmentId] = attempts
+
+      if (attempts >= 3) {
+        return { paid: true, status: 'succeeded' }
+      }
+      return { paid: false, status: 'pending' }
+    }
+
+    // ── REAL implementation ──
     try {
       const { data } = await axios.get(
         backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment/status`,
@@ -540,6 +567,7 @@ const AdminContextProvider = (props) => {
   // ─── LOGOUT ───────────────────────────────────────────────────
   const logoutAdmin = () => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    mockPollAttempts.current = {}
     localStorage.removeItem('aToken')
     setAToken('')
     setBranches([])
@@ -573,12 +601,13 @@ const AdminContextProvider = (props) => {
     walkInServices, getWalkInServices,
     lookupPhone,
     createWalkInAppointment,
-    generateQrPayment,        // ✅ NEW
-    getQrPaymentStatus,       // ✅ NEW
+    generateQrPayment,
+    getQrPaymentStatus,
     getVatRate, updateVatRate,
     getRefundReasons, updateRefundReasons,
     getFaqs, updateFaqs,
     getAuditLogs,
+    USE_MOCK_QR,        // ✅ export so UI can show "MOCK MODE" badge if desired
   }
 
   return (
