@@ -8,6 +8,7 @@ import inventoryService from './InventoryService.js';
 import AuditService from './AuditService.js';
 import { ApiError } from '../utils/ApiError.js';
 import EmailService from './EmailService.js';
+import axios from 'axios';
 
 // Added 'archived' to valid statuses
 const VALID_STATUSES = ['pending_approval', 'approved', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
@@ -347,6 +348,99 @@ class AppointmentService {
     return updated;
   }
 
+  // ─── GENERATE QR PH PAYMENT (WALK-IN) ────────────────────────────
+  async generateWalkInQrPayment(appointmentId) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.payment) throw new ApiError(400, 'Appointment is already paid');
+
+    const rawAmount = appointment.finalAmount ?? appointment.totalAmount ?? 0;
+    if (!rawAmount || rawAmount <= 0)
+      throw new ApiError(400, 'Appointment has no valid amount for payment');
+
+    const secretAuth = `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`;
+    const publicAuth = `Basic ${Buffer.from(process.env.PAYMONGO_PUBLIC_KEY + ':').toString('base64')}`;
+
+    try {
+      // 1. Create Payment Intent (secret key)
+      const intentRes = await axios.post(
+        'https://api.paymongo.com/v1/payment_intents',
+        {
+          data: {
+            attributes: {
+              amount: Math.round(rawAmount * 100),
+              currency: 'PHP',
+              payment_method_allowed: ['qrph'],
+              description: `Walk-in appointment ${appointmentId}`,
+              metadata: { appointmentId },
+            },
+          },
+        },
+        { headers: { Authorization: secretAuth, 'Content-Type': 'application/json' } }
+      );
+
+      const paymentIntentId = intentRes.data.data.id;
+      const clientKey = intentRes.data.data.attributes.client_key;
+
+      // 2. Create QR Ph Payment Method (public key)
+      const methodRes = await axios.post(
+        'https://api.paymongo.com/v1/payment_methods',
+        { data: { attributes: { type: 'qrph' } } },
+        { headers: { Authorization: publicAuth, 'Content-Type': 'application/json' } }
+      );
+
+      const paymentMethodId = methodRes.data.data.id;
+
+      // 3. Attach Payment Method to Intent (public key)
+      const attachRes = await axios.post(
+        `https://api.paymongo.com/v1/payment_intents/${paymentIntentId}/attach`,
+        { data: { attributes: { payment_method: paymentMethodId, client_key: clientKey } } },
+        { headers: { Authorization: publicAuth, 'Content-Type': 'application/json' } }
+      );
+
+      const qrImageUrl = attachRes.data.data.attributes.next_action?.code?.image_url;
+      if (!qrImageUrl) throw new ApiError(500, 'QR code was not returned by PayMongo');
+
+      await AppointmentRepository.saveQrPaymentIntentId(appointmentId, paymentIntentId);
+
+      return { qrImageUrl, paymentIntentId };
+    } catch (err) {
+      console.error('PayMongo QRPH error:', JSON.stringify(err.response?.data, null, 2) || err.message);
+      throw new ApiError(500, err.response?.data?.errors?.[0]?.detail ?? 'QR code generation failed');
+    }
+  }
+
+  // ─── CHECK QR PAYMENT STATUS (WALK-IN, for polling) ──────────────
+  async checkQrPaymentStatus(appointmentId) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.payment) return { paid: true };
+
+    const paymentIntentId = appointment.qrPaymentIntentId;
+    if (!paymentIntentId) throw new ApiError(400, 'No QR payment session found for this appointment');
+
+    const secretAuth = `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`;
+
+    const response = await axios.get(
+      `https://api.paymongo.com/v1/payment_intents/${paymentIntentId}`,
+      { headers: { Authorization: secretAuth } }
+    );
+
+    const status = response.data.data.attributes.status;
+
+    if (status === 'succeeded') {
+      await AppointmentRepository.updateById(appointmentId, {
+        payment: true,
+        paymentStatus: 'paid_online',
+        paymentMethod: 'online',
+        paymentPaidAt: new Date(),
+      });
+      return { paid: true };
+    }
+
+    return { paid: false, status };
+  }
+
   // ─── CANCEL APPOINTMENT ─────────────────────────────────────────
   async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
@@ -519,10 +613,10 @@ class AppointmentService {
 
     let appointmentCreated = false;
     try {
-      // ✅ Extract preferredPaymentMethod and email from extraDetails
+      // Extract preferredPaymentMethod and email from extraDetails
       const { preferredPaymentMethod = 'cash', email, ...otherDetails } = extraDetails;
-      
-      // ✅ Save email for email-sending logic later
+
+      // Save email for email-sending logic later
       const userEmail = email || user.email;
 
       const appointment = await AppointmentRepository.createWithCapacityCheck(
@@ -557,13 +651,13 @@ class AppointmentService {
           deliveryStatus: 'approved',
           paymentStatus: 'pending_payment',
           preferredPaymentMethod,
-          // ✅ Don't include email here to avoid Prisma error
+          // Don't include email here to avoid Prisma error
           ...otherDetails,
         }
       );
       appointmentCreated = true;
 
-      // ✅ If ONLINE payment and has email, send payment link
+      // If ONLINE payment and has email, send payment link
       if (preferredPaymentMethod === 'online' && userEmail) {
         try {
           // TODO: Implement PayMongo email link logic here
@@ -651,10 +745,10 @@ class AppointmentService {
   async lookupUserByPhone(phone) {
     const user = await UserRepository.findByPhone(phone);
     if (!user) return null;
-    return { 
-      name: user.name, 
-      phone: user.phone, 
-      email: user.email 
+    return {
+      name: user.name,
+      phone: user.phone,
+      email: user.email
     };
   }
 
@@ -740,18 +834,18 @@ class AppointmentService {
     };
   }
 
-  // ⭐ SIMPLE ARCHIVE - USING EXISTING updateDeliveryStatus
+  // SIMPLE ARCHIVE - USING EXISTING updateDeliveryStatus
   async archiveAppointment(appointmentId, branchId, actor) {
     // First, update deliveryStatus to 'archived'
     const result = await this.updateDeliveryStatus(appointmentId, branchId, 'archived', actor);
-    
+
     // Second, set the archived field to true
     await AppointmentRepository.updateById(appointmentId, {
       archived: true,
       archivedAt: new Date(),
       archivedBy: actor?.userId || branchId,
     });
-    
+
     // Return the updated appointment
     return await AppointmentRepository.findById(appointmentId);
   }

@@ -1,13 +1,11 @@
 import prisma from '../config/prismaClient.js';
 import { ApiError } from '../utils/ApiError.js';
 
-
 const INCLUDE_RELATIONS = {
   services: true,
   addOns: true,
   clothingTypes: true,
 };
-
 
 const RELATION_FIELDS = ['services', 'addOns', 'clothingTypes'];
 
@@ -46,9 +44,6 @@ class AppointmentRepository {
   }
 
   async create(appointmentData) {
-    // Ang services/addOns/clothingTypes ay ipinapasa bilang plain arrays
-    // (kagaya ng dating Mongoose shape) — dito na natin ino-convert papunta
-    // sa Prisma nested-write format na kailangan ng relation tables.
     const { services = [], addOns = [], clothingTypes = [], ...rest } = appointmentData;
     return await prisma.appointment.create({
       data: {
@@ -61,11 +56,8 @@ class AppointmentRepository {
     });
   }
 
-  // ─── CREATE WITH CAPACITY CHECK (ATOMIC) ───────────────────────
-  // Sabay na tinitignan ang daily capacity (machineCount × 5) AT ginagawa
-  // ang appointment sa loob ng ISANG transaction — para hindi ma-outrace
-  // ng dalawang sabay na request (race condition). Per-DAY na ang cap
-  // (buong slotDate ng branch), hindi na per-specific-slotTime.
+  // Create appointment inside a single transaction with a per-day
+  // capacity check (machineCount × 5) to prevent race conditions.
   async createWithCapacityCheck(branchId, slotDate, appointmentData) {
     const { services = [], addOns = [], clothingTypes = [], ...rest } = appointmentData;
 
@@ -95,10 +87,8 @@ class AppointmentRepository {
     });
   }
 
-  // Checkpoint lang — ini-record ang actualKg ng isang partikular na load
-  // (AppointmentService row), HINDI nire-recalculate ang presyo. Ginagamit
-  // ang sariling `id` ng row (hindi positional index) para ligtas at tiyak
-  // kung aling load talaga ang ina-update.
+  // Record the actualKg for a specific AppointmentService row without
+  // recalculating price. Uses the row's own id (not positional index).
   async updateServiceActualKg(appointmentServiceId, actualKg) {
     return await prisma.appointmentService.update({
       where: { id: appointmentServiceId },
@@ -106,10 +96,9 @@ class AppointmentRepository {
     });
   }
 
-  // ─── OVERWEIGHT SPLIT LOAD ─────────────────────────────────────
-  // Ginagamit kapag "split into 2 loads" ang piniling resolution ng client
-  // para sa overweight appointment — gumagawa ng BAGONG AppointmentService
-  // row (bagong load/basket) na may sariling fixed price snapshot.
+  // Used when the client chooses "split into 2 loads" for an overweight
+  // appointment — creates a new AppointmentService row with its own
+  // fixed price snapshot.
   async addSplitLoad(appointmentId, { serviceId, name, price, kg }) {
     return await prisma.appointmentService.create({
       data: {
@@ -123,10 +112,8 @@ class AppointmentRepository {
     });
   }
 
-  // ─── FIND PENDING OVERWEIGHT PAST DEADLINE ────────────────────
-  // Ginagamit ng auto-cancel checker/cron — hahanapin lahat ng appointments
-  // na naka-"pending_decision" pa sa overweight status at lampas na sa
-  // kanilang deadline (walang sagot ang client sa loob ng araw).
+  // Used by the auto-cancel checker/cron — finds appointments still in
+  // "pending_decision" overweight status past their deadline.
   async findPendingOverweightPastDeadline() {
     return await prisma.appointment.findMany({
       where: {
@@ -187,6 +174,14 @@ class AppointmentRepository {
     return await prisma.appointment.update({
       where: { id },
       data: { sessionId },
+      include: INCLUDE_RELATIONS,
+    });
+  }
+
+  async saveQrPaymentIntentId(id, qrPaymentIntentId) {
+    return await prisma.appointment.update({
+      where: { id },
+      data: { qrPaymentIntentId },
       include: INCLUDE_RELATIONS,
     });
   }

@@ -17,7 +17,9 @@ import {
   lookupPhone,
   archiveAppointment,
   addStaff,        
-  getBranchStaff, 
+  getBranchStaff,
+  generateQrPayment,
+  getQrPaymentStatus,
 } from '../controllers/BranchController.js'
 import {
   getAllPromoCodes,
@@ -47,6 +49,10 @@ branchRouter.get('/staff',  protect('branch'), getBranchStaff)
 // ─── Actual weight + payment ──────────────────────────────────────
 branchRouter.post('/confirm-actual-weight',  protect('branch'), confirmActualWeight)
 branchRouter.post('/confirm-payment',        protect('branch'), confirmPayment)
+
+// ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
+branchRouter.post('/appointments/:appointmentId/qr-payment',        protect('branch'), generateQrPayment)
+branchRouter.get('/appointments/:appointmentId/qr-payment/status',  protect('branch'), getQrPaymentStatus)
 
 // ─── Walk-in Phone Lookup ─────────────────────────────────────────
 branchRouter.get('/lookup-phone/:phone',     protect('branch'), lookupPhone)

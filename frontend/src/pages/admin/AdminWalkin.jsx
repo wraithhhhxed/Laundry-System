@@ -10,19 +10,11 @@ const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractio
 
 // ─── VALIDATION HELPERS ──────────────────────────────────────────
 const validatePhone = (phone) => {
-  // Remove all non-digit characters for validation
   const digits = phone.replace(/\D/g, '')
-  // Philippine mobile numbers: 11 digits, starts with 09
   return digits.length >= 10 && digits.length <= 11 && digits.startsWith('09')
 }
 
-const validateEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
 const validateName = (name) => {
-  // Only letters, spaces, dots, hyphens, and apostrophes allowed
-  // Minimum 2 characters
   return /^[A-Za-z\s.\-']{2,}$/.test(name.trim())
 }
 
@@ -32,11 +24,12 @@ const AdminWalkIn = () => {
     branches, getAllBranches,
     walkInServices, getWalkInServices,
     lookupPhone, createWalkInAppointment,
+    generateQrPayment, getQrPaymentStatus,
   } = useContext(AdminContext)
 
   useEffect(() => { if (aToken) { getAllBranches(); getWalkInServices() } }, [aToken])
 
-  // ─── Branch selection (Super Admin only — Branch Portal knows its own branch via token) ──
+  // ─── Branch selection ───────────────────────────────────────────
   const [branchId, setBranchId] = useState('')
 
   // ─── Phone lookup ───────────────────────────────────────────────
@@ -45,10 +38,9 @@ const AdminWalkIn = () => {
   const [guestName, setGuestName]   = useState('')
   const [nameError, setNameError]   = useState('')
   const [foundUser, setFoundUser]   = useState(null)
-  const [lookupState, setLookupState] = useState('idle') // idle | loading | found | not_found
+  const [lookupState, setLookupState] = useState('idle')
   const lookupTimer = useRef(null)
 
-  // Validate phone on change
   useEffect(() => {
     if (phone && phone.trim().length > 0) {
       if (!validatePhone(phone.trim())) {
@@ -61,7 +53,6 @@ const AdminWalkIn = () => {
     }
   }, [phone])
 
-  // Validate name on change
   useEffect(() => {
     if (guestName && guestName.trim().length > 0) {
       if (!validateName(guestName)) {
@@ -74,7 +65,6 @@ const AdminWalkIn = () => {
     }
   }, [guestName])
 
-  // Phone lookup with debounce
   useEffect(() => {
     if (lookupTimer.current) clearTimeout(lookupTimer.current)
     if (!phone || phone.trim().length < 7 || phoneError) {
@@ -109,36 +99,25 @@ const AdminWalkIn = () => {
     walkInServices.find(s => s.id === serviceId)?.price || 0
 
   const estimatedTotal = baskets.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0)
-
   const anyOverweight = baskets.some(b => Number(b.actualKg) > 7)
 
-  // ─── Overweight resolution (only asked if any basket > 7kg) ─────
   const [overweightResolution, setOverweightResolution] = useState('')
-
-  // ─── Fulfillment method (self pickup vs delivery) ───────────────
   const [fulfillmentMethod, setFulfillmentMethod] = useState('SELF_PICKUP')
 
-  // ─── Payment method (cash vs online) at email ────────────────────
   const [paymentMethod, setPaymentMethod] = useState('CASH')
-  const [email, setEmail] = useState('')
-  const [emailError, setEmailError] = useState('')
-
-  // Validate email on change
-  useEffect(() => {
-    if (paymentMethod === 'ONLINE' && email.trim().length > 0) {
-      if (!validateEmail(email.trim())) {
-        setEmailError('Please enter a valid email address')
-      } else {
-        setEmailError('')
-      }
-    } else {
-      setEmailError('')
-    }
-  }, [email, paymentMethod])
 
   // ─── Submit ───────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+
+  // ─── QR PAYMENT STATES ──────────────────────────────────────────
+  const [showQrModal, setShowQrModal] = useState(false)
+  const [qrImageUrl, setQrImageUrl] = useState('')
+  const [isPolling, setIsPolling] = useState(false)
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false)
+  const [createdAppointmentId, setCreatedAppointmentId] = useState('')
+  const [qrError, setQrError] = useState('')
+  const pollTimer = useRef(null)
 
   const resetForm = () => {
     setBranchId('')
@@ -147,19 +126,12 @@ const AdminWalkIn = () => {
     setOverweightResolution('')
     setFulfillmentMethod('SELF_PICKUP')
     setPaymentMethod('CASH')
-    setEmail(''); setEmailError('')
   }
 
-  // ─── Check if any basket has actualKg but no service ─────────────
   const hasIncompleteBasket = baskets.some(b => b.actualKg && !b.serviceId)
-
-  // ─── Check if any basket has service but no weight ──────────────
   const hasServiceNoWeight = baskets.some(b => b.serviceId && !b.actualKg)
-
-  // ─── Check if any basket weight is invalid ──────────────────────
   const hasInvalidWeight = baskets.some(b => b.actualKg && Number(b.actualKg) < 0)
 
-  // ─── Can submit ──────────────────────────────────────────────────
   const canSubmit =
     branchId.trim().length > 0 &&
     phone.trim().length >= 7 &&
@@ -171,8 +143,70 @@ const AdminWalkIn = () => {
     !hasIncompleteBasket &&
     !hasServiceNoWeight &&
     !hasInvalidWeight &&
-    (!anyOverweight || overweightResolution) &&
-    (paymentMethod !== 'ONLINE' || (email.trim().length > 0 && !emailError))
+    (!anyOverweight || overweightResolution)
+
+  // ─── QR: Open modal + generate QR + start polling ───────────────
+  const openQrFlow = async (appointmentId) => {
+    setShowQrModal(true)
+    setQrError('')
+    setPaymentConfirmed(false)
+    setQrImageUrl('')
+
+    const res = await generateQrPayment(appointmentId)
+    if (!res || !res.qrImageUrl) {
+      setQrError('Could not generate QR code. Please try again.')
+      return
+    }
+    setQrImageUrl(res.qrImageUrl)
+    setIsPolling(true)
+  }
+
+  // ─── QR: Polling effect ─────────────────────────────────────────
+  useEffect(() => {
+    if (!isPolling || !createdAppointmentId) return
+
+    const poll = async () => {
+      const status = await getQrPaymentStatus(createdAppointmentId)
+      const paid = status?.paid === true || status?.payment === true
+      if (paid) {
+        setPaymentConfirmed(true)
+        setIsPolling(false)
+        setSuccessMsg('Payment confirmed! Walk-in appointment is fully paid.')
+        setTimeout(() => {
+          setShowQrModal(false)
+          resetForm()
+          setCreatedAppointmentId('')
+          setQrImageUrl('')
+          setPaymentConfirmed(false)
+        }, 2500)
+      }
+    }
+
+    poll()
+    pollTimer.current = setInterval(poll, 4000)
+
+    return () => {
+      if (pollTimer.current) clearInterval(pollTimer.current)
+    }
+  }, [isPolling, createdAppointmentId])
+
+  useEffect(() => {
+    return () => {
+      if (pollTimer.current) clearInterval(pollTimer.current)
+    }
+  }, [])
+
+  const closeQrModal = () => {
+    if (pollTimer.current) clearInterval(pollTimer.current)
+    setIsPolling(false)
+    setShowQrModal(false)
+    setQrImageUrl('')
+    setQrError('')
+    setPaymentConfirmed(false)
+    setCreatedAppointmentId('')
+    resetForm()
+    setSuccessMsg('Walk-in appointment created. QR payment pending — client can still pay later.')
+  }
 
   const handleSubmit = async () => {
     if (!canSubmit) return
@@ -187,14 +221,20 @@ const AdminWalkIn = () => {
       overweightResolution: anyOverweight ? overweightResolution : null,
       fulfillmentMethod,
       paymentMethod,
-      email: paymentMethod === 'ONLINE' ? email.trim() : null,
     }
 
     const ok = await createWalkInAppointment(payload)
     setSubmitting(false)
+
     if (ok) {
-      setSuccessMsg('Walk-in appointment created! Client will now appear under All Appointments.')
-      resetForm()
+      if (paymentMethod === 'ONLINE') {
+        const appointmentId = ok.id || ok.appointmentId || ok._id
+        setCreatedAppointmentId(appointmentId)
+        openQrFlow(appointmentId)
+      } else {
+        setSuccessMsg('Walk-in appointment created! Client will now appear under All Appointments.')
+        resetForm()
+      }
     }
   }
 
@@ -220,7 +260,7 @@ const AdminWalkIn = () => {
           </div>
         )}
 
-        {/* ─── BRANCH SELECTION (Super Admin only) ───────────────── */}
+        {/* ─── BRANCH SELECTION ───────────────────────────────── */}
         <SectionLabel>Branch</SectionLabel>
         <Divider />
         <div className="mb-10">
@@ -244,7 +284,6 @@ const AdminWalkIn = () => {
               type="tel" 
               value={phone} 
               onChange={e => {
-                // Only allow digits and limit to 11 characters
                 const value = e.target.value.replace(/\D/g, '').slice(0, 11)
                 setPhone(value)
               }}
@@ -269,7 +308,6 @@ const AdminWalkIn = () => {
               type="text" 
               value={guestName} 
               onChange={e => {
-                // Allow letters, spaces, dots, hyphens, apostrophes
                 const value = e.target.value.replace(/[^A-Za-z\s.\-']/g, '')
                 setGuestName(value)
               }}
@@ -320,7 +358,6 @@ const AdminWalkIn = () => {
                     value={basket.actualKg}
                     onChange={e => {
                       const val = e.target.value
-                      // Only allow positive numbers
                       if (val === '' || Number(val) >= 0) {
                         updateBasket(idx, 'actualKg', val)
                       }
@@ -391,34 +428,16 @@ const AdminWalkIn = () => {
         {/* ─── PAYMENT METHOD ──────────────────────────────────── */}
         <SectionLabel>How will the client pay?</SectionLabel>
         <Divider />
-        <div className="flex gap-3 mb-5">
+        <div className="flex gap-3 mb-10">
           <button onClick={() => setPaymentMethod('CASH')}
             className={`flex-1 py-2.5 font-sans text-xs uppercase tracking-widest font-bold border transition-colors ${paymentMethod === 'CASH' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}>
             Cash
           </button>
           <button onClick={() => setPaymentMethod('ONLINE')}
             className={`flex-1 py-2.5 font-sans text-xs uppercase tracking-widest font-bold border transition-colors ${paymentMethod === 'ONLINE' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}>
-            Online Payment
+            Online Payment (QR)
           </button>
         </div>
-
-        {paymentMethod === 'ONLINE' && (
-          <div className="mb-10">
-            <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
-              Client Email <span className="text-amber-500 normal-case">(required — payment link will be sent here)</span>
-            </label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)}
-              placeholder="e.g. juan@gmail.com" 
-              className={emailError ? inputErrorClass : inputClass} 
-            />
-            {emailError && <p className="font-sans text-xs text-red-500 mt-1.5">{emailError}</p>}
-          </div>
-        )}
-
-        {paymentMethod === 'CASH' && <div className="mb-10" />}
 
         {/* ─── SUMMARY ─────────────────────────────────────────── */}
         <SectionLabel>Estimated Total</SectionLabel>
@@ -436,8 +455,64 @@ const AdminWalkIn = () => {
           <span className="relative">{submitting ? 'Creating...' : '✓ Create Walk-In Appointment'}</span>
         </button>
 
-        
       </div>
+
+      {/* ─── QR PAYMENT MODAL ───────────────────────────────────── */}
+      {showQrModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white max-w-md w-full p-8 relative"
+               style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+            
+            {!paymentConfirmed && (
+              <button onClick={closeQrModal}
+                className="absolute top-3 right-3 text-neutral-300 hover:text-neutral-500 text-2xl leading-none">
+                ×
+              </button>
+            )}
+
+            <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">
+              Online Payment
+            </p>
+            <h2 className="text-neutral-800 mb-1" style={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: '1.5rem' }}>
+              Scan to Pay
+            </h2>
+            <p className="font-sans text-xs text-neutral-500 mb-6">
+              Ask the client to scan this QR code using GCash, Maya, or any supported e-wallet.
+            </p>
+
+            <div className="flex items-center justify-center mb-6 min-h-[220px]">
+              {qrError ? (
+                <div className="text-center">
+                  <p className="font-sans text-sm text-red-500 mb-2">{qrError}</p>
+                  <button
+                    onClick={() => openQrFlow(createdAppointmentId)}
+                    className="font-sans text-xs uppercase tracking-widest text-blue-600 hover:text-blue-800 font-bold">
+                    Retry
+                  </button>
+                </div>
+              ) : qrImageUrl ? (
+                <img src={qrImageUrl} alt="Payment QR Code" className="w-56 h-56 object-contain" />
+              ) : (
+                <p className="font-sans text-sm text-neutral-400">Generating QR code...</p>
+              )}
+            </div>
+
+            {paymentConfirmed ? (
+              <div className="bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-3">
+                <span className="text-green-600 text-lg">✓</span>
+                <p className="font-sans text-sm text-green-700">Payment confirmed! Closing...</p>
+              </div>
+            ) : (
+              <div className="bg-blue-50 border border-blue-100 px-4 py-3 flex items-center gap-3">
+                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <p className="font-sans text-xs text-blue-600">
+                  Waiting for payment confirmation...
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

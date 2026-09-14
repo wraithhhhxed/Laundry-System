@@ -147,8 +147,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
     pickupAddress,
     deliveryAddress,
     fulfillmentMethod,
-    paymentMethod,   
-    email,           
+    paymentMethod,
   } = req.body
 
   // ─── VALIDATIONS ──────────────────────────────────────────────
@@ -158,12 +157,8 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
   if (fulfillmentMethod && !['SELF_PICKUP', 'DELIVERY'].includes(fulfillmentMethod))
     throw new ApiError(400, 'fulfillmentMethod must be SELF_PICKUP or DELIVERY')
 
-  // new valids
   if (paymentMethod && !['CASH', 'ONLINE'].includes(paymentMethod))
     throw new ApiError(400, 'paymentMethod must be CASH or ONLINE')
-  
-  if (paymentMethod === 'ONLINE' && !email)
-    throw new ApiError(400, 'email is required when paymentMethod is ONLINE')
 
   // ─── CREATE APPOINTMENT ──────────────────────────────────────
   // Use req.user directly for actor instead of fetching branch
@@ -184,9 +179,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
       specialInstructions,
       pickupAddress,
       deliveryAddress,
-     
       preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
-      email: paymentMethod === 'ONLINE' ? email : null,
     },
     addOns || [],
     actor,
@@ -245,6 +238,27 @@ const getBranchStaff = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { staff }))
 })
 
+// ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
+const generateQrPayment = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params   // ← from params (fixed)
+  if (!appointmentId)
+    throw new ApiError(400, 'appointmentId is required')
+
+  const { qrImageUrl, paymentIntentId } = await appointmentService.generateWalkInQrPayment(appointmentId)
+  
+  res.json(new ApiResponse(200, { qrImageUrl, paymentIntentId }, 'QR code generated successfully'))
+})
+
+const getQrPaymentStatus = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params
+  if (!appointmentId)
+    throw new ApiError(400, 'appointmentId is required')
+
+  const result = await appointmentService.checkQrPaymentStatus(appointmentId)
+  
+  res.json(new ApiResponse(200, result))
+})
+
 export {
   logoutBranch,
 
@@ -270,4 +284,7 @@ export {
 
   addStaff,
   getBranchStaff,
+
+  generateQrPayment,
+  getQrPaymentStatus,
 }

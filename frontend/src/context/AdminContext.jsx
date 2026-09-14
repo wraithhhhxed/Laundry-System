@@ -18,7 +18,7 @@ const AdminContextProvider = (props) => {
   const [kgRates, setKgRates]             = useState([])
   const [promoCodes, setPromoCodes]       = useState([])
   const [extraServices, setExtraServices] = useState([])
-  const [walkInServices, setWalkInServices] = useState([])  // ← ADDED
+  const [walkInServices, setWalkInServices] = useState([])
 
   // ─── Debounced appointments refresh ──────────────────────────
   const refreshTimer = useRef(null)
@@ -182,37 +182,37 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-const addService = async (serviceData, imageFile) => {
-  try {
-    const formData = new FormData()
-    formData.append('name',        serviceData.name)
-    formData.append('price',       serviceData.price)
-    formData.append('description', serviceData.description ?? '')
-    formData.append('isActive',    serviceData.isActive ?? true)
-    if (imageFile instanceof File) formData.append('image', imageFile)
-    const { data } = await axios.post(backendUrl + '/api/admin/services', formData, { headers: authHeader(aToken) })
-    if (data.success) { toast.success(data.message); getAllServices() }
-    else toast.error(data.message)
-  } catch (error) { toast.error(error.message) }
-}
+  const addService = async (serviceData, imageFile) => {
+    try {
+      const formData = new FormData()
+      formData.append('name',        serviceData.name)
+      formData.append('price',       serviceData.price)
+      formData.append('description', serviceData.description ?? '')
+      formData.append('isActive',    serviceData.isActive ?? true)
+      if (imageFile instanceof File) formData.append('image', imageFile)
+      const { data } = await axios.post(backendUrl + '/api/admin/services', formData, { headers: authHeader(aToken) })
+      if (data.success) { toast.success(data.message); getAllServices() }
+      else toast.error(data.message)
+    } catch (error) { toast.error(error.message) }
+  }
 
-const updateService = async (id, serviceData, imageFile) => {
-  try {
-    const formData = new FormData()
-    if (serviceData.name        !== undefined) formData.append('name',        serviceData.name)
-    if (serviceData.price       !== undefined) formData.append('price',       serviceData.price)
-    if (serviceData.description !== undefined) formData.append('description', serviceData.description)
-    if (serviceData.isActive    !== undefined) formData.append('isActive',    serviceData.isActive)
-    if (imageFile instanceof File)             formData.append('image',      imageFile)
-    const { data } = await axios.put(
-      backendUrl + `/api/admin/services/${id}`,
-      formData,
-      { headers: authHeader(aToken) }
-    )
-    if (data.success) { toast.success(data.message); getAllServices() }
-    else toast.error(data.message)
-  } catch (error) { toast.error(error.message) }
-}
+  const updateService = async (id, serviceData, imageFile) => {
+    try {
+      const formData = new FormData()
+      if (serviceData.name        !== undefined) formData.append('name',        serviceData.name)
+      if (serviceData.price       !== undefined) formData.append('price',       serviceData.price)
+      if (serviceData.description !== undefined) formData.append('description', serviceData.description)
+      if (serviceData.isActive    !== undefined) formData.append('isActive',    serviceData.isActive)
+      if (imageFile instanceof File)             formData.append('image',      imageFile)
+      const { data } = await axios.put(
+        backendUrl + `/api/admin/services/${id}`,
+        formData,
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) { toast.success(data.message); getAllServices() }
+      else toast.error(data.message)
+    } catch (error) { toast.error(error.message) }
+  }
 
   const deleteService = async (id) => {
     try {
@@ -394,6 +394,7 @@ const updateService = async (id, serviceData, imageFile) => {
     }
   }
 
+  // ✅ FIXED: returns the appointment object (so we can grab its id for QR flow)
   const createWalkInAppointment = async (payload) => {
     try {
       const { data } = await axios.post(
@@ -404,14 +405,56 @@ const updateService = async (id, serviceData, imageFile) => {
       if (data.success) {
         toast.success('Walk-in appointment created successfully.')
         debouncedRefresh()
-        return true
+        // Return the appointment object — try common shapes
+        return (
+          data.data?.appointment ||
+          data.appointment ||
+          data.data ||
+          null
+        )
       } else {
         toast.error(data.message)
-        return false
+        return null
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message)
-      return false
+      return null
+    }
+  }
+
+  // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────
+  const generateQrPayment = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment`,
+        {},
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        return {
+          qrImageUrl:      data.data?.qrImageUrl      || data.qrImageUrl,
+          paymentIntentId: data.data?.paymentIntentId || data.paymentIntentId,
+        }
+      }
+      toast.error(data.message || 'Failed to generate QR code')
+      return null
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
+  const getQrPaymentStatus = async (appointmentId) => {
+    try {
+      const { data } = await axios.get(
+        backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment/status`,
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) return data.data || data
+      return null
+    } catch (error) {
+      // Silent — polling shouldn't spam toasts on every failed poll
+      return null
     }
   }
 
@@ -507,7 +550,7 @@ const updateService = async (id, serviceData, imageFile) => {
     setKgRates([])
     setPromoCodes([])
     setExtraServices([])
-    setWalkInServices([])  // ← ADDED
+    setWalkInServices([])
   }
 
   const value = {
@@ -527,9 +570,11 @@ const updateService = async (id, serviceData, imageFile) => {
     kgRates, getAllKgRates, addKgRate, updateKgRate, deleteKgRate,
     promoCodes, getAllPromoCodes, addPromoCode, updatePromoCode, deletePromoCode, togglePromoCode,
     extraServices, getAllExtraServices, addExtraService, updateExtraService, toggleExtraService, deleteExtraService,
-    walkInServices, getWalkInServices,  // ← ADDED
-    lookupPhone,  // ← ADDED
-    createWalkInAppointment,  // ← ADDED
+    walkInServices, getWalkInServices,
+    lookupPhone,
+    createWalkInAppointment,
+    generateQrPayment,        // ✅ NEW
+    getQrPaymentStatus,       // ✅ NEW
     getVatRate, updateVatRate,
     getRefundReasons, updateRefundReasons,
     getFaqs, updateFaqs,
