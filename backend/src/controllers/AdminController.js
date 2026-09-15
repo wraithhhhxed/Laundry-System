@@ -503,7 +503,7 @@ const getStaffByBranchAdmin = asyncHandler(async (req, res) => {
 })
 
 const deleteStaffAdmin = asyncHandler(async (req, res) => {
-  const staff = await branchStaffService.deleteStaff(req.params.id)
+  const staff = await branchStaffService.deleteStaff({ role: 'admin' }, req.params.id)
   res.json(new ApiResponse(200, {}, `${staff.firstName} ${staff.lastName} removed successfully`))
 })
 
@@ -537,6 +537,12 @@ const toggleExtraServiceStatus = asyncHandler(async (req, res) => {
 const deleteExtraService = asyncHandler(async (req, res) => {
   await extraServiceService.deleteExtraService(req.params.id)
   res.json(new ApiResponse(200, {}, 'Extra service deleted'))
+})
+
+// ─── DELETE ALL APPOINTMENTS (maintenance/testing reset) ─────────
+const deleteAllAppointments = asyncHandler(async (req, res) => {
+  const result = await appointmentService.deleteAllAppointments(adminActor(req))
+  res.json(new ApiResponse(200, result, `${result.deletedCount} appointment(s) deleted successfully`))
 })
 
 // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
@@ -591,4 +597,5 @@ export {
 
   generateQrPayment,
   getQrPaymentStatus,
+  deleteAllAppointments,
 }

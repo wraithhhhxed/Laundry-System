@@ -238,6 +238,18 @@ const getBranchStaff = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { staff }))
 })
 
+const deleteStaff = asyncHandler(async (req, res) => {
+  if (req.user.staffRole !== 'BRANCH_ADMIN')
+    throw new ApiError(403, 'Only Branch Admins can delete staff')
+
+  const staff = await branchStaffService.deleteStaff(
+    { role: 'branch', branchId: req.user.branchId },
+    req.params.id
+  )
+
+  res.json(new ApiResponse(200, {}, `${staff.firstName} ${staff.lastName} removed successfully`))
+})
+
 // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
 const generateQrPayment = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params   // ← from params (fixed)
@@ -284,6 +296,7 @@ export {
 
   addStaff,
   getBranchStaff,
+  deleteStaff,
 
   generateQrPayment,
   getQrPaymentStatus,

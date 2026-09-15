@@ -185,6 +185,16 @@ class AppointmentRepository {
       include: INCLUDE_RELATIONS,
     });
   }
+
+  async deleteAllAppointments() {
+    return await prisma.$transaction(async (tx) => {
+      await tx.appointmentService.deleteMany({});
+      await tx.appointmentAddOn.deleteMany({});
+      await tx.appointmentClothingType.deleteMany({});
+      const result = await tx.appointment.deleteMany({});
+      return result; // { count: number }
+    });
+  }
 }
 
 export default new AppointmentRepository();

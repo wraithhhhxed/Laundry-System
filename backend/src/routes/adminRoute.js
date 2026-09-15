@@ -13,6 +13,8 @@ import {
   createWalkInAppointment, lookupPhone,
   // qr payment
   generateQrPayment, getQrPaymentStatus,
+  // maintenance
+  deleteAllAppointments,
   // services
   getAllServices, addService, updateService, deleteService,
   // clothing types
@@ -70,6 +72,7 @@ adminRouter.post('/archive-appointment',      protect('admin'), archiveAppointme
 adminRouter.post('/create-walk-in',           protect('admin'), createWalkInAppointment)
 adminRouter.get('/lookup-phone/:phone',       protect('admin'), lookupPhone)
 adminRouter.get('/dashboard',                 protect('admin'), adminDashboard)
+adminRouter.delete('/appointments/delete-all', protect('admin'), deleteAllAppointments)
 
 // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
 adminRouter.post('/appointments/:appointmentId/qr-payment',        protect('admin'), generateQrPayment)

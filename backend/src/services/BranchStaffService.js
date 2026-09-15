@@ -53,9 +53,17 @@ class BranchStaffService {
     return staff.map(({ password, ...rest }) => rest)
   }
 
-  async deleteStaff(id) {
+  async deleteStaff(requestedBy, id) {
     const staff = await BranchStaffRepository.findById(id)
     if (!staff) throw new ApiError(404, 'Staff not found')
+
+    if (requestedBy.role === 'branch') {
+      if (staff.branchId !== requestedBy.branchId)
+        throw new ApiError(403, 'You can only delete staff from your own branch')
+
+      if (staff.role === 'BRANCH_ADMIN')
+        throw new ApiError(403, 'You cannot delete a Branch Admin')
+    }
 
     await BranchStaffRepository.deleteById(id)
     return { firstName: staff.firstName, lastName: staff.lastName }

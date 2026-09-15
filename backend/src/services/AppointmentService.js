@@ -765,6 +765,15 @@ class AppointmentService {
     return await AppointmentRepository.findAll();
   }
 
+  // ─── DELETE ALL APPOINTMENTS (maintenance/testing reset) ────────
+  async deleteAllAppointments(actor = null) {
+    const result = await AppointmentRepository.deleteAllAppointments();
+
+    console.log(`[Maintenance] Deleted ${result.count} appointment(s) and their related records.`);
+
+    return { deletedCount: result.count };
+  }
+
   // ─── DASHBOARD ──────────────────────────────────────────────────
   async getDashboardData() {
     const [appointments, totalBranches, totalCustomers] = await Promise.all([

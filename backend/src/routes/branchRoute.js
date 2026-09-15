@@ -16,8 +16,9 @@ import {
   createWalkInAppointment,
   lookupPhone,
   archiveAppointment,
-  addStaff,        
+  addStaff,
   getBranchStaff,
+  deleteStaff,
   generateQrPayment,
   getQrPaymentStatus,
 } from '../controllers/BranchController.js'
@@ -28,9 +29,9 @@ import {
 
 const branchRouter = express.Router()
 
-// ─── Public ───────────────────────────────────────────────────────
+// Public
 
-// ─── Protected ────────────────────────────────────────────────────
+// Protected
 branchRouter.get('/profile',                 protect('branch'), getBranchProfile)
 branchRouter.post('/update-profile',         protect('branch'), upload.single('image'), updateBranchProfile)
 branchRouter.get('/appointments',            protect('branch'), getBranchAppointments)
@@ -42,25 +43,26 @@ branchRouter.post('/change-availability',    protect('branch'), changeBranchAvai
 branchRouter.post('/logout',                 protect('branch'), logoutBranch)
 branchRouter.post('/create-walk-in',         protect('branch'), createWalkInAppointment)
 
-// ─── Staff Management ─────────────────────────────────────────────
-branchRouter.post('/staff', protect('branch'), addStaff)
-branchRouter.get('/staff',  protect('branch'), getBranchStaff)
+// Staff Management
+branchRouter.post('/staff',    protect('branch'), addStaff)
+branchRouter.get('/staff',     protect('branch'), getBranchStaff)
+branchRouter.delete('/staff/:id', protect('branch'), deleteStaff)
 
-// ─── Actual weight + payment ──────────────────────────────────────
+// Actual weight + payment
 branchRouter.post('/confirm-actual-weight',  protect('branch'), confirmActualWeight)
 branchRouter.post('/confirm-payment',        protect('branch'), confirmPayment)
 
-// ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
+// QR PAYMENT (WALK-IN)
 branchRouter.post('/appointments/:appointmentId/qr-payment',        protect('branch'), generateQrPayment)
 branchRouter.get('/appointments/:appointmentId/qr-payment/status',  protect('branch'), getQrPaymentStatus)
 
-// ─── Walk-in Phone Lookup ─────────────────────────────────────────
+// Walk-in Phone Lookup
 branchRouter.get('/lookup-phone/:phone',     protect('branch'), lookupPhone)
 
-// ⭐ ARCHIVE APPOINTMENT ROUTE
+// ARCHIVE APPOINTMENT ROUTE
 branchRouter.post('/archive-appointment',    protect('branch'), archiveAppointment)
 
-// ─── Promo Codes (read-only) ──────────────────────────────────────
+// Promo Codes (read-only)
 branchRouter.get('/promo-codes',     protect('branch'), getAllPromoCodes)
 branchRouter.get('/promo-codes/:id', protect('branch'), getPromoCodeById)
 
