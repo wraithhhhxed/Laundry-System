@@ -25,7 +25,7 @@ const AdminWalkIn = () => {
     walkInServices, getWalkInServices,
     lookupPhone, createWalkInAppointment,
     generateQrPayment, getQrPaymentStatus,
-    confirmPayment,                       // ✅ ADDED
+    confirmPayment,
   } = useContext(AdminContext)
 
   useEffect(() => { if (aToken) { getAllBranches(); getWalkInServices() } }, [aToken])
@@ -104,8 +104,30 @@ const AdminWalkIn = () => {
 
   const [overweightResolution, setOverweightResolution] = useState('')
   const [fulfillmentMethod, setFulfillmentMethod] = useState('SELF_PICKUP')
+  const [deliveryAddress, setDeliveryAddress] = useState('')  // ← NEW
 
   const [paymentMethod, setPaymentMethod] = useState('CASH')
+
+  // ─── Promo auto-apply preview ──────────────────────────────────
+  const autoPromo = (() => {
+    if (!foundUser) return null
+    const stamps = foundUser.loyaltyStamps || 0
+    if (stamps >= 10 && foundUser.tenthStampReward?.code) {
+      return { ...foundUser.tenthStampReward, tier: '10th' }
+    }
+    if (stamps >= 5 && stamps < 10 && foundUser.fifthStampReward?.code && !foundUser.fifthStampRedeemedAt) {
+      return { ...foundUser.fifthStampReward, tier: '5th' }
+    }
+    return null
+  })()
+
+  const discountAmount = autoPromo
+    ? autoPromo.discountType === 'percent'
+      ? estimatedTotal * (autoPromo.discountValue / 100)
+      : autoPromo.discountValue
+    : 0
+
+  const finalEstimate = Math.max(0, estimatedTotal - discountAmount)
 
   // ─── Submit ───────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false)
@@ -126,6 +148,7 @@ const AdminWalkIn = () => {
     setBaskets([{ serviceId: '', actualKg: '' }])
     setOverweightResolution('')
     setFulfillmentMethod('SELF_PICKUP')
+    setDeliveryAddress('')   // ← NEW
     setPaymentMethod('CASH')
   }
 
@@ -145,6 +168,41 @@ const AdminWalkIn = () => {
     !hasServiceNoWeight &&
     !hasInvalidWeight &&
     (!anyOverweight || overweightResolution)
+
+  // ─── SPLIT LOAD — expands overweight baskets into 7kg chunks ────
+  const handleSplitLoad = () => {
+    const newBaskets = []
+
+    for (const basket of baskets) {
+      const weight = Number(basket.actualKg)
+
+      if (weight <= 7) {
+        // Not overweight, keep as-is
+        newBaskets.push(basket)
+      } else {
+        // Overweight: split into multiple baskets
+        // First basket: 7kg
+        newBaskets.push({
+          serviceId: basket.serviceId,
+          actualKg: 7,
+        })
+
+        // Remaining weight: create additional 7kg baskets (loop until used up)
+        let remaining = weight - 7
+        while (remaining > 0) {
+          const basketKg = parseFloat(Math.min(7, remaining).toFixed(2))
+          newBaskets.push({
+            serviceId: basket.serviceId,
+            actualKg: basketKg,
+          })
+          remaining -= basketKg
+        }
+      }
+    }
+
+    setBaskets(newBaskets)
+    setOverweightResolution('split')
+  }
 
   // ─── QR: Open modal + generate QR + start polling ───────────────
   const openQrFlow = async (appointmentId) => {
@@ -170,7 +228,6 @@ const AdminWalkIn = () => {
       const status = await getQrPaymentStatus(createdAppointmentId)
       const paid = status?.paid === true || status?.payment === true
       if (paid) {
-        // ✅ Confirm the payment on the backend before closing the modal
         await confirmPayment(createdAppointmentId, 'online')
 
         setPaymentConfirmed(true)
@@ -212,10 +269,29 @@ const AdminWalkIn = () => {
     setSuccessMsg('Walk-in appointment created. QR payment pending — client can still pay later.')
   }
 
+  // ─── Auto-fill address when DELIVERY selected + user found ──
+  useEffect(() => {
+    if (fulfillmentMethod === 'DELIVERY' && foundUser?.address) {
+      setDeliveryAddress(foundUser.address)
+    } else if (fulfillmentMethod === 'SELF_PICKUP') {
+      setDeliveryAddress('')
+    }
+  }, [fulfillmentMethod, foundUser])
+
+  // ─── SUBMIT (with promo auto-apply) ─────────────────────────────
   const handleSubmit = async () => {
     if (!canSubmit) return
     setSubmitting(true)
     setSuccessMsg('')
+
+    // Auto-apply milestone reward if exists (10th priority > 5th)
+    let promoCodeToApply = null
+    const stamps = foundUser?.loyaltyStamps || 0
+    if (stamps >= 10 && foundUser?.tenthStampReward?.code) {
+      promoCodeToApply = foundUser.tenthStampReward.code
+    } else if (stamps >= 5 && stamps < 10 && foundUser?.fifthStampReward?.code && !foundUser?.fifthStampRedeemedAt) {
+      promoCodeToApply = foundUser.fifthStampReward.code
+    }
 
     const payload = {
       branchId,
@@ -225,6 +301,8 @@ const AdminWalkIn = () => {
       overweightResolution: anyOverweight ? overweightResolution : null,
       fulfillmentMethod,
       paymentMethod,
+      promoCode: promoCodeToApply,
+      address: deliveryAddress.trim() || null,  // ← NEW: add address if DELIVERY
     }
 
     const ok = await createWalkInAppointment(payload)
@@ -326,6 +404,78 @@ const AdminWalkIn = () => {
           </div>
         </div>
 
+        {/* ─── LOYALTY STAMP PREVIEW (if existing customer) ─────── */}
+        {foundUser && lookupState === 'found' && (
+          <>
+            <SectionLabel>Customer Loyalty</SectionLabel>
+            <Divider />
+            <div className="mb-10 bg-blue-50 border border-blue-100 px-5 py-4">
+              <div className="grid grid-cols-5 gap-3 mb-4">
+                {Array.from({ length: 10 }, (_, i) => {
+                  const stampNum = i + 1
+                  const filled = stampNum <= (foundUser.loyaltyStamps || 0)
+                  return (
+                    <div
+                      key={stampNum}
+                      className={`aspect-square flex items-center justify-center border-2 font-sans text-xs font-black
+                        ${filled ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-100 text-blue-200'}`}
+                    >
+                      {filled ? '✓' : stampNum}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {foundUser.loyaltyStamps >= 10 && !foundUser.tenthStampReward && (
+                <p className="font-sans text-xs text-neutral-400 italic">
+                  10th stamp unlocked! (No reward code assigned yet)
+                </p>
+              )}
+              {foundUser.loyaltyStamps >= 10 && foundUser.tenthStampReward && (
+                <div className="bg-green-50 border border-green-200 px-3 py-2">
+                  <p className="font-sans text-xs text-green-700 font-bold mb-1">
+                    ✓ 10th stamp reward unlocked: <strong>{foundUser.tenthStampReward.code}</strong>
+                  </p>
+                  <p className="font-sans text-xs text-green-600">
+                    {foundUser.tenthStampReward.discountType === 'percent' 
+                      ? `${foundUser.tenthStampReward.discountValue}% off`
+                      : `₱${foundUser.tenthStampReward.discountValue} off`
+                    } — {foundUser.tenthStampReward.description}
+                  </p>
+                </div>
+              )}
+              {foundUser.loyaltyStamps >= 5 && foundUser.loyaltyStamps < 10 && !foundUser.fifthStampRedeemedAt && !foundUser.fifthStampReward && (
+                <p className="font-sans text-xs text-neutral-400 italic">
+                  5th stamp unlocked! (No reward code assigned yet)
+                </p>
+              )}
+              {foundUser.loyaltyStamps >= 5 && foundUser.loyaltyStamps < 10 && foundUser.fifthStampReward && !foundUser.fifthStampRedeemedAt && (
+                <div className="bg-blue-50 border border-blue-200 px-3 py-2">
+                  <p className="font-sans text-xs text-blue-700 font-bold mb-1">
+                    ✓ 5th stamp reward unlocked: <strong>{foundUser.fifthStampReward.code}</strong>
+                  </p>
+                  <p className="font-sans text-xs text-blue-600">
+                    {foundUser.fifthStampReward.discountType === 'percent' 
+                      ? `${foundUser.fifthStampReward.discountValue}% off`
+                      : `₱${foundUser.fifthStampReward.discountValue} off`
+                    } — {foundUser.fifthStampReward.description}
+                  </p>
+                </div>
+              )}
+              {foundUser.loyaltyStamps >= 5 && foundUser.loyaltyStamps < 10 && foundUser.fifthStampRedeemedAt && (
+                <p className="font-sans text-xs text-neutral-400 italic">
+                  5th stamp reward already claimed this cycle. {10 - foundUser.loyaltyStamps} more until 10th stamp reward.
+                </p>
+              )}
+              {foundUser.loyaltyStamps < 5 && (
+                <p className="font-sans text-xs text-neutral-500">
+                  {5 - foundUser.loyaltyStamps} more completed order{5 - foundUser.loyaltyStamps === 1 ? '' : 's'} until 5th stamp reward.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
         {/* ─── BASKETS ─────────────────────────────────────────── */}
         <SectionLabel>Baskets</SectionLabel>
         <Divider />
@@ -400,7 +550,7 @@ const AdminWalkIn = () => {
               One or more baskets exceed 7kg. Choose how to handle the excess weight:
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setOverweightResolution('split')}
+              <button onClick={handleSplitLoad}
                 className={`flex-1 py-2.5 font-sans text-xs uppercase tracking-widest font-bold border transition-colors ${overweightResolution === 'split' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-amber-600 border-amber-300'}`}>
                 Split into 2nd load
               </button>
@@ -429,6 +579,25 @@ const AdminWalkIn = () => {
           </button>
         </div>
 
+        {/* ─── DELIVERY ADDRESS (if DELIVERY selected) ──────────── */}
+        {fulfillmentMethod === 'DELIVERY' && (
+          <div className="mb-10">
+            <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
+              Delivery Address {foundUser?.address && <span className="text-neutral-300 normal-case">(from record)</span>}
+            </label>
+            <input 
+              type="text" 
+              value={deliveryAddress}
+              onChange={e => setDeliveryAddress(e.target.value)}
+              placeholder="e.g. 123 Main St, City." 
+              className={inputClass}
+            />
+            {deliveryAddress && (
+              <p className="font-sans text-xs text-green-600 mt-1.5"></p>
+            )}
+          </div>
+        )}
+
         {/* ─── PAYMENT METHOD ──────────────────────────────────── */}
         <SectionLabel>How will the client pay?</SectionLabel>
         <Divider />
@@ -446,9 +615,33 @@ const AdminWalkIn = () => {
         {/* ─── SUMMARY ─────────────────────────────────────────── */}
         <SectionLabel>Estimated Total</SectionLabel>
         <Divider />
-        <div className="bg-blue-50 border border-blue-100 px-5 py-4 flex items-center justify-between mb-10">
-          <span className="font-sans text-xs uppercase tracking-widest text-neutral-500">Total (before VAT)</span>
-          <span className="font-sans font-black text-blue-700 text-xl" style={{ letterSpacing: '-0.02em' }}>{fmt(estimatedTotal)}</span>
+        <div className="bg-blue-50 border border-blue-100 px-5 py-4 mb-10">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-sans text-xs uppercase tracking-widest text-neutral-500">Subtotal (before VAT)</span>
+            <span className={`font-sans font-black text-blue-700 text-xl ${autoPromo ? 'line-through text-neutral-300 text-base' : ''}`} style={{ letterSpacing: '-0.02em' }}>
+              {fmt(estimatedTotal)}
+            </span>
+          </div>
+
+          {autoPromo && (
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-100">
+              <span className="font-sans text-xs uppercase tracking-widest text-green-700 font-bold">
+                ✓ Promo {autoPromo.tier} stamp — {autoPromo.code}
+              </span>
+              <span className="font-sans text-sm font-bold text-green-700">
+                − {fmt(discountAmount)}
+              </span>
+            </div>
+          )}
+
+          {autoPromo && (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-200">
+              <span className="font-sans text-xs uppercase tracking-widest text-blue-700 font-bold">Final Estimated Total</span>
+              <span className="font-sans font-black text-blue-700 text-xl" style={{ letterSpacing: '-0.02em' }}>
+                {fmt(finalEstimate)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* ─── SUBMIT BUTTON ───────────────────────────────────── */}

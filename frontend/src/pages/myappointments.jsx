@@ -110,7 +110,7 @@ const WeightBreakdown = ({ services }) => {
     <div className='mt-2 space-y-2'>
       {services.map((svc, idx) => (
         <div key={idx} className='font-sans text-sm'>
-          <div className='flex items-center gap-3'>
+          <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
             <span className='text-neutral-400'>Basket {idx + 1} — {svc.name}:</span>
             {svc.actualKg != null ? (
               <span className='flex items-center gap-2'>
@@ -184,11 +184,11 @@ const AppointmentCard = ({
       className={`bg-white border overflow-hidden transition-all duration-200 hover:border-blue-200 hover:shadow-md
         ${item.cancelled ? 'border-blue-50 opacity-70' : 'border-blue-100'}`}>
 
-      <div className='flex gap-0'>
-        {/* Image section - slightly larger */}
-        <div className='relative w-32 shrink-0 overflow-hidden'>
+      <div className='flex flex-col md:flex-row gap-0'>
+        {/* Image section - full width on mobile, fixed column on desktop */}
+        <div className='relative w-full md:w-32 shrink-0 overflow-hidden'>
           <img src={item.branchData?.image} alt={item.branchData?.name}
-            className='w-full h-full object-cover' style={{ minHeight: '180px' }} />
+            className='w-full h-40 md:h-full object-cover' style={{ minHeight: undefined }} />
           {item.cancelled && (
             <div className='absolute inset-0 bg-blue-900/40 flex items-end justify-start p-3'>
               <span className='font-sans text-[9px] font-bold tracking-[0.2em] text-white uppercase'>Cancelled</span>
@@ -196,17 +196,17 @@ const AppointmentCard = ({
           )}
         </div>
 
-        {/* Content section - more padding and spacing */}
-        <div className='flex-1 min-w-0 px-6 py-6 flex flex-col gap-4'>
+        {/* Content section */}
+        <div className='flex-1 min-w-0 px-5 md:px-6 py-5 md:py-6 flex flex-col gap-4'>
           {/* Header with title and action buttons */}
           <div className='flex items-start justify-between gap-3'>
-            <div>
-              <p className='font-bold text-blue-900 leading-none mb-1.5' style={{ fontSize: '17px', letterSpacing: '-0.02em' }}>
+            <div className='min-w-0'>
+              <p className='font-bold text-blue-900 leading-tight mb-1.5' style={{ fontSize: '17px', letterSpacing: '-0.02em' }}>
                 {item.branchData?.name}
               </p>
               <p className='font-sans text-sm text-neutral-400'>{item.slotDate} · {item.slotTime}</p>
             </div>
-            {/* Action buttons - bigger and more visible */}
+            {/* Action buttons */}
             {canArchive && (
               <button onClick={onArchive} title='Archive'
                 className='text-blue-300 hover:text-blue-600 transition-colors shrink-0 p-2 hover:bg-blue-50 rounded'>
@@ -225,28 +225,38 @@ const AppointmentCard = ({
             )}
           </div>
 
-          {/* Details section - better spacing and larger text */}
+          {/* Details section */}
           <div className='font-sans text-sm text-neutral-500 space-y-1.5'>
-            <p><span className='text-neutral-700 font-semibold'>Service:</span> {serviceLabel}</p>
+            <p className='break-words'><span className='text-neutral-700 font-semibold'>Service:</span> {serviceLabel}</p>
             <WeightBreakdown services={item.services} />
             {item.pickupAddress?.line1 && (
-              <p><span className='text-neutral-700 font-semibold'>Pickup:</span>{' '}
+              <p className='break-words'><span className='text-neutral-700 font-semibold'>Pickup:</span>{' '}
                 {[item.pickupAddress.line1, item.pickupAddress.line2].filter(Boolean).join(', ')}
               </p>
             )}
             {item.preferredPickupWindow && (
-              <p><span className='text-neutral-700 font-semibold'>Pickup window:</span> {item.preferredPickupWindow}</p>
+              <p className='break-words'><span className='text-neutral-700 font-semibold'>Pickup window:</span> {item.preferredPickupWindow}</p>
             )}
             {item.specialInstructions && (
-              <p><span className='text-neutral-700 font-semibold'>Notes:</span> {item.specialInstructions}</p>
+              <p className='break-words'><span className='text-neutral-700 font-semibold'>Notes:</span> {item.specialInstructions}</p>
             )}
             {item.addOns?.length > 0 && (
-              <p><span className='text-neutral-700 font-semibold'>Add-ons:</span>{' '}
+              <p className='break-words'><span className='text-neutral-700 font-semibold'>Add-ons:</span>{' '}
                 {item.addOns.map(a => `${a.name} ×${a.quantity}`).join(', ')}
               </p>
             )}
             {item.promoCode && (
-              <p className='text-green-600'><span className='font-semibold'>Promo:</span> {item.promoCode}</p>
+              <div className='mt-2 bg-green-50 border border-green-200 px-3 py-2'>
+                <p className='font-sans text-sm text-green-700 font-bold mb-1'>
+                  ✓ Promo Applied: <strong>{item.promoCode}</strong>
+                </p>
+                <p className='font-sans text-xs text-green-600'>
+                  {item.discountType === 'percent'
+                    ? `${item.discountValue}% off`
+                    : `${currencySymbol || '₱'}${item.discountValue} off`
+                  } — You saved {currencySymbol}{Number(item.discountAmount || 0).toFixed(2)}
+                </p>
+              </div>
             )}
             {item.preferredPaymentMethod && (
               <p><span className='text-neutral-700 font-semibold'>Payment:</span>{' '}
@@ -257,23 +267,25 @@ const AppointmentCard = ({
             )}
           </div>
 
-          {/* Status chips and amount - more spacing */}
-          <div className='flex items-end justify-between gap-4 mt-2'>
-            <div className='flex flex-wrap gap-2'>
+          {/* Status chips and amount - stack on mobile */}
+          <div className='flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4 mt-2'>
+            <div className='flex flex-wrap gap-2 order-2 sm:order-1'>
               <Chip label={payStatusInfo.label} color={payStatusInfo.color} />
               {item.cancelled
                 ? <Chip label='Cancelled' color='text-red-500 bg-red-50 border-red-200' />
                 : statusInfo && <Chip label={statusInfo.label} color={statusInfo.color} />
               }
             </div>
-            <AmountDisplay item={item} currencySymbol={currencySymbol} />
+            <div className='order-1 sm:order-2'>
+              <AmountDisplay item={item} currencySymbol={currencySymbol} />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Action footers - more padding */}
+      {/* Action footers */}
       {cashPaymentDue && !item.cancelled && (
-        <div className='border-t border-amber-100 bg-amber-50 px-6 py-4'>
+        <div className='border-t border-amber-100 bg-amber-50 px-5 md:px-6 py-4'>
           <p className='font-sans text-sm text-amber-700'>
             <span className='font-bold'>Your laundry weight has been confirmed.</span>{' '}
             Amount due is <span className='font-bold'>{fmt(item.finalAmount, currencySymbol)}</span>.
@@ -283,7 +295,7 @@ const AppointmentCard = ({
       )}
 
       {canPayOnline && !item.cancelled && (
-        <div className='border-t border-blue-100 bg-blue-50 px-6 py-4 flex items-center justify-between gap-4'>
+        <div className='border-t border-blue-100 bg-blue-50 px-5 md:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4'>
           <p className='font-sans text-sm text-blue-700'>
             <span className='font-bold'>Amount due: {fmt(item.finalAmount, currencySymbol)}</span>
             {' '}— Pay online now to complete your booking.
@@ -291,7 +303,7 @@ const AppointmentCard = ({
           <button
             onClick={onPayOnline}
             disabled={isPayingThis}
-            className='group relative overflow-hidden font-sans text-sm px-6 py-2.5 bg-blue-600 text-white uppercase tracking-widest font-bold inline-flex items-center gap-2 flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed'
+            className='group relative overflow-hidden font-sans text-sm px-6 py-2.5 bg-blue-600 text-white uppercase tracking-widest font-bold inline-flex items-center justify-center gap-2 flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto'
             style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
             <span className='relative z-10'>{isPayingThis ? 'Redirecting...' : 'Pay Online →'}</span>
             {!isPayingThis && <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />}
@@ -300,7 +312,7 @@ const AppointmentCard = ({
       )}
 
       {hasOverweightDecision && !item.cancelled && (
-        <div className='border-t border-amber-100 bg-amber-50 px-6 py-5 flex flex-col gap-3'>
+        <div className='border-t border-amber-100 bg-amber-50 px-5 md:px-6 py-5 flex flex-col gap-3'>
           <p className='font-sans text-sm text-amber-700'>
             <span className='font-bold'>Your laundry weighed over the 7kg limit</span>
             {item.overweightExcessKg != null && (
@@ -308,18 +320,18 @@ const AppointmentCard = ({
             )}
             {' '}Please choose how to proceed. If no response is received by end of day, this appointment will be automatically cancelled.
           </p>
-          <div className='flex flex-wrap gap-3'>
+          <div className='flex flex-col sm:flex-row flex-wrap gap-3'>
             <button
               onClick={() => onResolveOverweight(item.id, 'split')}
               disabled={isResolvingThis}
-              className='font-sans text-sm px-6 py-2.5 bg-blue-600 text-white uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed'
+              className='font-sans text-sm px-6 py-2.5 bg-blue-600 text-white uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto'
               style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
               {isResolvingThis ? 'Processing...' : 'Split into 2 Loads'}
             </button>
             <button
               onClick={() => onResolveOverweight(item.id, 'trim')}
               disabled={isResolvingThis}
-              className='font-sans text-sm px-6 py-2.5 border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed'
+              className='font-sans text-sm px-6 py-2.5 border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto'
               style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
               {isResolvingThis ? 'Processing...' : 'Set Aside Excess'}
             </button>
@@ -328,9 +340,9 @@ const AppointmentCard = ({
       )}
 
       {canCancel && (
-        <div className='border-t border-blue-50 px-6 py-4 flex gap-3 justify-end bg-blue-50/30'>
+        <div className='border-t border-blue-50 px-5 md:px-6 py-4 flex gap-3 justify-end bg-blue-50/30'>
           <button onClick={onCancel}
-            className='font-sans text-sm px-6 py-2.5 border border-red-200 text-red-400 hover:bg-red-50 transition-colors uppercase tracking-widest font-bold'
+            className='font-sans text-sm px-6 py-2.5 border border-red-200 text-red-400 hover:bg-red-50 transition-colors uppercase tracking-widest font-bold w-full sm:w-auto'
             style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
             Cancel Appointment
           </button>
@@ -351,7 +363,7 @@ const MyAppointments = () => {
 
   const [activeTab,    setActiveTab]    = useState('active')
   const [archiveModal, setArchiveModal] = useState(null)
-  const [deleteModal, setDeleteModal]   = useState(null)
+  const [deleteModal,  setDeleteModal]   = useState(null)
   const [lastUpdated,  setLastUpdated]  = useState(null)
   const [secondsAgo,   setSecondsAgo]   = useState(0)
   const [payingId,     setPayingId]     = useState(null)
@@ -464,7 +476,7 @@ const MyAppointments = () => {
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }}
-      className='flex flex-col h-[calc(100vh-70px)] w-full px-8 md:px-20 py-12 bg-white'>
+      className='flex flex-col min-h-[calc(100dvh-70px)] w-full px-5 sm:px-8 md:px-20 py-10 md:py-12 bg-white'>
 
       {archiveModal && (
         <ArchiveModal
@@ -480,15 +492,15 @@ const MyAppointments = () => {
         />
       )}
 
-      <div className='shrink-0 mb-10'>
+      <div className='shrink-0 mb-8 md:mb-10'>
         <span className='uppercase tracking-[0.35em] text-[11px] text-blue-400 font-sans block mb-4'>Your History</span>
-        <div className='h-px bg-blue-100 mb-8' />
+        <div className='h-px bg-blue-100 mb-6 md:mb-8' />
         <div className='flex items-end justify-between gap-6 flex-wrap'>
           <h1 className='leading-none text-blue-900'
-            style={{ fontSize: 'clamp(36px, 5vw, 60px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
+            style={{ fontSize: 'clamp(32px, 6vw, 60px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
             My Appointments.
           </h1>
-          <div className='flex items-center gap-6 mb-1'>
+          <div className='flex items-center gap-4 md:gap-6 mb-1'>
             <span className='font-sans text-sm text-neutral-400'>
               <span className='text-blue-600 font-bold'>{appointments.length}</span> total
             </span>
@@ -499,13 +511,13 @@ const MyAppointments = () => {
         </div>
       </div>
 
-      <div className='shrink-0 flex gap-0 mb-8 border-b border-blue-100 overflow-x-auto'>
+      <div className='shrink-0 flex gap-0 mb-6 md:mb-8 border-b border-blue-100 overflow-x-auto'>
         {TABS.map(tab => {
           const count    = filtered[tab.key]?.length ?? 0
           const isActive = activeTab === tab.key
           return (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`flex-shrink-0 flex items-center gap-3 px-6 py-4 font-sans text-sm uppercase tracking-[0.25em] font-bold border-b-2 transition-all whitespace-nowrap ${
+              className={`flex-shrink-0 flex items-center gap-2 md:gap-3 px-4 md:px-6 py-4 font-sans text-xs md:text-sm uppercase tracking-[0.2em] md:tracking-[0.25em] font-bold border-b-2 transition-all whitespace-nowrap ${
                 isActive ? 'border-blue-600 text-blue-600' : 'border-transparent text-neutral-400 hover:text-blue-400'
               }`}>
               {tab.label}
@@ -521,14 +533,15 @@ const MyAppointments = () => {
         })}
       </div>
 
-      <div className='flex-1 overflow-y-auto space-y-6 pb-8 pr-2
+      <div className='flex-1 space-y-6 pb-8 md:pr-2
+        md:overflow-y-auto md:max-h-[calc(100dvh-320px)]
         [&::-webkit-scrollbar]:w-2
         [&::-webkit-scrollbar-track]:bg-transparent
         [&::-webkit-scrollbar-thumb]:bg-blue-200
         [&::-webkit-scrollbar-thumb]:rounded-full'>
 
         {displayList.length === 0 ? (
-          <div className='flex flex-col items-center justify-center h-full py-24 text-center'>
+          <div className='flex flex-col items-center justify-center py-24 text-center'>
             <div className='border border-blue-100 w-20 h-20 flex items-center justify-center mb-6'>
               <span className='text-3xl'>{activeTab === 'archived' ? '🗂' : '🧺'}</span>
             </div>

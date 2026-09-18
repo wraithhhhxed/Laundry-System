@@ -11,6 +11,7 @@ const EMPTY_FORM = {
   minOrderAmount: '',
   maxUses: '',
   expiresAt: '',
+  assignedMilestone: null,
 }
 
 // ── Field error message ──────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ const PromoCodesList = () => {
       minOrderAmount: item.minOrderAmount || '',
       maxUses:        item.maxUses ?? '',
       expiresAt:      item.expiresAt ? item.expiresAt.split('T')[0] : '',
+      assignedMilestone: item.assignedMilestone || null,
     })
     setErrors({})
     setShowForm(true)
@@ -129,6 +131,7 @@ const PromoCodesList = () => {
       minOrderAmount: form.minOrderAmount !== '' ? Number(form.minOrderAmount) : 0,
       maxUses:        form.maxUses !== '' ? Number(form.maxUses) : null,
       expiresAt:      form.expiresAt || null,
+      assignedMilestone: form.assignedMilestone || null,
     }
     if (editItem) await updatePromoCode(editItem.id, payload)
     else await addPromoCode(payload)
@@ -238,8 +241,8 @@ const PromoCodesList = () => {
         <div className='bg-white border border-blue-100 overflow-hidden'>
 
           {/* Header */}
-          <div className='grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_1fr_1.4fr] bg-blue-50 px-7 py-3 border-b border-blue-100'>
-            {['Code', 'Discount', 'Min Order', 'Uses', 'Expires', 'Status', 'Actions'].map(h => (
+          <div className='grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_0.8fr_1fr_1.4fr] bg-blue-50 px-7 py-3 border-b border-blue-100'>
+            {['Code', 'Discount', 'Min Order', 'Uses', 'Expires', 'Milestone', 'Status', 'Actions'].map(h => (
               <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
                 {h}
               </span>
@@ -254,7 +257,7 @@ const PromoCodesList = () => {
             <div className='divide-y divide-blue-50'>
               {filtered.map(item => (
                 <div key={item.id}
-                  className='grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_1fr_1.4fr] items-start px-7 py-4 hover:bg-blue-50 transition-colors'>
+                  className='grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_0.8fr_1fr_1.4fr] items-start px-7 py-4 hover:bg-blue-50 transition-colors'>
 
                   {/* Code */}
                   <div>
@@ -284,6 +287,17 @@ const PromoCodesList = () => {
 
                   {/* Expires */}
                   <span className='font-sans text-xs text-neutral-500'>{formatDate(item.expiresAt)}</span>
+
+                  {/* Milestone */}
+                  <span className='font-sans text-xs text-neutral-600'>
+                    {item.assignedMilestone ? (
+                      <span className='bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px] font-bold uppercase'>
+                        {item.assignedMilestone === 'FIFTH' ? '5th Stamp' : '10th Stamp'}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
 
                   {/* Status */}
                   {getStatusBadge(item)}
@@ -468,6 +482,23 @@ const PromoCodesList = () => {
                     className={inputCls('expiresAt')}
                   />
                   <FieldError message={errors.expiresAt} />
+                </div>
+
+                {/* Assigned Milestone */}
+                <div className='sm:col-span-2'>
+                  <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
+                    Assigned Milestone
+                    <span className='text-neutral-300 normal-case tracking-normal ml-1 font-normal'>— optional</span>
+                  </label>
+                  <select
+                    value={form.assignedMilestone || ''}
+                    onChange={set('assignedMilestone')}
+                    className={inputCls('assignedMilestone')}
+                  >
+                    <option value=''>None (Regular Promo Code)</option>
+                    <option value='FIFTH'>5th Stamp Reward</option>
+                    <option value='TENTH'>10th Stamp Reward</option>
+                  </select>
                 </div>
 
               </div>

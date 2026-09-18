@@ -18,21 +18,26 @@ enum StaffRole {
 }
 
 model User {
-  id                   String    @id @default(uuid())
-  name                 String
-  email                String    @unique
-  password             String?
-  googleId             String?
-  image                String    @default("...")
-  address              Json      @default("{}")
-  gender               String    @default("Not Selected")
-  dob                  String    @default("Not Selected")
-  phone                String    @default("0000000000")
-  isActive             Boolean   @default(true)
-  resetPasswordToken   String?
-  resetPasswordExpires DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @default(now()) @updatedAt
+  id                    String    @id @default(uuid())
+  name                  String
+  email                 String    @unique
+  password              String?
+  googleId              String?
+  image                 String    @default("...")
+  address               Json      @default("{}")
+  gender                String    @default("Not Selected")
+  dob                   String    @default("Not Selected")
+  phone                 String    @default("0000000000")
+  loyaltyStamps         Int       @default(0)
+  fifthStampRedeemedAt  DateTime?
+  tenthStampRedeemedAt  DateTime?
+  isActive              Boolean   @default(true)
+  resetPasswordToken    String?
+  resetPasswordExpires  DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now()) @updatedAt
+
+  notifications        Notification[]
 
   @@unique([phone])
   @@map("users")
@@ -262,18 +267,19 @@ model Inventory {
 }
 
 model PromoCode {
-  id             String    @id @default(uuid())
-  code           String    @unique
-  description    String    @default("")
-  discountType   String
-  discountValue  Float
-  minOrderAmount Float     @default(0)
-  maxUses        Int?
-  usedCount      Int       @default(0)
-  expiresAt      DateTime?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  code              String    @unique
+  description       String    @default("")
+  discountType      String
+  discountValue     Float
+  minOrderAmount    Float     @default(0)
+  maxUses           Int?
+  usedCount         Int       @default(0)
+  expiresAt         DateTime?
+  isActive          Boolean   @default(true)
+  assignedMilestone String?   // 'FIFTH' | 'TENTH' | null
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@map("promo_codes")
 }
@@ -329,6 +335,20 @@ model BranchStaff {
   branch     Branch    @relation(fields: [branchId], references: [id])
 
   @@map("branch_staff")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // hal. 'picked_up' | 'delivered' | 'stamp_milestone_5' | 'stamp_milestone_10' | atbp.
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 enum AuditAction {

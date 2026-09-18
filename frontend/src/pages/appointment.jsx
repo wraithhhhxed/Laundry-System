@@ -98,6 +98,8 @@ const Appointment = () => {
   const [promoLoading, setPromoLoading] = useState(false)
   const [promoError,   setPromoError]   = useState('')
 
+  const [loyaltyStatus, setLoyaltyStatus] = useState(null)
+
   useEffect(() => {
     const found = branches.find(b => b.id === branchid)
     setBranchInfo(found)
@@ -133,6 +135,21 @@ const Appointment = () => {
     }
     fetchData()
   }, [backendUrl, branchid])
+
+  // ── Loyalty status (for auto-apply promo preview) ────────────────────
+  useEffect(() => {
+    const fetchLoyalty = async () => {
+      try {
+        const { data } = await axios.get(backendUrl + '/api/user/loyalty-status', {
+          headers: { token }
+        })
+        if (data.success) setLoyaltyStatus(data.data)
+      } catch (error) {
+        console.error('Failed to load loyalty status:', error.message)
+      }
+    }
+    if (token) fetchLoyalty()
+  }, [token])
 
   useEffect(() => {
     if (step !== 3) return
@@ -206,7 +223,32 @@ const Appointment = () => {
   const basketsTotal = baskets.reduce((sum, b) => sum + (b.service?.price || 0), 0)
   const addOnsTotal   = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
   const totalAmount   = basketsTotal + addOnsTotal
-  const discountAmount = promoResult?.discountAmount ?? 0
+
+  // ── Loyalty auto-promo (10th priority > 5th) ──────────────────────────
+  // getLoyaltyStatus() sa backend na ang nag-aalis ng redeemed/ineligible
+  // rewards — kung meron dito, eligible na siya, walang dagdag na check.
+  const autoPromo = (() => {
+    if (!loyaltyStatus) return null
+    if (loyaltyStatus.loyaltyStamps >= 10 && loyaltyStatus.tenthStampReward?.code) {
+      return { ...loyaltyStatus.tenthStampReward, tier: '10th' }
+    }
+    if (
+      loyaltyStatus.loyaltyStamps >= 5 &&
+      loyaltyStatus.loyaltyStamps < 10 &&
+      loyaltyStatus.fifthStampReward?.code
+    ) {
+      return { ...loyaltyStatus.fifthStampReward, tier: '5th' }
+    }
+    return null
+  })()
+
+  const autoPromoDiscount = autoPromo
+    ? autoPromo.discountType === 'percent'
+      ? totalAmount * (autoPromo.discountValue / 100)
+      : autoPromo.discountValue
+    : 0
+
+  const discountAmount = autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)
   const discountedBase = totalAmount - discountAmount
   const vatAmount      = parseFloat((discountedBase * vatRate).toFixed(2))
   const vatPercent     = Math.round(vatRate * 100)
@@ -301,7 +343,7 @@ const Appointment = () => {
           specialInstructions,
           pickupAddress,
           deliveryAddress: sameAddress ? pickupAddress : deliveryAddress,
-          promoCode: promoResult?.code || null,
+          promoCode: autoPromo?.code || promoResult?.code || null,
           preferredPaymentMethod,
         },
         { headers: { token } }
@@ -358,7 +400,13 @@ const Appointment = () => {
         </div>
         {discountAmount > 0 && (
           <div className='flex justify-between text-green-600'>
-            <span>Discount</span><span>−₱{discountAmount.toFixed(2)}</span>
+            <span>
+              {autoPromo
+                ? ` ${autoPromo.tier} stamp reward — ${autoPromo.code}`
+                : `Discount — ${promoResult?.code || ''}`
+              }
+            </span>
+            <span>−₱{discountAmount.toFixed(2)}</span>
           </div>
         )}
         {vatAmount > 0 && (
@@ -805,7 +853,17 @@ const Appointment = () => {
 
             <div>
               <SectionLabel>Promo Code — optional</SectionLabel>
-              {promoResult ? (
+              {autoPromo ? (
+                <div className='flex items-center gap-4 border border-green-200 bg-green-50/60 px-5 py-4'>
+                  <div className='flex-1 font-sans text-sm'>
+                    <p className='font-bold text-green-700'> {autoPromo.tier} stamp reward applied — {autoPromo.code}</p>
+                    <p className='text-green-600 text-xs'>
+                      You save {currencySymbol}{autoPromoDiscount.toFixed(2)}
+                      {autoPromo.discountType === 'percent' && ` (${autoPromo.discountValue}% off)`}
+                    </p>
+                  </div>
+                </div>
+              ) : promoResult ? (
                 <div className='flex items-center gap-4 border border-green-200 bg-green-50/60 px-5 py-4'>
                   <div className='flex-1 font-sans text-sm'>
                     <p className='font-bold text-green-700'>{promoResult.code} applied</p>

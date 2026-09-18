@@ -8,14 +8,13 @@ import inventoryService from './InventoryService.js';
 import AuditService from './AuditService.js';
 import { ApiError } from '../utils/ApiError.js';
 import EmailService from './EmailService.js';
+import NotificationService from './NotificationService.js';
 import axios from 'axios';
 
-// Added 'archived' to valid statuses
 const VALID_STATUSES = ['pending_approval', 'approved', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
 
 class AppointmentService {
 
-  // ─── BOOK APPOINTMENT ───────────────────────────────────────────
   async bookAppointment(userId, branchId, slotDate, slotTime, servicesInput, extraDetails = {}, promoCode = null, addOns = [], actor = null) {
     const branch = await BranchRepository.findById(branchId);
     if (!branch) throw new ApiError(404, 'Branch not found');
@@ -58,14 +57,15 @@ class AppointmentService {
     let discountType = null;
     let discountValue = 0;
     let discountAmount = 0;
+    let validatedPromo = null;
 
     if (promoCode) {
-      const validated = await PromoCodeService.validateAndReservePromoCode(promoCode, servicesTotal);
-      promoCodeId = validated.promoCodeId;
-      promoCodeStr = validated.code;
-      discountType = validated.discountType;
-      discountValue = validated.discountValue;
-      discountAmount = validated.discountAmount;
+      validatedPromo = await PromoCodeService.validateAndReservePromoCode(promoCode, servicesTotal, userId);
+      promoCodeId = validatedPromo.promoCodeId;
+      promoCodeStr = validatedPromo.code;
+      discountType = validatedPromo.discountType;
+      discountValue = validatedPromo.discountValue;
+      discountAmount = validatedPromo.discountAmount;
     }
 
     let vatRate = 0;
@@ -118,6 +118,14 @@ class AppointmentService {
       );
       appointmentCreated = true;
 
+      // ── Milestone redemption AFTER successful booking ─────────────
+      if (validatedPromo?.assignedMilestone === 'FIFTH') {
+        await UserRepository.markFifthStampRedeemed(userId);
+      } else if (validatedPromo?.assignedMilestone === 'TENTH') {
+        await UserRepository.resetLoyaltyCycle(userId);
+      }
+      // ──────────────────────────────────────────────────────────────
+
       const slotsBooked = branch.slotsBooked || {};
       if (!slotsBooked[slotDate]) slotsBooked[slotDate] = [];
       slotsBooked[slotDate].push(slotTime);
@@ -136,7 +144,6 @@ class AppointmentService {
     }
   }
 
-  // ─── CONFIRM ACTUAL WEIGHT ──────────────────────────────────────
   async confirmActualWeight(appointmentId, branchId, actualServices, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -221,7 +228,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── RESOLVE OVERWEIGHT DECISION ────────────────────────────────
   async resolveOverweight(appointmentId, userId, resolution, actor = null) {
     if (!['split', 'trim'].includes(resolution))
       throw new ApiError(400, 'Resolution must be "split" or "trim"');
@@ -249,14 +255,23 @@ class AppointmentService {
       for (const svc of appointment.services) {
         if (svc.actualKg != null && svc.actualKg > 7) {
           const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
-          await AppointmentRepository.addSplitLoad(appointmentId, {
-            serviceId: svc.serviceId,
-            name: svc.name,
-            price: svc.price,
-            kg: excessKg > 7 ? 7 : excessKg,
-          });
+
+          // ── FIX: Loop until excess is used up (7kg max per basket) ──
+          let remainingKg = excessKg;
+          while (remainingKg > 0) {
+            const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
+            await AppointmentRepository.addSplitLoad(appointmentId, {
+              serviceId: svc.serviceId,
+              name: svc.name,
+              price: svc.price,
+              kg: basketKg,
+            });
+            addedPriceTotal += svc.price ?? 0;
+            remainingKg -= basketKg;
+          }
+          // ──────────────────────────────────────────────────────────
+
           await AppointmentRepository.updateServiceActualKg(svc.id, 7);
-          addedPriceTotal += svc.price ?? 0;
         }
       }
 
@@ -296,7 +311,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── AUTO-CANCEL EXPIRED OVERWEIGHT DECISIONS ───────────────────
   async autoCancelExpiredOverweightDecisions() {
     const expired = await AppointmentRepository.findPendingOverweightPastDeadline();
     for (const appointment of expired) {
@@ -316,7 +330,6 @@ class AppointmentService {
     return expired.length;
   }
 
-  // ─── CONFIRM PAYMENT ────────────────────────────────────────────
   async confirmPayment(appointmentId, paymentMethod, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -348,7 +361,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── GENERATE QR PH PAYMENT (WALK-IN) ────────────────────────────
   async generateWalkInQrPayment(appointmentId) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -362,7 +374,6 @@ class AppointmentService {
     const publicAuth = `Basic ${Buffer.from(process.env.PAYMONGO_PUBLIC_KEY + ':').toString('base64')}`;
 
     try {
-      // 1. Create Payment Intent (secret key)
       const intentRes = await axios.post(
         'https://api.paymongo.com/v1/payment_intents',
         {
@@ -382,7 +393,6 @@ class AppointmentService {
       const paymentIntentId = intentRes.data.data.id;
       const clientKey = intentRes.data.data.attributes.client_key;
 
-      // 2. Create QR Ph Payment Method (public key)
       const methodRes = await axios.post(
         'https://api.paymongo.com/v1/payment_methods',
         { data: { attributes: { type: 'qrph' } } },
@@ -391,7 +401,6 @@ class AppointmentService {
 
       const paymentMethodId = methodRes.data.data.id;
 
-      // 3. Attach Payment Method to Intent (public key)
       const attachRes = await axios.post(
         `https://api.paymongo.com/v1/payment_intents/${paymentIntentId}/attach`,
         { data: { attributes: { payment_method: paymentMethodId, client_key: clientKey } } },
@@ -410,7 +419,6 @@ class AppointmentService {
     }
   }
 
-  // ─── CHECK QR PAYMENT STATUS (WALK-IN, for polling) ──────────────
   async checkQrPaymentStatus(appointmentId) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -441,7 +449,6 @@ class AppointmentService {
     return { paid: false, status };
   }
 
-  // ─── CANCEL APPOINTMENT ─────────────────────────────────────────
   async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -475,7 +482,6 @@ class AppointmentService {
     return true;
   }
 
-  // ─── COMPLETE APPOINTMENT ───────────────────────────────────────
   async completeAppointment(appointmentId, branchId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -484,7 +490,6 @@ class AppointmentService {
     return await AppointmentRepository.markCompleted(appointmentId);
   }
 
-  // ─── UPDATE DELIVERY STATUS ─────────────────────────────────────
   async updateDeliveryStatus(appointmentId, branchId, newStatus, actor = null) {
     if (!VALID_STATUSES.includes(newStatus)) throw new ApiError(400, 'Invalid status');
 
@@ -507,6 +512,22 @@ class AppointmentService {
       } catch (err) {
         console.warn(`[Email] Pickup email failed: ${err.message}`);
       }
+
+      await NotificationService.create(
+        appointment.userId,
+        'picked_up',
+        'Order Picked Up',
+        'Your laundry has been picked up and is on its way to the branch.'
+      );
+    }
+
+    if (newStatus === 'in_progress') {
+      await NotificationService.create(
+        appointment.userId,
+        'in_progress',
+        'Laundry in Progress',
+        'Your laundry is currently being processed.'
+      );
     }
 
     if (newStatus === 'picked_up' && Array.isArray(appointment.addOns) && appointment.addOns.length > 0) {
@@ -528,6 +549,36 @@ class AppointmentService {
       } catch (err) {
         console.warn(`[Email] Delivery email failed: ${err.message}`);
       }
+
+      await NotificationService.create(
+        appointment.userId,
+        'delivered',
+        'Order Delivered',
+        'Your laundry has been delivered. Thank you for choosing Selfie Wash!'
+      );
+
+      try {
+        const updatedUser = await UserRepository.incrementLoyaltyStamps(appointment.userId);
+        const newStampCount = updatedUser.loyaltyStamps;
+
+        if (newStampCount === 5) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_5',
+            'Reward Unlocked!',
+            'You\'ve earned your 5th stamp! Check your profile for your reward.'
+          );
+        } else if (newStampCount === 10) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_10',
+            'Reward Unlocked!',
+            'You\'ve earned your 10th stamp! Check your profile for your reward.'
+          );
+        }
+      } catch (err) {
+        console.warn(`[Loyalty] Stamp increment failed: ${err.message}`);
+      }
     }
 
     const updated = await AppointmentRepository.updateById(appointmentId, updates);
@@ -542,7 +593,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── CREATE WALK-IN APPOINTMENT ──────────────────────────────────
   async createWalkInAppointment(phone, guestName, branchId, slotTime, servicesInput, overweightResolution = null, extraDetails = {}, addOns = [], actor = null, fulfillmentMethod = 'SELF_PICKUP') {
     let user = await UserRepository.findByPhone(phone);
     if (!user) {
@@ -599,24 +649,41 @@ class AppointmentService {
     const addOnsTotal = addOns.reduce((sum, a) => sum + a.price * a.quantity, 0);
     const subtotal = servicesTotal + addOnsTotal;
 
+    // ─── PROMO CODE VALIDATION ────────────────────────────────────
+    let promoCodeId = null;
+    let promoCodeStr = null;
+    let discountType = null;
+    let discountValue = 0;
+    let discountAmount = 0;
+    let validatedPromo = null;
+
+    if (extraDetails.promoCode) {
+      validatedPromo = await PromoCodeService.validateAndReservePromoCode(extraDetails.promoCode, servicesTotal, user.id);
+      promoCodeId = validatedPromo.promoCodeId;
+      promoCodeStr = validatedPromo.code;
+      discountType = validatedPromo.discountType;
+      discountValue = validatedPromo.discountValue;
+      discountAmount = validatedPromo.discountAmount;
+    }
+
     let vatRate = 0;
     let vatAmount = 0;
     let finalAmount;
 
     try {
+      const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      vatAmount = parseFloat((subtotal * vatRate).toFixed(2));
-      finalAmount = parseFloat((subtotal + vatAmount).toFixed(2));
+      vatAmount = parseFloat((discountedBase * vatRate).toFixed(2));
+      finalAmount = parseFloat((discountedBase + vatAmount).toFixed(2));
     } catch (err) {
+      if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
       throw err;
     }
 
     let appointmentCreated = false;
     try {
-      // Extract preferredPaymentMethod and email from extraDetails
-      const { preferredPaymentMethod = 'cash', email, ...otherDetails } = extraDetails;
+      const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, ...otherDetails } = extraDetails;
 
-      // Save email for email-sending logic later
       const userEmail = email || user.email;
 
       const appointment = await AppointmentRepository.createWithCapacityCheck(
@@ -635,14 +702,14 @@ class AppointmentService {
           addOns,
           servicesTotal,
           addOnsTotal,
-          totalAmount: subtotal,
+          totalAmount: subtotal - discountAmount,
           vatRate,
           vatAmount,
-          promoCodeId: null,
-          promoCode: null,
-          discountType: null,
-          discountValue: 0,
-          discountAmount: 0,
+          promoCodeId,
+          promoCode: promoCodeStr,
+          discountType,
+          discountValue,
+          discountAmount,
           finalAmount,
           slotTime: slotTime || 'walk_in',
           date: BigInt(Date.now()),
@@ -651,17 +718,31 @@ class AppointmentService {
           deliveryStatus: 'approved',
           paymentStatus: 'pending_payment',
           preferredPaymentMethod,
-          // Don't include email here to avoid Prisma error
           ...otherDetails,
         }
       );
       appointmentCreated = true;
 
-      // If ONLINE payment and has email, send payment link
+      // ── Save delivery address if provided ──────────────────────────
+      if (fulfillmentMethod === 'DELIVERY' && extraDetails.address && extraDetails.address.trim()) {
+        try {
+          await UserRepository.updateById(user.id, { address: extraDetails.address.trim() });
+        } catch (err) {
+          console.warn(`[Address] Failed to save address: ${err.message}`);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────
+
+      // ── Milestone redemption AFTER successful booking ─────────────
+      if (validatedPromo?.assignedMilestone === 'FIFTH') {
+        await UserRepository.markFifthStampRedeemed(user.id);
+      } else if (validatedPromo?.assignedMilestone === 'TENTH') {
+        await UserRepository.resetLoyaltyCycle(user.id);
+      }
+      // ──────────────────────────────────────────────────────────────
+
       if (preferredPaymentMethod === 'online' && userEmail) {
         try {
-          // TODO: Implement PayMongo email link logic here
-          // await EmailService.sendOnlinePaymentLink(userEmail, appointment);
           console.log(`[PayMongo] Would send payment link to ${userEmail} for appointment ${appointment.id}`);
         } catch (err) {
           console.warn(`[PayMongo] Failed to send payment link: ${err.message}`);
@@ -677,20 +758,29 @@ class AppointmentService {
           for (const svc of appointment.services) {
             if (svc.actualKg != null && svc.actualKg > 7) {
               const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
-              await AppointmentRepository.addSplitLoad(appointment.id, {
-                serviceId: svc.serviceId,
-                name: svc.name,
-                price: svc.price,
-                kg: excessKg > 7 ? 7 : excessKg,
-              });
+
+              // ── FIX: Loop until excess is used up (7kg max per basket) ──
+              let remainingKg = excessKg;
+              while (remainingKg > 0) {
+                const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
+                await AppointmentRepository.addSplitLoad(appointment.id, {
+                  serviceId: svc.serviceId,
+                  name: svc.name,
+                  price: svc.price,
+                  kg: basketKg,
+                });
+                addedPriceTotal += svc.price ?? 0;
+                remainingKg -= basketKg;
+              }
+              // ──────────────────────────────────────────────────────────
+
               await AppointmentRepository.updateServiceActualKg(svc.id, 7);
-              addedPriceTotal += svc.price ?? 0;
             }
           }
 
           if (addedPriceTotal > 0) {
             const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
-            const newSubtotal = newServicesTotal + appointment.addOnsTotal;
+            const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
             const newVatAmount = parseFloat((newSubtotal * appointment.vatRate).toFixed(2));
             const newFinalAmount = parseFloat((newSubtotal + newVatAmount).toFixed(2));
 
@@ -737,22 +827,43 @@ class AppointmentService {
 
       return await AppointmentRepository.findById(appointment.id);
     } catch (err) {
+      if (promoCodeId && !appointmentCreated) await PromoCodeService.releasePromoCode(promoCodeId);
       throw err;
     }
   }
 
-  // ─── WALK-IN PHONE LOOKUP ────────────────────────────────────────
-  async lookupUserByPhone(phone) {
+      async lookupUserByPhone(phone) {
     const user = await UserRepository.findByPhone(phone);
     if (!user) return null;
+
+    const { fifthStampReward, tenthStampReward } =
+      await PromoCodeService.getMilestoneRewards();
+
+    // Convert address object to readable string
+    let addressString = null;
+    if (user.address) {
+      if (typeof user.address === 'string') {
+        addressString = user.address;
+      } else if (typeof user.address === 'object') {
+        // Join line1 + line2 with comma separator
+        addressString = [user.address.line1, user.address.line2]
+          .filter(Boolean)
+          .join(', ');
+      }
+    }
+
     return {
       name: user.name,
       phone: user.phone,
-      email: user.email
+      email: user.email,
+      address: addressString,
+      loyaltyStamps: user.loyaltyStamps,
+      fifthStampRedeemedAt: user.fifthStampRedeemedAt,
+      fifthStampReward,
+      tenthStampReward,
     };
   }
 
-  // ─── GETTERS ────────────────────────────────────────────────────
   async getAppointmentsByUser(userId) {
     return await AppointmentRepository.findByUserId(userId);
   }
@@ -765,16 +876,12 @@ class AppointmentService {
     return await AppointmentRepository.findAll();
   }
 
-  // ─── DELETE ALL APPOINTMENTS (maintenance/testing reset) ────────
   async deleteAllAppointments(actor = null) {
     const result = await AppointmentRepository.deleteAllAppointments();
-
     console.log(`[Maintenance] Deleted ${result.count} appointment(s) and their related records.`);
-
     return { deletedCount: result.count };
   }
 
-  // ─── DASHBOARD ──────────────────────────────────────────────────
   async getDashboardData() {
     const [appointments, totalBranches, totalCustomers] = await Promise.all([
       AppointmentRepository.findAll(),
@@ -843,19 +950,15 @@ class AppointmentService {
     };
   }
 
-  // SIMPLE ARCHIVE - USING EXISTING updateDeliveryStatus
   async archiveAppointment(appointmentId, branchId, actor) {
-    // First, update deliveryStatus to 'archived'
     const result = await this.updateDeliveryStatus(appointmentId, branchId, 'archived', actor);
 
-    // Second, set the archived field to true
     await AppointmentRepository.updateById(appointmentId, {
       archived: true,
       archivedAt: new Date(),
       archivedBy: actor?.userId || branchId,
     });
 
-    // Return the updated appointment
     return await AppointmentRepository.findById(appointmentId);
   }
 }

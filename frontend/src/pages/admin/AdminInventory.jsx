@@ -291,7 +291,7 @@ const AdminInventory = () => {
             <div className='py-16 text-center font-sans text-sm text-neutral-300'>Loading...</div>
           ) : filtered.length === 0 ? (
             <div className='py-16 text-center font-sans text-sm text-neutral-300'>
-              {inventory.length === 0 ? 'Wala pang stock records ang branch na ito.' : 'Walang product na tugma sa search.'}
+              {inventory.length === 0 ? 'There are currently no stocks' : 'No such product is available.'}
             </div>
           ) : (
             <div className='divide-y divide-blue-50'>

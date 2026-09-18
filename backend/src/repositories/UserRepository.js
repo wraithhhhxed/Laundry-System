@@ -1,4 +1,3 @@
-
 import prisma from '../config/prismaClient.js';
 
 
@@ -104,6 +103,35 @@ class UserRepository {
     return await prisma.user.update({
       where: { id: userId },
       data: { resetPasswordToken: null, resetPasswordExpires: null },
+    });
+  }
+
+  // ─── Loyalty Stamps ───────────────────────────────────────────────────────
+  async incrementLoyaltyStamps(userId) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { loyaltyStamps: { increment: 1 } },
+    });
+  }
+
+  async markFifthStampRedeemed(userId) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { fifthStampRedeemedAt: new Date() },
+    });
+  }
+
+  async markTenthStampRedeemed(userId) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { tenthStampRedeemedAt: new Date() },
+    });
+  }
+
+  async resetLoyaltyCycle(userId) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { loyaltyStamps: 0, fifthStampRedeemedAt: null, tenthStampRedeemedAt: null },
     });
   }
 }

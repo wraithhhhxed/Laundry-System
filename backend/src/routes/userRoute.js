@@ -21,6 +21,10 @@ import {
   setPassword,
   forgotPassword,
   resetPassword,
+  getNotifications,
+  markNotificationAsRead,
+  clearAllNotifications,
+  getLoyaltyStatus,
 } from '../controllers/UserController.js'
 import { branchList } from '../controllers/BranchController.js'
 import { validatePromoCode } from '../controllers/promoCodeController.js'
@@ -54,7 +58,15 @@ userRouter.post('/logout',             protect('user'), logoutUser)
 userRouter.post('/change-password',    protect('user'), changePassword)
 userRouter.post('/set-password',       protect('user'), setPassword)
 
+// ─── Notifications ────────────────────────────────────────────────
+userRouter.get('/notifications',            protect('user'), getNotifications)
+userRouter.post('/notifications/:id/read',  protect('user'), markNotificationAsRead)
+userRouter.delete('/notifications',         protect('user'), clearAllNotifications)
+
+// ─── Loyalty ──────────────────────────────────────────────────────
+userRouter.get('/loyalty-status', protect('user'), getLoyaltyStatus)
+
 // ─── Promo Codes ──────────────────────────────────────────────────
-userRouter.post('/promo/validate',     protect('user'), validatePromoCode)
+userRouter.post('/promo/validate', protect('user'), validatePromoCode)
 
 export default userRouter

@@ -330,7 +330,7 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // ⭐ ARCHIVE APPOINTMENT - SIMPLE
+  // ARCHIVE APPOINTMENT - SIMPLE
   const archiveAppointment = async (appointmentId) => {
     try {
       const { data } = await axios.post(
@@ -349,6 +349,26 @@ const BranchesContextProvider = (props) => {
       }
     } catch (error) {
       console.error('Error archiving appointment:', error)
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
+  // ─── STAFF MANAGEMENT ─────────────────────────────────────────
+  const deleteStaff = async (staffId) => {
+    try {
+      const { data } = await axios.delete(
+        backendUrl + `/api/branch/staff/${staffId}`,
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        toast.success(data.message || 'Staff removed successfully')
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
       toast.error(error.response?.data?.message || error.message)
       return false
     }
@@ -384,6 +404,8 @@ const BranchesContextProvider = (props) => {
     // ── QR PAYMENT ───────────────────────────────────────────────
     generateQrPayment,
     getQrPaymentStatus,
+    // ── STAFF MANAGEMENT ────────────────────────────────────────
+    deleteStaff,
   }
 
   return (

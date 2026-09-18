@@ -146,8 +146,10 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
     specialInstructions,
     pickupAddress,
     deliveryAddress,
+    address,
     fulfillmentMethod,
     paymentMethod,
+    promoCode,
   } = req.body
 
   // ─── VALIDATIONS ──────────────────────────────────────────────
@@ -179,7 +181,9 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
       specialInstructions,
       pickupAddress,
       deliveryAddress,
+      address: address || null,
       preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
+      promoCode: promoCode || null,
     },
     addOns || [],
     actor,

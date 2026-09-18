@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useState, useEffect } from 'react'
 import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
@@ -13,6 +13,21 @@ const MyProfiles = () => {
   const { userData, setUserData, backendUrl, token, loadUserProfileData } = useContext(AppContext)
   const [isEdit, setIsEdit] = useState(false)
   const [image, setImage] = useState(null)
+  const [loyalty, setLoyalty] = useState(null)
+
+  useEffect(() => {
+    const fetchLoyalty = async () => {
+      try {
+        const { data } = await axios.get(backendUrl + '/api/user/loyalty-status', {
+          headers: { token }
+        })
+        if (data.success) setLoyalty(data.data)
+      } catch (error) {
+        console.error('Failed to load loyalty status:', error.message)
+      }
+    }
+    if (token) fetchLoyalty()
+  }, [token])
 
   if (!userData) return null
 
@@ -268,6 +283,74 @@ const MyProfiles = () => {
               </div>
             </section>
 
+            {/* Loyalty Stamp Card */}
+                        {/* Loyalty Stamp Card */}
+            <section>
+              <div className='flex items-center gap-4 mb-6'>
+                <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black whitespace-nowrap'>
+                  Loyalty Stamps
+                </span>
+                <div className='h-px bg-blue-50 w-full' />
+              </div>
+
+              {loyalty ? (
+                <div>
+                  <div className='grid grid-cols-5 gap-3 mb-4'>
+                    {Array.from({ length: 10 }, (_, i) => {
+                      const stampNum = i + 1
+                      const filled = stampNum <= loyalty.loyaltyStamps
+                      return (
+                        <div
+                          key={stampNum}
+                          className={`aspect-square flex items-center justify-center border-2 font-sans text-xs font-black
+                            ${filled ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-100 text-blue-200'}`}
+                        >
+                          {filled ? '✓' : stampNum}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {loyalty.loyaltyStamps >= 10 && (
+                    loyalty.tenthStampRedeemedAt ? (
+                      <p className='font-sans text-xs text-neutral-400 italic'>
+                        You've already claimed your 10th stamp reward this cycle.
+                      </p>
+                    ) : loyalty.tenthAvailable ? (
+                      <p className='font-sans text-xs text-blue-600 font-bold'>
+                        🎉 10th stamp reward unlocked! Check your promo codes at checkout.
+                      </p>
+                    ) : (
+                      <p className='font-sans text-xs text-neutral-400 italic'>
+                        Promo codes are unavailable at the moment.
+                      </p>
+                    )
+                  )}
+                  {loyalty.loyaltyStamps >= 5 && loyalty.loyaltyStamps < 10 && (
+                    loyalty.fifthStampRedeemedAt ? (
+                      <p className='font-sans text-xs text-neutral-400 italic'>
+                        You've already claimed your 5th stamp reward this cycle.
+                      </p>
+                    ) : loyalty.fifthAvailable ? (
+                      <p className='font-sans text-xs text-blue-600 font-bold'>
+                        🎉 5th stamp reward unlocked! Check your promo codes at checkout.
+                      </p>
+                    ) : (
+                      <p className='font-sans text-xs text-neutral-400 italic'>
+                        Promo codes are unavailable at the moment.
+                      </p>
+                    )
+                  )}
+                  {loyalty.loyaltyStamps < 5 && (
+                    <p className='font-sans text-xs text-neutral-400'>
+                      {5 - loyalty.loyaltyStamps} more completed order{5 - loyalty.loyaltyStamps === 1 ? '' : 's'} until your next reward.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className='font-sans text-xs text-neutral-300'>Loading...</p>
+              )}
+            </section>
           </div>
         </div>
       </div>

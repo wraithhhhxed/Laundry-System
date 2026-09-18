@@ -105,6 +105,11 @@ const renderAmount = (appt) => {
   const vatPercent = Math.round((appt.vatRate ?? 0) * 100)
   return (
     <div className="space-y-1">
+      {appt.promoCode && appt.discountAmount > 0 && (
+        <p className="font-sans text-xs text-green-600 font-semibold">
+           {appt.promoCode} — −{fmt(appt.discountAmount)}
+        </p>
+      )}
       {hasActual ? (
         <>
           <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">Estimated</p>

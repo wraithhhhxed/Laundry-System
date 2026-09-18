@@ -16,7 +16,7 @@ import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
 import extraServiceService from '../services/ExtraServiceService.js'
 import AuditRepository from '../repositories/AuditRepository.js'
 import AdminRepository from '../repositories/AdminRepository.js'
-import branchStaffService from '../services/BranchStaffService.js' 
+import branchStaffService from '../services/BranchStaffService.js'
 import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
 
 // ─── HELPERS ──────────────────────────────────────────────────────
@@ -136,12 +136,14 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
   const appointment = await AppointmentRepository.findById(appointmentId)
   if (!appointment) throw new ApiError(404, 'Appointment not found')
 
-  const fromStatus = appointment.deliveryStatus
-  await AppointmentRepository.updateDeliveryStatus(appointmentId, status)
+  const updated = await appointmentService.updateDeliveryStatus(
+    appointmentId,
+    appointment.branchId,
+    status,
+    adminActor(req)
+  )
 
-  await AuditService.logStatusChange(adminActor(req), appointment, fromStatus, status)
-
-  res.json(new ApiResponse(200, {}, 'Delivery status updated'))
+  res.json(new ApiResponse(200, { appointment: updated }, 'Delivery status updated'))
 })
 
 // ─── CONFIRM ACTUAL WEIGHT (admin override) ───────────────────────
@@ -185,7 +187,7 @@ const archiveAppointment = asyncHandler(async (req, res) => {
 
   await appointmentService.archiveAppointment(
     appointmentId,
-    appointment.branchId,  
+    appointment.branchId,
     adminActor(req)
   )
 
@@ -195,7 +197,7 @@ const archiveAppointment = asyncHandler(async (req, res) => {
 // ─── WALK-IN QUICK ADD ────────
 const createWalkInAppointment = asyncHandler(async (req, res) => {
   const {
-    branchId,      
+    branchId,
     phone,
     guestName,
     slotTime,
@@ -205,8 +207,10 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
     specialInstructions,
     pickupAddress,
     deliveryAddress,
+    address,
     fulfillmentMethod,
     paymentMethod,
+    promoCode,
   } = req.body
 
   // ─── VALIDATIONS ──────────────────────────────────────────────
@@ -230,7 +234,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
   const appointment = await appointmentService.createWalkInAppointment(
     phone,
     guestName || null,
-    branchId,                     
+    branchId,
     slotTime || 'walk_in',
     services,
     overweightResolution || null,
@@ -238,10 +242,12 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
       specialInstructions,
       pickupAddress,
       deliveryAddress,
+      address: address || null,
       preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
+      promoCode: promoCode || null,
     },
     addOns || [],
-    adminActor(req),            
+    adminActor(req),
     fulfillmentMethod || 'SELF_PICKUP'
   )
 
@@ -503,7 +509,7 @@ const getStaffByBranchAdmin = asyncHandler(async (req, res) => {
 })
 
 const deleteStaffAdmin = asyncHandler(async (req, res) => {
-  const staff = await branchStaffService.deleteStaff({ role: 'admin' }, req.params.id)
+  const staff = await branchStaffService.deleteStaff(adminActor(req), req.params.id)
   res.json(new ApiResponse(200, {}, `${staff.firstName} ${staff.lastName} removed successfully`))
 })
 
@@ -547,14 +553,14 @@ const deleteAllAppointments = asyncHandler(async (req, res) => {
 
 // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
 const generateQrPayment = asyncHandler(async (req, res) => {
-  const { appointmentId } = req.params  // ← from params
+  const { appointmentId } = req.params
   if (!appointmentId)
     throw new ApiError(400, 'appointmentId is required')
 
   const { qrImageUrl, paymentIntentId } = await appointmentService.generateWalkInQrPayment(appointmentId)
-  
+
   res.json(new ApiResponse(200, { qrImageUrl, paymentIntentId }, 'QR code generated successfully'))
-}) 
+})
 
 const getQrPaymentStatus = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params
@@ -562,7 +568,7 @@ const getQrPaymentStatus = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'appointmentId is required')
 
   const result = await appointmentService.checkQrPaymentStatus(appointmentId)
-  
+
   res.json(new ApiResponse(200, result))
 })
 
@@ -575,8 +581,8 @@ export {
   updateDeliveryStatus,
   confirmActualWeight, confirmPayment,
   archiveAppointment,
-  createWalkInAppointment, 
-  lookupPhone,              
+  createWalkInAppointment,
+  lookupPhone,
 
   getAllServices, addService, updateService, deleteService,
 
@@ -588,10 +594,10 @@ export {
   getAllUsers, getUserById, addUser, updateUser, toggleUserStatus, deleteUser,
 
   getBranches, getBranchByIdAdmin, updateBranchAdmin,
-  
+
   toggleBranchStatus, deleteBranchAdmin, resetBranchPassword,
   addStaffAdmin, getStaffByBranchAdmin, deleteStaffAdmin,
-  
+
   getAllExtraServices, getExtraServiceById, addExtraService,
   updateExtraService, toggleExtraServiceStatus, deleteExtraService,
 

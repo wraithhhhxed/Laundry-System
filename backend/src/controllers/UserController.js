@@ -6,6 +6,8 @@ import serviceService from '../services/ServiceService.js'
 import clothingTypeService from '../services/ClothingTypeService.js'
 import kgRateService from '../services/KgRateService.js'
 import AuditService from '../services/AuditService.js'
+import NotificationService from '../services/NotificationService.js'
+import PromoCodeService from '../services/PromoCodeService.js'
 import { ApiError } from '../utils/ApiError.js'
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -175,6 +177,30 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, {}, 'Password reset successfully.'))
 })
 
+// ─── NOTIFICATIONS ────────────────────────────────────────────────
+const getNotifications = asyncHandler(async (req, res) => {
+  const notifications = await NotificationService.getForUser(req.user.id)
+  res.json(new ApiResponse(200, { notifications }))
+})
+
+const markNotificationAsRead = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  await NotificationService.markAsRead(id, req.user.id)
+  res.json(new ApiResponse(200, {}, 'Notification marked as read'))
+})
+
+const clearAllNotifications = asyncHandler(async (req, res) => {
+  await NotificationService.clearAll(req.user.id)
+  res.json(new ApiResponse(200, {}, 'All notifications cleared'))
+})
+
+// ─── LOYALTY ──────────────────────────────────────────────────────
+const getLoyaltyStatus = asyncHandler(async (req, res) => {
+  const user = await userService.getProfile(req.user.id)
+  const status = await PromoCodeService.getLoyaltyStatus(user)
+  res.json(new ApiResponse(200, status))
+})
+
 export {
   forgotPassword, resetPassword,
   registerUser, loginUser, logoutUser,
@@ -185,4 +211,6 @@ export {
   getActiveServices, getActiveClothingTypes, getActiveKgRates,
   googleAuthUser,
   changePassword, setPassword,
+  getNotifications, markNotificationAsRead, clearAllNotifications,
+  getLoyaltyStatus,
 }

@@ -16,7 +16,7 @@ const SectionLabel = ({ children }) => (
 const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const BranchStaff = () => {
-  const { bToken, backendUrl } = useContext(BranchesContext)
+  const { bToken, backendUrl, staffRole } = useContext(BranchesContext)
 
   const [staffList, setStaffList] = useState([])
   const [loading,   setLoading]   = useState(true)
@@ -27,18 +27,22 @@ const BranchStaff = () => {
   const [submitting,    setSubmitting]    = useState(false)
   const [emailError,    setEmailError]    = useState('')
 
-const fetchStaff = async () => {
-  try {
-    setLoading(true)
-    const { data } = await axios.get(`${backendUrl}/api/branch/staff`, { headers: authHeader(bToken) })
-    if (data.success) setStaffList(data.data.staff)   // ✓ FIXED
-    else toast.error(data.message)
-  } catch (err) {
-    toast.error(err.response?.data?.message || err.message)
-  } finally {
-    setLoading(false)
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const fetchStaff = async () => {
+    try {
+      setLoading(true)
+      const { data } = await axios.get(`${backendUrl}/api/branch/staff`, { headers: authHeader(bToken) })
+      if (data.success) setStaffList(data.data.staff)   // ✓ FIXED
+      else toast.error(data.message)
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message)
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   useEffect(() => { if (bToken) fetchStaff() }, [bToken])
 
@@ -81,6 +85,28 @@ const fetchStaff = async () => {
       else toast.error(msg)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDeleteStaff = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const { data } = await axios.delete(
+        `${backendUrl}/api/branch/staff/${deleteTarget.id}`,
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        toast.success(data.message || 'Staff removed successfully')
+        setDeleteTarget(null)
+        fetchStaff()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete staff')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -159,6 +185,49 @@ const fetchStaff = async () => {
         </div>
       )}
 
+      {/* Confirm Delete Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" style={{ fontFamily: "'Georgia', serif" }}>
+          <div className="bg-white w-full max-w-sm" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+            <div className="px-6 py-5 bg-red-600">
+              <div className="flex items-center justify-between">
+                <div>
+                  <SectionLabel>Staff Management</SectionLabel>
+                  <h2 className="text-white font-sans font-black text-lg" style={{ letterSpacing: '-0.02em' }}>Remove Staff</h2>
+                </div>
+                <button onClick={() => setDeleteTarget(null)} className="text-red-200 hover:text-white transition-colors"><X size={18} /></button>
+              </div>
+            </div>
+
+            <div className="px-6 py-6">
+              <p className="font-sans text-sm text-neutral-600 mb-6">
+                Are you sure you want to remove <span className="font-bold text-neutral-800">{deleteTarget.firstName} {deleteTarget.lastName}</span> ({deleteTarget.email})? This cannot be undone.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleDeleteStaff}
+                  disabled={deleting}
+                  className="group relative overflow-hidden bg-red-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-6 py-2.5 disabled:opacity-50"
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <div className="absolute inset-0 bg-red-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <span className="relative">{deleting ? 'Removing...' : 'Remove'}</span>
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-6 py-2.5"
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <span className="relative">Cancel</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page header */}
       <div className="px-10 pt-10 pb-12" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
         <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3 font-semibold">Branch Portal</p>
@@ -185,8 +254,8 @@ const fetchStaff = async () => {
         <SectionLabel>Staff List</SectionLabel>
         <Divider />
 
-        <div className="grid grid-cols-4 pb-3 border-b border-blue-100">
-          {['Name', 'Email', 'Role', 'Status'].map(h => (
+        <div className="grid grid-cols-5 pb-3 border-b border-blue-100">
+          {['Name', 'Email', 'Role', 'Status', 'Action'].map(h => (
             <p key={h} className="font-sans text-[10px] uppercase tracking-[0.3em] text-blue-400 font-bold">{h}</p>
           ))}
         </div>
@@ -206,7 +275,7 @@ const fetchStaff = async () => {
 
         <div className="divide-y divide-blue-50">
           {!loading && staffList.map(staff => (
-            <div key={staff.id} className="grid grid-cols-4 items-center py-4">
+            <div key={staff.id} className="grid grid-cols-5 items-center py-4">
               <p className="font-sans text-sm font-bold text-neutral-800">{staff.firstName} {staff.lastName}</p>
               <p className="font-sans text-sm text-neutral-500">{staff.email}</p>
               <p className="font-sans text-xs uppercase tracking-[0.2em] font-bold text-blue-500">{staff.role}</p>
@@ -215,6 +284,16 @@ const fetchStaff = async () => {
                   <span className="inline-flex items-center gap-1 border border-green-300 bg-green-50 text-green-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-bold"><Check size={9} /> Active</span>
                 ) : (
                   <span className="inline-block border border-neutral-300 bg-neutral-50 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-bold">Inactive</span>
+                )}
+              </div>
+              <div>
+                {staffRole === 'BRANCH_ADMIN' && staff.role !== 'BRANCH_ADMIN' && (
+                  <button
+                    onClick={() => setDeleteTarget(staff)}
+                    className="font-sans text-[10px] uppercase tracking-[0.2em] font-bold text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    Remove
+                  </button>
                 )}
               </div>
             </div>

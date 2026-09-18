@@ -6,7 +6,6 @@ export const AdminContext = createContext()
 
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
-// ✅ TEMPORARY: Set to false once real PayMongo is wired up
 const USE_MOCK_QR = true
 
 const AdminContextProvider = (props) => {
@@ -23,12 +22,10 @@ const AdminContextProvider = (props) => {
   const [extraServices, setExtraServices] = useState([])
   const [walkInServices, setWalkInServices] = useState([])
 
-  // ─── Debounced appointments refresh ──────────────────────────
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
   const MIN_INTERVAL = 3000
 
-  // ✅ MOCK: track poll attempts per appointment so we can auto-complete after 3 polls
   const mockPollAttempts = useRef({})
 
   const getAllAppointments = useCallback(async () => {
@@ -49,7 +46,6 @@ const AdminContextProvider = (props) => {
     }, delay)
   }, [getAllAppointments])
 
-  // ─── BRANCHES ────────────────────────────────────────────────
   const getAllBranches = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/all-branches', { headers: authHeader(aToken) })
@@ -66,7 +62,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── APPOINTMENTS ─────────────────────────────────────────────
   const cancelAppointment = async (appointmentId) => {
     try {
       const { data } = await axios.post(backendUrl + '/api/admin/cancel-appointment', { appointmentId }, { headers: authHeader(aToken) })
@@ -179,7 +174,26 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── SERVICES ─────────────────────────────────────────────────
+  const deleteAllAppointments = async () => {
+    try {
+      const { data } = await axios.delete(
+        backendUrl + '/api/admin/appointments/delete-all',
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        toast.success(data.message)
+        await getAllAppointments()
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
   const getAllServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/services', { headers: authHeader(aToken) })
@@ -228,7 +242,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── CLOTHING TYPES ───────────────────────────────────────────
   const getAllClothingTypes = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/clothing-types', { headers: authHeader(aToken) })
@@ -261,7 +274,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── KG RATES ─────────────────────────────────────────────────
   const getAllKgRates = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/kg-rates', { headers: authHeader(aToken) })
@@ -294,7 +306,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── PROMO CODES ──────────────────────────────────────────────
   const getAllPromoCodes = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/promo-codes', { headers: authHeader(aToken) })
@@ -335,7 +346,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── EXTRA SERVICES ───────────────────────────────────────────
   const getAllExtraServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/extra-services', { headers: authHeader(aToken) })
@@ -376,7 +386,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── WALK-IN ──────────────────────────────────────────────────
   const getWalkInServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/user/services')
@@ -426,11 +435,8 @@ const AdminContextProvider = (props) => {
     }
   }
 
-  // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────
   const generateQrPayment = async (appointmentId) => {
-    // ✅ MOCK MODE — returns a fake QR + intent ID, no backend call
     if (USE_MOCK_QR) {
-      // Reset poll counter for this appointment
       mockPollAttempts.current[appointmentId] = 0
       return {
         qrImageUrl: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="white" width="200" height="200"/%3E%3Crect fill="black" x="20" y="20" width="160" height="160"/%3E%3Ctext x="100" y="105" font-size="14" text-anchor="middle" fill="white"%3EMOCK QR%3C/text%3E%3C/svg%3E',
@@ -438,7 +444,6 @@ const AdminContextProvider = (props) => {
       }
     }
 
-    // ── REAL implementation (PayMongo via backend) ──
     try {
       const { data } = await axios.post(
         backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment`,
@@ -460,7 +465,6 @@ const AdminContextProvider = (props) => {
   }
 
   const getQrPaymentStatus = async (appointmentId) => {
-    // ✅ MOCK MODE — auto-succeed after 3 polls so UI flow can be tested
     if (USE_MOCK_QR) {
       const attempts = (mockPollAttempts.current[appointmentId] || 0) + 1
       mockPollAttempts.current[appointmentId] = attempts
@@ -471,7 +475,6 @@ const AdminContextProvider = (props) => {
       return { paid: false, status: 'pending' }
     }
 
-    // ── REAL implementation ──
     try {
       const { data } = await axios.get(
         backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment/status`,
@@ -480,12 +483,10 @@ const AdminContextProvider = (props) => {
       if (data.success) return data.data || data
       return null
     } catch (error) {
-      // Silent — polling shouldn't spam toasts on every failed poll
       return null
     }
   }
 
-  // ─── VAT SETTINGS ─────────────────────────────────────────────
   const getVatRate = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/settings/vat')
@@ -502,7 +503,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  // ─── REFUND REASONS ───────────────────────────────────────────
   const getRefundReasons = async (status) => {
     try {
       const url = status
@@ -526,7 +526,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  // ─── FAQS ─────────────────────────────────────────────────────
   const getFaqs = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/settings/faqs')
@@ -547,7 +546,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  // ─── AUDIT LOGS ───────────────────────────────────────────────
   const getAuditLogs = async (filters = {}) => {
     try {
       const params = Object.fromEntries(
@@ -564,7 +562,6 @@ const AdminContextProvider = (props) => {
     }
   }
 
-  // ─── LOGOUT ───────────────────────────────────────────────────
   const logoutAdmin = () => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current)
     mockPollAttempts.current = {}
@@ -593,6 +590,7 @@ const AdminContextProvider = (props) => {
     confirmActualWeight,
     confirmPayment,
     dashData, getDashboardData,
+    deleteAllAppointments,
     services, getAllServices, addService, updateService, deleteService,
     clothingTypes, getAllClothingTypes, addClothingType, updateClothingType, deleteClothingType,
     kgRates, getAllKgRates, addKgRate, updateKgRate, deleteKgRate,
@@ -607,7 +605,7 @@ const AdminContextProvider = (props) => {
     getRefundReasons, updateRefundReasons,
     getFaqs, updateFaqs,
     getAuditLogs,
-    USE_MOCK_QR,        // ✅ export so UI can show "MOCK MODE" badge if desired
+    USE_MOCK_QR,
   }
 
   return (
