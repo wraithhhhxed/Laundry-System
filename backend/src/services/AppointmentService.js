@@ -682,7 +682,7 @@ class AppointmentService {
 
     let appointmentCreated = false;
     try {
-      const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, ...otherDetails } = extraDetails;
+      const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, address: _ignoredAddress, ...otherDetails } = extraDetails;
 
       const userEmail = email || user.email;
 

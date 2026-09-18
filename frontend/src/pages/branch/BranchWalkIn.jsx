@@ -1,5 +1,6 @@
 import { useEffect, useContext, useState, useCallback, useRef } from 'react'
 import { BranchesContext } from '../../context/BranchesContext'
+import axios from 'axios'
 
 const SectionLabel = ({ children }) => (
   <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">{children}</p>
@@ -20,6 +21,7 @@ const validateName = (name) => {
 
 const BranchWalkIn = () => {
   const {
+    backendUrl,
     walkInServices, getWalkInServices,
     lookupPhone, createWalkInAppointment,
     generateQrPayment, getQrPaymentStatus,
@@ -27,6 +29,55 @@ const BranchWalkIn = () => {
   } = useContext(BranchesContext)
 
   useEffect(() => { getWalkInServices() }, [])
+
+  // ─── Add-ons / Extra Products ────────────────────────────────
+  const [productsList, setProductsList] = useState([])
+  const [addOnQty, setAddOnQty] = useState({})
+
+  const CATEGORY_LABELS = {
+    detergent:   'Detergents',
+    conditioner: 'Conditioners',
+    bleach:      'Bleach',
+    other:       'Others',
+  }
+
+  const productsByCategory = productsList.reduce((acc, p) => {
+    const cat = p.category || 'other'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(p)
+    return acc
+  }, {})
+
+  const selectedAddOns = productsList
+    .filter(p => addOnQty[p.id] > 0)
+    .map(p => ({ productId: p.id, name: p.name, price: p.price, quantity: addOnQty[p.id] }))
+  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
+
+  const setQty = (productId, value) => {
+    const qty = Math.max(0, Math.min(99, parseInt(value) || 0))
+    setAddOnQty(prev => ({ ...prev, [productId]: qty }))
+  }
+  const incrementQty = (productId) =>
+    setAddOnQty(prev => ({ ...prev, [productId]: Math.min(99, (prev[productId] || 0) + 1) }))
+  const decrementQty = (productId) =>
+    setAddOnQty(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) - 1) }))
+
+  // Fetch products + inventory on mount (branch staff knows their branch)
+  useEffect(() => {
+    Promise.all([
+      axios.get(backendUrl + '/api/products/active'),
+      axios.get(backendUrl + '/api/inventory/public/branch/in-stock'),
+    ]).then(([p, inv]) => {
+      if (p.data?.success) {
+        if (inv.data?.success && Array.isArray(inv.data.data?.inStockIds)) {
+          const inStock = new Set(inv.data.data.inStockIds)
+          setProductsList(p.data.data.filter(prod => inStock.has(prod.id.toString())))
+        } else {
+          setProductsList(p.data.data)
+        }
+      }
+    }).catch(() => setProductsList([]))
+  }, [backendUrl])
 
   // ─── Phone lookup ───────────────────────────────────────────────
   const [phone, setPhone]           = useState('')
@@ -98,6 +149,7 @@ const BranchWalkIn = () => {
     walkInServices.find(s => s.id === serviceId)?.price || 0
 
   const estimatedTotal = baskets.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0)
+    + productsList.filter(p => addOnQty[p.id] > 0).reduce((sum, p) => sum + p.price * addOnQty[p.id], 0)
 
   const anyOverweight = baskets.some(b => Number(b.actualKg) > 7)
 
@@ -106,7 +158,7 @@ const BranchWalkIn = () => {
 
   // ─── Fulfillment method (self pickup vs delivery) ───────────────
   const [fulfillmentMethod, setFulfillmentMethod] = useState('SELF_PICKUP')
-  const [deliveryAddress, setDeliveryAddress] = useState('')  // ← NEW
+  const [deliveryAddress, setDeliveryAddress] = useState('')
 
   // ─── Payment method (cash vs online) ────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState('CASH')
@@ -142,9 +194,7 @@ const BranchWalkIn = () => {
 
   // ─── Check if any basket has actualKg but no service ────────────
   const hasIncompleteBasket = baskets.some(b => b.actualKg && !b.serviceId)
-  // ─── Check if any basket has service but no weight ──────────────
   const hasServiceNoWeight = baskets.some(b => b.serviceId && !b.actualKg)
-  // ─── Check if any basket weight is invalid ──────────────────────
   const hasInvalidWeight = baskets.some(b => b.actualKg && Number(b.actualKg) < 0)
 
   // ─── QR PAYMENT STATES ──────────────────────────────────────────
@@ -161,8 +211,9 @@ const BranchWalkIn = () => {
     setBaskets([{ serviceId: '', actualKg: '' }])
     setOverweightResolution('')
     setFulfillmentMethod('SELF_PICKUP')
-    setDeliveryAddress('')   // ← NEW
+    setDeliveryAddress('')
     setPaymentMethod('CASH')
+    setAddOnQty({})   // ← NEW
   }
 
   // ─── Can submit ──────────────────────────────────────────────────
@@ -186,24 +237,14 @@ const BranchWalkIn = () => {
       const weight = Number(basket.actualKg)
 
       if (weight <= 7) {
-        // Not overweight, keep as-is
         newBaskets.push(basket)
       } else {
-        // Overweight: split into multiple baskets
-        // First basket: 7kg
-        newBaskets.push({
-          serviceId: basket.serviceId,
-          actualKg: 7,
-        })
+        newBaskets.push({ serviceId: basket.serviceId, actualKg: 7 })
 
-        // Remaining weight: create additional 7kg baskets (loop until used up)
         let remaining = weight - 7
         while (remaining > 0) {
           const basketKg = parseFloat(Math.min(7, remaining).toFixed(2))
-          newBaskets.push({
-            serviceId: basket.serviceId,
-            actualKg: basketKg,
-          })
+          newBaskets.push({ serviceId: basket.serviceId, actualKg: basketKg })
           remaining -= basketKg
         }
       }
@@ -322,8 +363,9 @@ const BranchWalkIn = () => {
       overweightResolution: anyOverweight ? overweightResolution : null,
       fulfillmentMethod,
       paymentMethod,
-      promoCode: promoCodeToApply,   // ← AUTO-APPLY HERE
-      address: deliveryAddress.trim() || null,  // ← NEW: add address if DELIVERY
+      promoCode: promoCodeToApply,
+      address: deliveryAddress.trim() || null,
+      addOns: selectedAddOns,   // ← NEW
     }
 
     const result = await createWalkInAppointment(payload)
@@ -554,6 +596,74 @@ const BranchWalkIn = () => {
           className="font-sans text-xs uppercase tracking-[0.2em] text-blue-500 hover:text-blue-700 transition-colors mb-10">
           + Add Another Basket
         </button>
+
+        {/* ─── ADD-ONS ─────────────────────────────────────────── */}
+        <SectionLabel>Add-ons (Optional)</SectionLabel>
+        <Divider />
+        <div className="space-y-6 mb-10">
+          {productsList.length === 0 ? (
+            <p className="font-sans text-sm text-neutral-400">No add-on products available at this time.</p>
+          ) : (
+            Object.entries(productsByCategory).map(([cat, products]) => (
+              <div key={cat}>
+                <p className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-2">
+                  {CATEGORY_LABELS[cat] || cat}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {products.map(product => {
+                    const qty = addOnQty[product.id] || 0
+                    const isAdded = qty > 0
+                    return (
+                      <div key={product.id}
+                        className={`flex items-center gap-4 p-4 border transition-colors duration-200 ${isAdded ? 'bg-blue-50 border-blue-400' : 'bg-white border-blue-100 hover:bg-blue-50/40'}`}>
+                        {product.image
+                          ? <img src={product.image} alt={product.name} className="w-12 h-12 object-cover flex-shrink-0" />
+                          : <div className="w-12 h-12 bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-blue-400 font-bold font-sans">{product.name[0]?.toUpperCase()}</span>
+                            </div>
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="font-sans text-sm font-semibold text-neutral-700 truncate">{product.name}</p>
+                          <p className="font-sans text-xs text-blue-600 font-bold">{fmt(product.price)}</p>
+                          {product.description && <p className="font-sans text-xs text-neutral-400 truncate">{product.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button onClick={() => decrementQty(product.id)} disabled={qty === 0}
+                            className={`w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border transition-colors ${
+                              qty > 0 ? 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white' : 'border-blue-100 text-blue-200 cursor-not-allowed'
+                            }`}>−</button>
+                          <input type="number" value={qty} onChange={e => setQty(product.id, e.target.value)}
+                            className="w-8 text-center font-sans text-sm font-semibold border border-blue-100 focus:outline-none focus:border-blue-400 py-0.5"
+                            min="0" max="99" />
+                          <button onClick={() => incrementQty(product.id)}
+                            className="w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors">+</button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+
+          {selectedAddOns.length > 0 && (
+            <div className="border border-blue-100 bg-blue-50/40 px-6 py-5">
+              <p className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-2">Selected Add-ons</p>
+              <div className="font-sans text-sm space-y-1.5">
+                {selectedAddOns.map(a => (
+                  <div key={a.productId} className="flex justify-between text-neutral-600">
+                    <span>{a.name} × {a.quantity}</span>
+                    <span className="font-medium">{fmt(a.price * a.quantity)}</span>
+                  </div>
+                ))}
+                <div className="h-px bg-blue-200 my-1" />
+                <div className="flex justify-between text-blue-700 font-bold">
+                  <span>Add-ons Total</span><span>{fmt(addOnsTotal)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {anyOverweight && (
           <div className="mb-10 bg-amber-50 border border-amber-200 px-5 py-4">

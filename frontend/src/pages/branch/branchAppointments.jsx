@@ -91,9 +91,14 @@ const getNextStatus = (current, steps) => {
   return steps[idx + 1]
 }
 
+// ── FIX #1: Summary format for services ────────────────────
 const renderServices = (appt) => {
-  if (Array.isArray(appt.services) && appt.services.length > 0)
-    return appt.services.map(s => s.name ?? s).join(', ')
+  if (Array.isArray(appt.services) && appt.services.length > 0) {
+    const count = appt.services.length
+    const firstName = appt.services[0]?.name ?? appt.services[0]
+    if (count === 1) return firstName
+    return `${firstName} (×${count} baskets)`
+  }
   if (appt.service) return appt.service
   return '—'
 }
@@ -135,28 +140,66 @@ const renderAmount = (appt) => {
   )
 }
 
+// ── FIX #2: Summary format for weight (limited rows) ───────
 const renderWeight = (appt) => {
   if (!Array.isArray(appt.services) || appt.services.length === 0) return null
+
+  const totalKg = appt.services.reduce((sum, svc) => sum + Number(svc.actualKg ?? svc.kg ?? 0), 0)
+  const basketCount = appt.services.length
+  const hasAnyActual = appt.services.some(svc => svc.actualKg != null)
+
+  const MAX_VISIBLE = 3
+  const visibleServices = appt.services.slice(0, MAX_VISIBLE)
+  const hiddenCount = basketCount - visibleServices.length
+
+  return (
+    <div className="space-y-2">
+      <div className="font-sans text-xs">
+        <span className="text-blue-700 font-bold">Total: {totalKg.toFixed(1)}kg</span>
+        <span className="text-neutral-400 ml-2">({basketCount} basket{basketCount !== 1 ? 's' : ''})</span>
+        {!hasAnyActual && <span className="text-neutral-400 ml-1">(est.)</span>}
+      </div>
+      <div className="space-y-1">
+        {visibleServices.map((svc, idx) => (
+          <div key={idx} className="flex items-center gap-2 font-sans text-[11px]">
+            <span className="text-neutral-400">Basket {idx + 1}:</span>
+            {svc.actualKg != null ? (
+              <>
+                <span className="text-neutral-400 line-through">{svc.kg}kg</span>
+                <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
+                {svc.overweightCharge > 0 && (
+                  <span className="text-amber-600 text-[10px]">+OW</span>
+                )}
+              </>
+            ) : (
+              <span className="text-neutral-600">{svc.kg}kg</span>
+            )}
+          </div>
+        ))}
+        {hiddenCount > 0 && (
+          <p className="font-sans text-[11px] text-neutral-400 italic">... +{hiddenCount} more</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── FIX #3: New renderAddOns function ──────────────────────
+const renderAddOns = (appt) => {
+  if (!Array.isArray(appt.addOns) || appt.addOns.length === 0) return null
+  const total = appt.addOns.reduce((sum, a) => sum + (a.price * a.quantity), 0)
   return (
     <div className="space-y-1">
-      {appt.services.map((svc, idx) => (
-        <div key={idx} className="flex items-center gap-2 font-sans text-xs">
-          <span className="text-neutral-500">{svc.name}:</span>
-          {svc.actualKg != null ? (
-            <>
-              <span className="text-neutral-400 line-through">{svc.kg}kg</span>
-              <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
-              {svc.overweightCharge > 0 && (
-                <span className="text-amber-600 text-[10px]">+OW</span>
-              )}
-            </>
-          ) : (
-            <span className="text-neutral-600">
-              {svc.kg}kg <span className="text-neutral-400">(est.)</span>
-            </span>
-          )}
+      {appt.addOns.map((a, idx) => (
+        <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
+          <span>· {a.name} ×{a.quantity}</span>
+          <span className="font-medium">{fmt(a.price * a.quantity)}</span>
         </div>
       ))}
+      <div className="flex items-center justify-between font-sans text-xs text-blue-700 font-bold pt-1 border-t border-blue-100">
+        <span>Add-ons Total</span>
+        <span>{fmt(total)}</span>
+      </div>
     </div>
   )
 }
@@ -920,6 +963,28 @@ const AllAppointments = () => {
                     <SectionLabel>Weight</SectionLabel>
                     {renderWeight(appt) || <p className="font-sans text-sm text-neutral-400">—</p>}
                   </div>
+                  {Array.isArray(appt.addOns) && appt.addOns.length > 0 && (
+                    <div className="col-span-2">
+                      <SectionLabel>Add-ons</SectionLabel>
+                      {renderAddOns(appt)}
+                    </div>
+                  )}
+                  {(appt.overweightResolution || appt.preferredPaymentMethod || appt.bookingSource) && (
+                    <div className="col-span-2">
+                      <SectionLabel>Other Details</SectionLabel>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-neutral-600">
+                        {appt.overweightResolution && (
+                          <span>Overweight: <span className="font-medium capitalize">{appt.overweightResolution}</span></span>
+                        )}
+                        {appt.preferredPaymentMethod && (
+                          <span>Payment: <span className="font-medium capitalize">{appt.preferredPaymentMethod}</span></span>
+                        )}
+                        {appt.bookingSource && (
+                          <span>Source: <span className="font-medium">{appt.bookingSource}</span></span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {appt.specialInstructions && (
                     <div className="col-span-2">
                       <SectionLabel>Notes</SectionLabel>
