@@ -99,6 +99,7 @@ const Appointment = () => {
   const [promoError,   setPromoError]   = useState('')
 
   const [loyaltyStatus, setLoyaltyStatus] = useState(null)
+  const [luckySpin, setLuckySpin] = useState(null)
 
   useEffect(() => {
     const found = branches.find(b => b.id === branchid)
@@ -146,6 +147,16 @@ const Appointment = () => {
         if (data.success) setLoyaltyStatus(data.data)
       } catch (error) {
         console.error('Failed to load loyalty status:', error.message)
+      }
+
+            try {
+        const { data } = await axios.get(backendUrl + '/api/user/lucky-wheel/unredeemed', {
+          headers: { token }
+        })
+        const spins = Array.isArray(data.data?.spins) ? data.data.spins : []
+        setLuckySpin(spins.find((s) => s.prizeType === 'FREE_DISCOUNT') || null)
+      } catch (error) {
+        console.error('Failed to load lucky wheel prize:', error.message)
       }
     }
     if (token) fetchLoyalty()
@@ -229,16 +240,15 @@ const Appointment = () => {
   // rewards — kung meron dito, eligible na siya, walang dagdag na check.
   const autoPromo = (() => {
     if (!loyaltyStatus) return null
-    if (loyaltyStatus.loyaltyStamps >= 10 && loyaltyStatus.tenthStampReward?.code) {
-      return { ...loyaltyStatus.tenthStampReward, tier: '10th' }
-    }
-    if (
-      loyaltyStatus.loyaltyStamps >= 5 &&
-      loyaltyStatus.loyaltyStamps < 10 &&
-      loyaltyStatus.fifthStampReward?.code
-    ) {
-      return { ...loyaltyStatus.fifthStampReward, tier: '5th' }
-    }
+    if (loyaltyStatus.fifteenthStampReward?.code) {
+  return { ...loyaltyStatus.fifteenthStampReward, tier: '15th' }
+}
+if (loyaltyStatus.tenthStampReward?.code) {
+  return { ...loyaltyStatus.tenthStampReward, tier: '10th' }
+}
+if (loyaltyStatus.fifthStampReward?.code) {
+  return { ...loyaltyStatus.fifthStampReward, tier: '5th' }
+}
     return null
   })()
 
@@ -248,7 +258,8 @@ const Appointment = () => {
       : autoPromo.discountValue
     : 0
 
-  const discountAmount = autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)
+  const luckyDiscount = luckySpin ? Math.min(50, Math.max(0, totalAmount - (autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)))) : 0
+  const discountAmount = (autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)) + luckyDiscount
   const discountedBase = totalAmount - discountAmount
   const vatAmount      = parseFloat((discountedBase * vatRate).toFixed(2))
   const vatPercent     = Math.round(vatRate * 100)
@@ -398,7 +409,7 @@ const Appointment = () => {
         <div className='flex justify-between text-neutral-600'>
           <span>Subtotal</span><span>₱{totalAmount.toFixed(2)}</span>
         </div>
-        {discountAmount > 0 && (
+        {(autoPromo || promoResult) && (
           <div className='flex justify-between text-green-600'>
             <span>
               {autoPromo
@@ -406,7 +417,13 @@ const Appointment = () => {
                 : `Discount — ${promoResult?.code || ''}`
               }
             </span>
-            <span>−₱{discountAmount.toFixed(2)}</span>
+            <span>−₱{(autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)).toFixed(2)}</span>
+          </div>
+        )}
+        {luckyDiscount > 0 && (
+          <div className='flex justify-between text-purple-600'>
+            <span>Lucky Wheel — ₱50 OFF</span>
+            <span>−₱{luckyDiscount.toFixed(2)}</span>
           </div>
         )}
         {vatAmount > 0 && (
@@ -850,6 +867,18 @@ const Appointment = () => {
                 ))}
               </div>
             </div>
+
+            {luckySpin && (
+              <div className='flex items-center gap-4 border border-purple-200 bg-purple-50/60 px-5 py-4 mb-4'>
+                <div className='flex-1 font-sans text-sm'>
+                  <p className='font-bold text-purple-700'>
+                    Lucky Wheel prize applied — ₱50 OFF</p>
+                  <p className='text-purple-600 text-xs'>
+                    This will be used on this booking.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div>
               <SectionLabel>Promo Code — optional</SectionLabel>

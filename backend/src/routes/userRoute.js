@@ -26,6 +26,10 @@ import {
   clearAllNotifications,
   getLoyaltyStatus,
 } from '../controllers/UserController.js'
+import {
+  spinWheel, pickPrize,
+  getUnredeemedSpins, getAllSpins,
+} from '../controllers/LuckyWheelController.js'
 import { branchList } from '../controllers/BranchController.js'
 import { validatePromoCode } from '../controllers/promoCodeController.js'
 
@@ -65,6 +69,12 @@ userRouter.delete('/notifications',         protect('user'), clearAllNotificatio
 
 // ─── Loyalty ──────────────────────────────────────────────────────
 userRouter.get('/loyalty-status', protect('user'), getLoyaltyStatus)
+
+// ─── Lucky Wheel ──────────────────────────────────────────────────
+userRouter.post('/lucky-wheel/spin',        protect('user'), spinWheel)
+userRouter.post('/lucky-wheel/pick',        protect('user'), pickPrize)
+userRouter.get('/lucky-wheel/unredeemed',   protect('user'), getUnredeemedSpins)
+userRouter.get('/lucky-wheel/all',          protect('user'), getAllSpins)
 
 // ─── Promo Codes ──────────────────────────────────────────────────
 userRouter.post('/promo/validate', protect('user'), validatePromoCode)

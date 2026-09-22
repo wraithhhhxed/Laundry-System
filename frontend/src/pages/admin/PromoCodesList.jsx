@@ -1,4 +1,3 @@
-// frontend/src/pages/admin/PromoCodesList.jsx
 import { useContext, useEffect, useState } from 'react'
 import { AdminContext } from '../../context/AdminContext'
 import { X } from 'lucide-react'
@@ -14,7 +13,12 @@ const EMPTY_FORM = {
   assignedMilestone: null,
 }
 
-// ── Field error message ──────────────────────────────────────────────────────
+const EMPTY_WHEEL_FORM = {
+  availableServices: [],
+  discountAmount: 50,
+  bagPrizeName: 'Selfie Wash Laundry Bag',
+}
+
 const FieldError = ({ message }) =>
   message
     ? <p className='font-sans text-[11px] text-red-500 mt-1 flex items-center gap-1'>
@@ -26,6 +30,7 @@ const PromoCodesList = () => {
   const {
     promoCodes, getAllPromoCodes,
     addPromoCode, updatePromoCode, deletePromoCode, togglePromoCode,
+    services, getAllServices,
   } = useContext(AdminContext)
 
   const [showForm, setShowForm] = useState(false)
@@ -34,20 +39,44 @@ const PromoCodesList = () => {
   const [search, setSearch]     = useState('')
   const [errors, setErrors]     = useState({})
 
-  useEffect(() => { getAllPromoCodes() }, [])
+  const [wheelTab, setWheelTab] = useState(false)
+  const [wheelForm, setWheelForm] = useState(EMPTY_WHEEL_FORM)
+  const [wheelErrors, setWheelErrors] = useState({})
+  const [wheelSetup, setWheelSetup] = useState(null)
+
+  useEffect(() => {
+    getAllPromoCodes()
+    getAllServices()
+    fetchWheelSetup()
+  }, [])
+
+  const fetchWheelSetup = async () => {
+    try {
+      const token = localStorage.getItem('adminToken')
+      const res = await fetch('/api/admin/lucky-wheel/setup', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setWheelSetup(data.setup || data.data?.setup)
+        setWheelForm(data.setup || data.data?.setup || EMPTY_WHEEL_FORM)
+      }
+    } catch (err) {
+      console.warn('Failed to fetch lucky wheel setup:', err.message)
+    }
+  }
 
   const set = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
-    // Clear error for that field on change
     if (errors[field]) setErrors(prev => { const e = { ...prev }; delete e[field]; return e })
   }
 
-  // ── Validation ─────────────────────────────────────────────────────────────
   const validate = () => {
     const errs = {}
     const today = new Date().toISOString().split('T')[0]
 
-    // Code
     if (!form.code.trim())
       errs.code = 'Promo code is required.'
     else if (!/^[A-Z0-9_-]+$/i.test(form.code.trim()))
@@ -57,7 +86,6 @@ const PromoCodesList = () => {
     else if (form.code.trim().length > 30)
       errs.code = 'Code must not exceed 30 characters.'
 
-    // Discount value
     if (form.discountValue === '' || form.discountValue === null)
       errs.discountValue = 'Discount value is required.'
     else if (isNaN(Number(form.discountValue)))
@@ -69,7 +97,6 @@ const PromoCodesList = () => {
     else if (form.discountType === 'flat' && Number(form.discountValue) > 999999)
       errs.discountValue = 'Flat discount seems too high. Please double-check.'
 
-    // Min order — optional but must be valid if provided
     if (form.minOrderAmount !== '') {
       if (isNaN(Number(form.minOrderAmount)))
         errs.minOrderAmount = 'Must be a valid number.'
@@ -77,24 +104,20 @@ const PromoCodesList = () => {
         errs.minOrderAmount = 'Cannot be negative.'
     }
 
-    // Max uses — optional but must be valid if provided
     if (form.maxUses !== '') {
       if (!Number.isInteger(Number(form.maxUses)) || Number(form.maxUses) < 1)
         errs.maxUses = 'Must be a whole number of at least 1.'
     }
 
-    // Expiry date — optional but must be in the future if provided
     if (form.expiresAt && form.expiresAt < today)
       errs.expiresAt = 'Expiry date must be today or in the future.'
 
-    // Description — optional length cap
     if (form.description.trim().length > 200)
       errs.description = 'Description must not exceed 200 characters.'
 
     return errs
   }
 
-  // ── Form open helpers ──────────────────────────────────────────────────────
   const openAdd = () => {
     setEditItem(null)
     setForm(EMPTY_FORM)
@@ -118,7 +141,6 @@ const PromoCodesList = () => {
     setShowForm(true)
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const errs = validate()
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
@@ -142,7 +164,6 @@ const PromoCodesList = () => {
     if (window.confirm('Delete this promo code?')) await deletePromoCode(id)
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     return new Date(dateStr).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -166,7 +187,6 @@ const PromoCodesList = () => {
     )
   })
 
-  // ── Shared input class ─────────────────────────────────────────────────────
   const inputCls = (field) =>
     `w-full px-4 py-2.5 border font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none transition-colors bg-white ${
       errors[field]
@@ -174,10 +194,41 @@ const PromoCodesList = () => {
         : 'border-blue-100 focus:border-blue-400'
     }`
 
+  const saveWheelSetup = async () => {
+    const errs = {}
+    if (!wheelForm.availableServices || wheelForm.availableServices.length === 0)
+      errs.availableServices = 'Select one service'
+    if (wheelForm.discountAmount <= 0)
+      errs.discountAmount = 'Discount must be > 0'
+    if (!wheelForm.bagPrizeName.trim())
+      errs.bagPrizeName = 'Bag prize name is required'
+
+    if (Object.keys(errs).length > 0) { setWheelErrors(errs); return }
+
+    try {
+      const token = localStorage.getItem('adminToken')
+      const res = await fetch('/api/admin/lucky-wheel/setup', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(wheelForm)
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setWheelSetup(data.setup || data.data?.setup)
+        setWheelTab(false)
+        alert('Lucky Wheel setup saved!')
+      }
+    } catch (err) {
+      console.error('Failed to save lucky wheel setup:', err)
+    }
+  }
+
   return (
     <div className='bg-neutral-50 min-h-screen w-full' style={{ fontFamily: "'Georgia', serif" }}>
 
-      {/* Blue Panel Header */}
       <div
         className='bg-blue-600 px-7 py-6 mb-8'
         style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
@@ -186,26 +237,154 @@ const PromoCodesList = () => {
           Catalog
         </p>
         <div className='flex items-center justify-between'>
-          <h1
-            className='font-sans font-black text-white'
-            style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.03em' }}
-          >
-            Promo Codes
-          </h1>
-          <button
-            onClick={openAdd}
-            className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
-            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
-          >
-            <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
-            <span className='relative z-10'>+ Add Promo Code</span>
-          </button>
+          <div>
+            <h1
+              className='font-sans font-black text-white'
+              style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.03em' }}
+            >
+              {wheelTab ? '🎡 Lucky Wheel Setup' : 'Promo Codes'}
+            </h1>
+            {wheelTab && (
+              <p className='text-blue-200 text-xs font-sans mt-1'>Configure lucky wheel prizes & available service</p>
+            )}
+          </div>
+          <div className='flex gap-2'>
+            {wheelTab && (
+              <button
+                onClick={() => setWheelTab(false)}
+                className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+              >
+                <span className='relative z-10'>← Back to Codes</span>
+              </button>
+            )}
+            {!wheelTab && (
+              <>
+                <button
+                  onClick={() => { setWheelTab(true); setWheelErrors({}) }}
+                  className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <span className='relative z-10'>🎡 Wheel Setup</span>
+                </button>
+                <button
+                  onClick={openAdd}
+                  className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <span className='relative z-10'>+ Add Code</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
+      {wheelTab && (
+        <div className='px-7 pb-10'>
+          <div className='bg-white border border-blue-100 overflow-hidden'>
+            <div className='p-7 space-y-6'>
+
+              <div>
+                <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 block mb-3'>
+                  Available Service for Free Prize
+                  <span className='text-red-400 normal-case text-[10px]'> (select one)</span>
+                </label>
+                <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                  {services.length === 0 ? (
+                    <p className='text-neutral-400 text-xs'>No services found. Create services first.</p>
+                  ) : (
+                    services.map(svc => (
+                      <label key={svc.id} className='flex items-center gap-2 cursor-pointer'>
+                        <input
+                          type='radio'
+                          name='wheelService'
+                          checked={wheelForm.availableServices[0] === svc.name}
+                          onChange={() => setWheelForm(prev => ({ ...prev, availableServices: [svc.name] }))}
+                          className='w-4 h-4 border-blue-300'
+                        />
+                        <span className='font-sans text-sm text-neutral-700'>{svc.name}</span>
+                        <span className='text-neutral-400 text-xs'>(₱{svc.price})</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                {wheelErrors.availableServices && (
+                  <p className='text-red-500 text-xs mt-2'>⚠ {wheelErrors.availableServices}</p>
+                )}
+              </div>
+
+              <div>
+                <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 block mb-1.5'>
+                  Free Discount Prize (₱)
+                </label>
+                <input
+                  type='number'
+                  value={wheelForm.discountAmount}
+                  onChange={e => setWheelForm(prev => ({ ...prev, discountAmount: Number(e.target.value) }))}
+                  className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 bg-white'
+                />
+                {wheelErrors.discountAmount && (
+                  <p className='text-red-500 text-xs mt-1'>⚠ {wheelErrors.discountAmount}</p>
+                )}
+                <p className='text-neutral-400 text-xs mt-1'>When user wins FREE_DISCOUNT prize, they get -₱{wheelForm.discountAmount} off</p>
+              </div>
+
+              <div>
+                <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-700 block mb-1.5'>
+                  Free Bag Prize Name
+                </label>
+                <input
+                  type='text'
+                  value={wheelForm.bagPrizeName}
+                  onChange={e => setWheelForm(prev => ({ ...prev, bagPrizeName: e.target.value }))}
+                  className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 bg-white'
+                />
+                {wheelErrors.bagPrizeName && (
+                  <p className='text-red-500 text-xs mt-1'>⚠ {wheelErrors.bagPrizeName}</p>
+                )}
+              </div>
+
+              <div className='bg-blue-50 border border-blue-200 p-4 rounded'>
+                <p className='font-sans text-xs font-semibold text-neutral-700 mb-2'>🎡 Lucky Wheel Summary</p>
+                <ul className='text-xs font-sans text-neutral-600 space-y-1'>
+                  <li>✓ 6 wheel slices: 2×Free Service, 2×Free Discount, 2×Free Bag</li>
+                  <li>✓ Free Service: {wheelForm.availableServices.length > 0
+                    ? `gives ${wheelForm.availableServices[0]}`
+                    : 'no service selected'}
+                  </li>
+                  <li>✓ Free Discount: -₱{wheelForm.discountAmount}</li>
+                  <li>✓ Free Bag: {wheelForm.bagPrizeName}</li>
+                </ul>
+              </div>
+
+              <div className='flex gap-3'>
+                <button
+                  onClick={() => setWheelTab(false)}
+                  className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                  <span className='relative z-10'>Cancel</span>
+                </button>
+                <button
+                  onClick={saveWheelSetup}
+                  className='group relative overflow-hidden flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                  <span className='relative z-10'>💾 Save Setup</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!wheelTab && (
       <div className='px-7 pb-10'>
 
-        {/* Search */}
         <div className='bg-white border border-blue-100 px-5 py-4 mb-4'>
           <div className='relative'>
             <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-300 pointer-events-none'
@@ -228,7 +407,6 @@ const PromoCodesList = () => {
           </div>
         </div>
 
-        {/* Count */}
         <div className='mb-4'>
           <p className='font-sans text-xs text-neutral-400'>
             Showing{' '}
@@ -237,10 +415,8 @@ const PromoCodesList = () => {
           </p>
         </div>
 
-        {/* Table */}
         <div className='bg-white border border-blue-100 overflow-hidden'>
 
-          {/* Header */}
           <div className='grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_0.8fr_1fr_1.4fr] bg-blue-50 px-7 py-3 border-b border-blue-100'>
             {['Code', 'Discount', 'Min Order', 'Uses', 'Expires', 'Milestone', 'Status', 'Actions'].map(h => (
               <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
@@ -259,7 +435,6 @@ const PromoCodesList = () => {
                 <div key={item.id}
                   className='grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_0.8fr_1fr_1.4fr] items-start px-7 py-4 hover:bg-blue-50 transition-colors'>
 
-                  {/* Code */}
                   <div>
                     <p className='font-sans font-black text-sm text-neutral-700 tracking-wider'>{item.code}</p>
                     {item.description && (
@@ -267,17 +442,14 @@ const PromoCodesList = () => {
                     )}
                   </div>
 
-                  {/* Discount */}
                   <span className='font-sans font-black text-sm text-blue-600'>
                     {item.discountType === 'flat' ? `₱${item.discountValue} off` : `${item.discountValue}% off`}
                   </span>
 
-                  {/* Min Order */}
                   <span className='font-sans text-sm text-neutral-500'>
                     {item.minOrderAmount > 0 ? `₱${item.minOrderAmount}` : '—'}
                   </span>
 
-                  {/* Uses */}
                   <span className='font-sans font-black text-sm text-neutral-700'>
                     {item.usedCount}
                     <span className='font-sans font-normal text-neutral-400'>
@@ -285,24 +457,23 @@ const PromoCodesList = () => {
                     </span>
                   </span>
 
-                  {/* Expires */}
                   <span className='font-sans text-xs text-neutral-500'>{formatDate(item.expiresAt)}</span>
 
-                  {/* Milestone */}
                   <span className='font-sans text-xs text-neutral-600'>
                     {item.assignedMilestone ? (
                       <span className='bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px] font-bold uppercase'>
-                        {item.assignedMilestone === 'FIFTH' ? '5th Stamp' : '10th Stamp'}
+                        {item.assignedMilestone === 'FIFTH' && '5th Stamp'}
+                        {item.assignedMilestone === 'TENTH' && '10th Stamp'}
+                        {item.assignedMilestone === 'FIFTEENTH' && '15th Stamp'}
+                        {item.assignedMilestone === 'LUCKY_WHEEL' && 'Lucky Wheel'}
                       </span>
                     ) : (
                       '—'
                     )}
                   </span>
 
-                  {/* Status */}
                   {getStatusBadge(item)}
 
-                  {/* Actions */}
                   <div className='flex items-center gap-3 flex-wrap'>
                     <button onClick={() => togglePromoCode(item.id)}
                       className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-blue-600 transition-colors'>
@@ -324,15 +495,14 @@ const PromoCodesList = () => {
           )}
         </div>
       </div>
+      )}
 
-      {/* Modal */}
       {showForm && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4'>
           <div
             className='bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto'
             style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}
           >
-            {/* Modal Header */}
             <div
               className='px-6 py-5 sticky top-0 z-10'
               style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}
@@ -354,7 +524,6 @@ const PromoCodesList = () => {
 
             <div className='px-6 py-6 space-y-4'>
 
-              {/* Summary error banner */}
               {Object.keys(errors).length > 1 && (
                 <div className='border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-2'>
                   <span className='text-red-400 text-sm mt-0.5 flex-shrink-0'>⚠</span>
@@ -366,7 +535,6 @@ const PromoCodesList = () => {
 
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
 
-                {/* Code */}
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Code <span className='text-red-400 normal-case'>*</span>
@@ -380,7 +548,6 @@ const PromoCodesList = () => {
                   <FieldError message={errors.code} />
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Description
@@ -398,7 +565,6 @@ const PromoCodesList = () => {
                   <FieldError message={errors.description} />
                 </div>
 
-                {/* Discount Type */}
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Discount Type <span className='text-red-400 normal-case'>*</span>
@@ -413,7 +579,6 @@ const PromoCodesList = () => {
                   </select>
                 </div>
 
-                {/* Discount Value */}
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Discount Value <span className='text-red-400 normal-case'>*</span>
@@ -433,7 +598,6 @@ const PromoCodesList = () => {
                   <FieldError message={errors.discountValue} />
                 </div>
 
-                {/* Min Order */}
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Min Order (₱)
@@ -450,7 +614,6 @@ const PromoCodesList = () => {
                   <FieldError message={errors.minOrderAmount} />
                 </div>
 
-                {/* Max Uses */}
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Max Uses
@@ -468,7 +631,6 @@ const PromoCodesList = () => {
                   <FieldError message={errors.maxUses} />
                 </div>
 
-                {/* Expiry Date */}
                 <div className='sm:col-span-2'>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Expiry Date
@@ -484,7 +646,6 @@ const PromoCodesList = () => {
                   <FieldError message={errors.expiresAt} />
                 </div>
 
-                {/* Assigned Milestone */}
                 <div className='sm:col-span-2'>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                     Assigned Milestone
@@ -498,13 +659,13 @@ const PromoCodesList = () => {
                     <option value=''>None (Regular Promo Code)</option>
                     <option value='FIFTH'>5th Stamp Reward</option>
                     <option value='TENTH'>10th Stamp Reward</option>
+                    <option value='FIFTEENTH'>15th Stamp Reward</option>
                   </select>
                 </div>
 
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className='px-6 pb-6 flex gap-3'>
               <button
                 onClick={() => setShowForm(false)}

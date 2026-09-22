@@ -2,6 +2,7 @@ import AppointmentRepository from '../repositories/AppointmentRepository.js';
 import BranchRepository from '../repositories/BranchRepository.js';
 import UserRepository from '../repositories/UserRepository.js';
 import ServiceRepository from '../repositories/ServiceRepository.js';
+import LuckyWheelRepository from '../repositories/LuckyWheelRepository.js';
 import PromoCodeService from './PromoCodeService.js';
 import * as SettingService from './settingService.js';
 import inventoryService from './InventoryService.js';
@@ -68,6 +69,20 @@ class AppointmentService {
       discountAmount = validatedPromo.discountAmount;
     }
 
+    // Lucky Wheel FREE_DISCOUNT: auto-apply if the customer holds one
+    let luckySpin = null;
+    let luckyClaimed = false;
+    const heldSpins = await LuckyWheelRepository.getUserSpins(userId, true);
+    const discountSpin = heldSpins.find((s) => s.prizeType === 'FREE_DISCOUNT');
+    if (discountSpin) {
+      const room = Math.max(0, subtotal - discountAmount);
+      const luckyOff = Math.min(50, room);
+      if (luckyOff > 0) {
+        luckySpin = discountSpin;
+        discountAmount += luckyOff;
+      }
+    }
+
     let vatRate = 0;
     let vatAmount = 0;
     let finalAmount;
@@ -83,15 +98,33 @@ class AppointmentService {
     }
 
     let appointmentCreated = false;
+    let milestoneClaimed = false;
     try {
       const user = await UserRepository.findById(userId);
-      const { preferredPaymentMethod = 'cash', ...otherDetails } = extraDetails;
+      const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, address: _ignoredAddress, ...otherDetails } = extraDetails;
+
+      if (luckySpin) {
+        luckyClaimed = await LuckyWheelRepository.claimSpin(luckySpin.id);
+        if (!luckyClaimed) {
+          throw new ApiError(400, 'Your Lucky Wheel prize was already used');
+        }
+      }
+
+      if (validatedPromo?.assignedMilestone) {
+        milestoneClaimed = await UserRepository.claimMilestone(userId, validatedPromo.assignedMilestone);
+        if (!milestoneClaimed) {
+          throw new ApiError(400, 'You have already claimed this reward, or you have not unlocked it yet');
+        }
+      }
 
       const appointment = await AppointmentRepository.createWithCapacityCheck(
         branchId,
         slotDate,
         {
           userId,
+          luckyWheelSpinId: luckySpin ? luckySpin.id : null,
+          luckyWheelPrizeType: luckySpin ? 'FREE_DISCOUNT' : null,
+          luckyWheelPrizeLabel: luckySpin ? 'Lucky Wheel: ₱50 OFF' : null,
           branchData: branch,
           userData: user,
           services: enrichedServices,
@@ -104,6 +137,7 @@ class AppointmentService {
           vatAmount,
           promoCodeId,
           promoCode: promoCodeStr,
+          assignedMilestone: validatedPromo?.assignedMilestone || null,
           discountType,
           discountValue,
           discountAmount,
@@ -118,13 +152,9 @@ class AppointmentService {
       );
       appointmentCreated = true;
 
-      // ── Milestone redemption AFTER successful booking ─────────────
-      if (validatedPromo?.assignedMilestone === 'FIFTH') {
-        await UserRepository.markFifthStampRedeemed(userId);
-      } else if (validatedPromo?.assignedMilestone === 'TENTH') {
-        await UserRepository.resetLoyaltyCycle(userId);
+      if (luckySpin && luckyClaimed) {
+        await LuckyWheelRepository.linkSpinToAppointment(luckySpin.id, appointment.id);
       }
-      // ──────────────────────────────────────────────────────────────
 
       const slotsBooked = branch.slotsBooked || {};
       if (!slotsBooked[slotDate]) slotsBooked[slotDate] = [];
@@ -138,8 +168,15 @@ class AppointmentService {
 
       return appointment;
     } catch (err) {
-      if (promoCodeId && !appointmentCreated)
-        await PromoCodeService.releasePromoCode(promoCodeId);
+      if (!appointmentCreated) {
+        if (milestoneClaimed) {
+          await UserRepository.unclaimMilestone(userId, validatedPromo.assignedMilestone);
+        }
+        if (luckyClaimed) {
+          await LuckyWheelRepository.unclaimSpin(luckySpin.id);
+        }
+        if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
+      }
       throw err;
     }
   }
@@ -256,7 +293,6 @@ class AppointmentService {
         if (svc.actualKg != null && svc.actualKg > 7) {
           const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
 
-          // ── FIX: Loop until excess is used up (7kg max per basket) ──
           let remainingKg = excessKg;
           while (remainingKg > 0) {
             const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
@@ -269,7 +305,6 @@ class AppointmentService {
             addedPriceTotal += svc.price ?? 0;
             remainingKg -= basketKg;
           }
-          // ──────────────────────────────────────────────────────────
 
           await AppointmentRepository.updateServiceActualKg(svc.id, 7);
         }
@@ -449,7 +484,7 @@ class AppointmentService {
     return { paid: false, status };
   }
 
-  async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
+    async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
 
@@ -460,6 +495,31 @@ class AppointmentService {
 
     if (cancelledBy === 'user' && appointment.deliveryStatus !== 'pending_approval')
       throw new ApiError(400, 'Cancellation is no longer allowed once your appointment has been approved by the branch');
+
+    // Rollback: release reserved resources before cancelling
+    if (appointment.assignedMilestone) {
+      try {
+        await UserRepository.unclaimMilestone(appointment.userId, appointment.assignedMilestone);
+      } catch (err) {
+        console.warn(`[Cancel] Failed to unclaim milestone: ${err.message}`);
+      }
+    }
+
+    if (appointment.promoCodeId) {
+      try {
+        await PromoCodeService.releasePromoCode(appointment.promoCodeId);
+      } catch (err) {
+        console.warn(`[Cancel] Failed to release promo code: ${err.message}`);
+      }
+    }
+
+    if (appointment.luckyWheelSpinId) {
+      try {
+        await LuckyWheelRepository.unclaimSpin(appointment.luckyWheelSpinId);
+      } catch (err) {
+        console.warn(`[Cancel] Failed to unclaim lucky wheel spin: ${err.message}`);
+      }
+    }
 
     await AppointmentRepository.cancelById(appointmentId);
 
@@ -559,21 +619,35 @@ class AppointmentService {
 
       try {
         const updatedUser = await UserRepository.incrementLoyaltyStamps(appointment.userId);
-        const newStampCount = updatedUser.loyaltyStamps;
+        const newStampCount = updatedUser.stampAdded ? updatedUser.loyaltyStamps : null;
 
-        if (newStampCount === 5) {
+        if (newStampCount === 4) {
           await NotificationService.create(
             appointment.userId,
             'stamp_milestone_5',
             'Reward Unlocked!',
-            'You\'ve earned your 5th stamp! Check your profile for your reward.'
+            'You now have 4 stamps — your 5th order gets 10% OFF!'
           );
-        } else if (newStampCount === 10) {
+        } else if (newStampCount === 9) {
           await NotificationService.create(
             appointment.userId,
             'stamp_milestone_10',
             'Reward Unlocked!',
-            'You\'ve earned your 10th stamp! Check your profile for your reward.'
+            'You now have 9 stamps — your 10th order gets 50% OFF!'
+          );
+        } else if (newStampCount === 14) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_15',
+            'Reward Unlocked!',
+            'You now have 14 stamps — your 15th order gets ₱100 OFF!'
+          );
+        } else if (newStampCount === 20) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_20',
+            'LUCKY WHEEL READY!',
+            'You\'ve earned your 20th stamp! Spin the Lucky Wheel for amazing prizes!'
           );
         }
       } catch (err) {
@@ -649,7 +723,6 @@ class AppointmentService {
     const addOnsTotal = addOns.reduce((sum, a) => sum + a.price * a.quantity, 0);
     const subtotal = servicesTotal + addOnsTotal;
 
-    // ─── PROMO CODE VALIDATION ────────────────────────────────────
     let promoCodeId = null;
     let promoCodeStr = null;
     let discountType = null;
@@ -664,6 +737,20 @@ class AppointmentService {
       discountType = validatedPromo.discountType;
       discountValue = validatedPromo.discountValue;
       discountAmount = validatedPromo.discountAmount;
+    }
+
+    // Lucky Wheel FREE_DISCOUNT: auto-apply if the customer holds one
+    let luckySpin = null;
+    let luckyClaimed = false;
+    const heldSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
+    const discountSpin = heldSpins.find((s) => s.prizeType === 'FREE_DISCOUNT');
+    if (discountSpin) {
+      const room = Math.max(0, subtotal - discountAmount);
+      const luckyOff = Math.min(50, room);
+      if (luckyOff > 0) {
+        luckySpin = discountSpin;
+        discountAmount += luckyOff;
+      }
     }
 
     let vatRate = 0;
@@ -681,10 +768,25 @@ class AppointmentService {
     }
 
     let appointmentCreated = false;
+    let milestoneClaimed = false;
     try {
       const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, address: _ignoredAddress, ...otherDetails } = extraDetails;
 
       const userEmail = email || user.email;
+
+      if (luckySpin) {
+        luckyClaimed = await LuckyWheelRepository.claimSpin(luckySpin.id);
+        if (!luckyClaimed) {
+          throw new ApiError(400, 'Your Lucky Wheel prize was already used');
+        }
+      }
+
+      if (validatedPromo?.assignedMilestone) {
+        milestoneClaimed = await UserRepository.claimMilestone(user.id, validatedPromo.assignedMilestone);
+        if (!milestoneClaimed) {
+          throw new ApiError(400, 'You have already claimed this reward, or you have not unlocked it yet');
+        }
+      }
 
       const appointment = await AppointmentRepository.createWithCapacityCheck(
         branchId,
@@ -695,6 +797,9 @@ class AppointmentService {
           guestName: guestName || null,
           guestContact: phone,
           fulfillmentMethod,
+          luckyWheelSpinId: luckySpin ? luckySpin.id : null,
+          luckyWheelPrizeType: luckySpin ? 'FREE_DISCOUNT' : null,
+          luckyWheelPrizeLabel: luckySpin ? 'Lucky Wheel: ₱50 OFF' : null,
           branchData: branch,
           userData: user,
           services: enrichedServices,
@@ -707,6 +812,7 @@ class AppointmentService {
           vatAmount,
           promoCodeId,
           promoCode: promoCodeStr,
+          assignedMilestone: validatedPromo?.assignedMilestone || null,
           discountType,
           discountValue,
           discountAmount,
@@ -723,7 +829,10 @@ class AppointmentService {
       );
       appointmentCreated = true;
 
-      // ── Save delivery address if provided ──────────────────────────
+      if (luckySpin && luckyClaimed) {
+        await LuckyWheelRepository.linkSpinToAppointment(luckySpin.id, appointment.id);
+      }
+
       if (fulfillmentMethod === 'DELIVERY' && extraDetails.address && extraDetails.address.trim()) {
         try {
           await UserRepository.updateById(user.id, { address: extraDetails.address.trim() });
@@ -731,15 +840,6 @@ class AppointmentService {
           console.warn(`[Address] Failed to save address: ${err.message}`);
         }
       }
-      // ─────────────────────────────────────────────────────────────
-
-      // ── Milestone redemption AFTER successful booking ─────────────
-      if (validatedPromo?.assignedMilestone === 'FIFTH') {
-        await UserRepository.markFifthStampRedeemed(user.id);
-      } else if (validatedPromo?.assignedMilestone === 'TENTH') {
-        await UserRepository.resetLoyaltyCycle(user.id);
-      }
-      // ──────────────────────────────────────────────────────────────
 
       if (preferredPaymentMethod === 'online' && userEmail) {
         try {
@@ -759,7 +859,6 @@ class AppointmentService {
             if (svc.actualKg != null && svc.actualKg > 7) {
               const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
 
-              // ── FIX: Loop until excess is used up (7kg max per basket) ──
               let remainingKg = excessKg;
               while (remainingKg > 0) {
                 const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
@@ -772,7 +871,6 @@ class AppointmentService {
                 addedPriceTotal += svc.price ?? 0;
                 remainingKg -= basketKg;
               }
-              // ──────────────────────────────────────────────────────────
 
               await AppointmentRepository.updateServiceActualKg(svc.id, 7);
             }
@@ -827,29 +925,42 @@ class AppointmentService {
 
       return await AppointmentRepository.findById(appointment.id);
     } catch (err) {
-      if (promoCodeId && !appointmentCreated) await PromoCodeService.releasePromoCode(promoCodeId);
+      if (!appointmentCreated) {
+        if (milestoneClaimed) {
+          await UserRepository.unclaimMilestone(user.id, validatedPromo.assignedMilestone);
+        }
+        if (luckyClaimed) {
+          await LuckyWheelRepository.unclaimSpin(luckySpin.id);
+        }
+        if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
+      }
       throw err;
     }
   }
 
-      async lookupUserByPhone(phone) {
+  async lookupUserByPhone(phone) {
     const user = await UserRepository.findByPhone(phone);
     if (!user) return null;
 
-    const { fifthStampReward, tenthStampReward } =
-      await PromoCodeService.getMilestoneRewards();
+    const { fifthStampReward, tenthStampReward, fifteenthStampReward } =
+      await PromoCodeService.getLoyaltyStatus(user);
 
-    // Convert address object to readable string
     let addressString = null;
     if (user.address) {
       if (typeof user.address === 'string') {
         addressString = user.address;
       } else if (typeof user.address === 'object') {
-        // Join line1 + line2 with comma separator
         addressString = [user.address.line1, user.address.line2]
           .filter(Boolean)
           .join(', ');
       }
+    }
+
+    let unredeemedSpins = [];
+    try {
+      unredeemedSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
+    } catch (err) {
+      console.warn(`[LuckyWheel] Failed to fetch unredeemed spins: ${err.message}`);
     }
 
     return {
@@ -859,8 +970,12 @@ class AppointmentService {
       address: addressString,
       loyaltyStamps: user.loyaltyStamps,
       fifthStampRedeemedAt: user.fifthStampRedeemedAt,
+      tenthStampRedeemedAt: user.tenthStampRedeemedAt,
+      fifteenthStampRedeemedAt: user.fifteenthStampRedeemedAt,
       fifthStampReward,
       tenthStampReward,
+      fifteenthStampReward,
+      unredeemedSpins,
     };
   }
 

@@ -18,48 +18,49 @@ enum StaffRole {
 }
 
 model User {
-  id                    String    @id @default(uuid())
-  name                  String
-  email                 String    @unique
-  password              String?
-  googleId              String?
-  image                 String    @default("...")
-  address               Json      @default("{}")
-  gender                String    @default("Not Selected")
-  dob                   String    @default("Not Selected")
-  phone                 String    @default("0000000000")
-  loyaltyStamps         Int       @default(0)
-  fifthStampRedeemedAt  DateTime?
-  tenthStampRedeemedAt  DateTime?
-  isActive              Boolean   @default(true)
-  resetPasswordToken    String?
-  resetPasswordExpires  DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @default(now()) @updatedAt
+  id                        String           @id @default(uuid())
+  name                      String
+  email                     String           @unique
+  password                  String?
+  googleId                  String?
+  image                     String           @default("...")
+  address                   Json             @default("{}")
+  gender                    String           @default("Not Selected")
+  dob                       String           @default("Not Selected")
+  phone                     String           @default("0000000000")
+  loyaltyStamps             Int              @default(0)
+  fifthStampRedeemedAt      DateTime?
+  tenthStampRedeemedAt      DateTime?
+  fifteenthStampRedeemedAt  DateTime?
+  isActive                  Boolean          @default(true)
+  resetPasswordToken        String?
+  resetPasswordExpires      DateTime?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @default(now()) @updatedAt
 
   notifications        Notification[]
+  luckyWheelSpins      LuckyWheelSpin[]
 
   @@unique([phone])
   @@map("users")
 }
 
 model Branch {
-  id           String      @id @default(uuid())
+  id           String        @id @default(uuid())
   name         String
-  machineCount Int         @default(10)
-  // Tinanggal: email at password
+  machineCount Int           @default(10)
   phone        String
   image        String
   speciality   String[]
   about        String
-  fees         Int         @default(0)
+  fees         Int           @default(0)
   address      Json
-  available    Boolean     @default(true)
-  slotsBooked  Json        @default("{}")
-  date         BigInt      @default(0)
-  isActive     Boolean     @default(true)
+  available    Boolean       @default(true)
+  slotsBooked  Json          @default("{}")
+  date         BigInt        @default(0)
+  isActive     Boolean       @default(true)
   inventories  Inventory[]
-  staff        BranchStaff[] // Idinagdag ang relation sa BranchStaff
+  staff        BranchStaff[]
 
   @@map("branches")
 }
@@ -99,6 +100,7 @@ model Appointment {
   vatAmount              Float                     @default(0)
   promoCodeId            String?
   promoCode              String?
+  assignedMilestone      String?          // ADD THIS LINE
   discountType           String?
   discountValue          Float                     @default(0)
   discountAmount         Float                     @default(0)
@@ -144,6 +146,9 @@ model Appointment {
   archived               Boolean                   @default(false)
   archivedAt             DateTime?
   archivedBy             String?
+  luckyWheelSpinId       String?
+  luckyWheelPrizeType    String?
+  luckyWheelPrizeLabel   String?
 
   @@map("appointments")
 }
@@ -256,7 +261,7 @@ model Inventory {
   productId         String
   quantity          Float    @default(0)
   lowStockThreshold Float    @default(5)
-  lastUpdatedBy     String?  // Idinagdag - ID ng BranchStaff na huling nag-adjust
+  lastUpdatedBy     String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   branch            Branch   @relation(fields: [branchId], references: [id])
@@ -277,7 +282,7 @@ model PromoCode {
   usedCount         Int       @default(0)
   expiresAt         DateTime?
   isActive          Boolean   @default(true)
-  assignedMilestone String?   // 'FIFTH' | 'TENTH' | null
+  assignedMilestone String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -321,18 +326,18 @@ model Setting {
 }
 
 model BranchStaff {
-  id         String    @id @default(uuid())
-  firstName  String
-  lastName   String
-  email      String    @unique
-  password   String    // will be hashed
-  role       StaffRole @default(STAFF)
-  branchId   String
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id        String    @id @default(uuid())
+  firstName String
+  lastName  String
+  email     String    @unique
+  password  String
+  role      StaffRole @default(STAFF)
+  branchId  String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  branch     Branch    @relation(fields: [branchId], references: [id])
+  branch    Branch    @relation(fields: [branchId], references: [id])
 
   @@map("branch_staff")
 }
@@ -341,7 +346,7 @@ model Notification {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // hal. 'picked_up' | 'delivered' | 'stamp_milestone_5' | 'stamp_milestone_10' | atbp.
+  type      String
   title     String
   message   String
   read      Boolean  @default(false)
@@ -349,6 +354,41 @@ model Notification {
 
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+model LuckyWheelSetup {
+  id                String   @id @default(uuid())
+  availableServices String[] @default([])
+  discountAmount    Float    @default(50)
+  bagPrizeName      String   @default("Selfie Wash Laundry Bag")
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("lucky_wheel_setup")
+}
+
+model LuckyWheelSpin {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  slotNumber    Int
+  prizeType     String
+  selectedValue String?
+  promoCodeId   String?
+  promoCode     String?
+  isRedeemed    Boolean   @default(false)
+  redeemedAt    DateTime?
+  redeemedBy    String?
+  spinDate      DateTime  @default(now())
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  appointmentId String?
+
+  @@index([userId, createdAt])
+  @@index([prizeType, isRedeemed])
+  @@map("lucky_wheel_spins")
 }
 
 enum AuditAction {

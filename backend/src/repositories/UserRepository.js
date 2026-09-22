@@ -46,8 +46,6 @@ class UserRepository {
     return await prisma.user.findMany({ select: SAFE_FIELDS });
   }
 
-  // ── User Maintenance (Admin) ──────────────────────────────────────────────
-
   async findAllPaginated({ page = 1, limit = 15, search, isActive } = {}) {
     const where = {};
     if (typeof isActive === 'boolean') where.isActive = isActive;
@@ -81,8 +79,6 @@ class UserRepository {
     });
   }
 
-  // ─── Forgot Password ──────────────────────────────────────────────────────
-
   async findByResetToken(hashedToken) {
     return await prisma.user.findFirst({
       where: {
@@ -106,12 +102,13 @@ class UserRepository {
     });
   }
 
-  // ─── Loyalty Stamps ───────────────────────────────────────────────────────
   async incrementLoyaltyStamps(userId) {
-    return await prisma.user.update({
-      where: { id: userId },
+    const res = await prisma.user.updateMany({
+      where: { id: userId, loyaltyStamps: { lt: 20 } },
       data: { loyaltyStamps: { increment: 1 } },
     });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return { ...user, stampAdded: res.count === 1 };
   }
 
   async markFifthStampRedeemed(userId) {
@@ -128,10 +125,51 @@ class UserRepository {
     });
   }
 
+  async markFifteenthStampRedeemed(userId) {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { fifteenthStampRedeemedAt: new Date() },
+    });
+  }
+
+  // Atomic claim: succeeds only if the field is still null
+  async claimMilestone(userId, milestone) {
+    const field = {
+      FIFTH: 'fifthStampRedeemedAt',
+      TENTH: 'tenthStampRedeemedAt',
+      FIFTEENTH: 'fifteenthStampRedeemedAt',
+    }[milestone];
+    if (!field) return false;
+    const res = await prisma.user.updateMany({
+      where: { id: userId, [field]: null },
+      data: { [field]: new Date() },
+    });
+    return res.count === 1;
+  }
+
+  // Compensation: undo a claim if the appointment failed
+  async unclaimMilestone(userId, milestone) {
+    const field = {
+      FIFTH: 'fifthStampRedeemedAt',
+      TENTH: 'tenthStampRedeemedAt',
+      FIFTEENTH: 'fifteenthStampRedeemedAt',
+    }[milestone];
+    if (!field) return;
+    await prisma.user.update({
+      where: { id: userId },
+      data: { [field]: null },
+    });
+  }
+
   async resetLoyaltyCycle(userId) {
     return await prisma.user.update({
       where: { id: userId },
-      data: { loyaltyStamps: 0, fifthStampRedeemedAt: null, tenthStampRedeemedAt: null },
+      data: {
+        loyaltyStamps: 0,
+        fifthStampRedeemedAt: null,
+        tenthStampRedeemedAt: null,
+        fifteenthStampRedeemedAt: null,
+      },
     });
   }
 }

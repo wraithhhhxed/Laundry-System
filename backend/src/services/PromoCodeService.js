@@ -4,19 +4,16 @@ import { ApiError } from '../utils/ApiError.js'
 
 class PromoCodeService {
 
-  // ─── ADMIN: GET ALL ────────────────────────────────────────────────────────
   async getAllPromoCodes({ page, limit, search, isActive } = {}) {
     return PromoCodeRepository.findAll({ page, limit, search, isActive })
   }
 
-  // ─── ADMIN: GET BY ID ──────────────────────────────────────────────────────
   async getPromoCodeById(id) {
     const promoCode = await PromoCodeRepository.findById(id)
     if (!promoCode) throw new ApiError(404, 'Promo code not found')
     return promoCode
   }
 
-  // ─── ADMIN: CREATE ─────────────────────────────────────────────────────────
   async createPromoCode(data) {
     data.code = data.code?.toUpperCase().trim()
 
@@ -32,7 +29,6 @@ class PromoCodeService {
     return PromoCodeRepository.create(data)
   }
 
-  // ─── ADMIN: UPDATE ─────────────────────────────────────────────────────────
   async updatePromoCode(id, data) {
     if (data.code) {
       data.code = data.code.toUpperCase().trim()
@@ -49,32 +45,24 @@ class PromoCodeService {
     return updated
   }
 
-  // ─── ADMIN: DELETE ─────────────────────────────────────────────────────────
   async deletePromoCode(id) {
     const deleted = await PromoCodeRepository.deleteById(id)
     if (!deleted) throw new ApiError(404, 'Promo code not found')
     return deleted
   }
 
-  // ─── ADMIN: TOGGLE ACTIVE ──────────────────────────────────────────────────
   async togglePromoCode(id) {
     const promoCode = await this.getPromoCodeById(id)
     return PromoCodeRepository.updateById(id, { isActive: !promoCode.isActive })
   }
 
-  // ─── USER: VALIDATE & RESERVE (atomic) ────────────────────────────────────
-  // Atomically checks eligibility AND increments usedCount in one DB round-trip.
-  // This eliminates the race condition where two users both pass a maxUses=1 check.
-  // If booking subsequently fails, call releasePromoCode(promoCodeId) to undo.
   async validateAndReservePromoCode(code, orderSubtotal, userId = null) {
     if (!code) throw new ApiError(400, 'Promo code is required')
     if (!orderSubtotal || orderSubtotal <= 0) throw new ApiError(400, 'Invalid order subtotal')
 
-    // Single atomic reserve — only one concurrent caller can win
     const promo = await PromoCodeRepository.reserveUse(code, orderSubtotal)
 
     if (!promo) {
-      // reserveUse returned null — find the code to give a specific error message
       const found = await PromoCodeRepository.findByCode(code)
       if (!found)                                          throw new ApiError(404, 'Promo code not found')
       if (!found.isActive)                                 throw new ApiError(400, 'Promo code is inactive')
@@ -86,7 +74,6 @@ class PromoCodeService {
       throw new ApiError(400, 'Promo code is not eligible')
     }
 
-    // ── NEW: per-user milestone eligibility check ──────────────────────
     if (promo.assignedMilestone) {
       if (!userId) {
         await PromoCodeRepository.releaseUse(promo.id)
@@ -101,9 +88,13 @@ class PromoCodeService {
 
       let eligible = false
       if (promo.assignedMilestone === 'FIFTH') {
-        eligible = user.loyaltyStamps >= 5 && !user.fifthStampRedeemedAt
+        eligible = user.loyaltyStamps >= 4 && !user.fifthStampRedeemedAt
       } else if (promo.assignedMilestone === 'TENTH') {
-        eligible = user.loyaltyStamps >= 10 && !user.tenthStampRedeemedAt
+        eligible = user.loyaltyStamps >= 9 && !user.tenthStampRedeemedAt
+      } else if (promo.assignedMilestone === 'FIFTEENTH') {
+        eligible = user.loyaltyStamps >= 14 && !user.fifteenthStampRedeemedAt
+      } else if (promo.assignedMilestone === 'LUCKY_WHEEL') {
+        eligible = true
       }
 
       if (!eligible) {
@@ -111,7 +102,6 @@ class PromoCodeService {
         throw new ApiError(400, 'You have already claimed this reward, or you have not unlocked it yet')
       }
     }
-    // ─────────────────────────────────────────────────────────────────
 
     const discountAmount = this._computeDiscount(promo, orderSubtotal)
 
@@ -125,42 +115,56 @@ class PromoCodeService {
     }
   }
 
-  // ─── USER: LOYALTY STATUS ──────────────────────────────────────────────────
   async getLoyaltyStatus(user) {
-    const [fifthCode, tenthCode] = await Promise.all([
+    const [fifthCode, tenthCode, fifteenthCode] = await Promise.all([
       PromoCodeRepository.findByMilestone('FIFTH'),
       PromoCodeRepository.findByMilestone('TENTH'),
+      PromoCodeRepository.findByMilestone('FIFTEENTH'),
     ])
 
-    const fifthEligible = user.loyaltyStamps >= 5 && !user.fifthStampRedeemedAt
-    const tenthEligible = user.loyaltyStamps >= 10 && !user.tenthStampRedeemedAt
+    const fifthEligible     = user.loyaltyStamps >= 4  && !user.fifthStampRedeemedAt
+    const tenthEligible     = user.loyaltyStamps >= 9  && !user.tenthStampRedeemedAt
+    const fifteenthEligible = user.loyaltyStamps >= 14 && !user.fifteenthStampRedeemedAt
 
     return {
       loyaltyStamps: user.loyaltyStamps,
-      fifthAvailable: !!fifthCode && fifthEligible,
-      tenthAvailable: !!tenthCode && tenthEligible,
-      fifthStampRedeemedAt: user.fifthStampRedeemedAt,
-      tenthStampRedeemedAt: user.tenthStampRedeemedAt,
+
+      fifthAvailable:     !!fifthCode     && fifthEligible,
+      tenthAvailable:     !!tenthCode     && tenthEligible,
+      fifteenthAvailable: !!fifteenthCode && fifteenthEligible,
+
+      fifthStampRedeemedAt:     user.fifthStampRedeemedAt,
+      tenthStampRedeemedAt:     user.tenthStampRedeemedAt,
+      fifteenthStampRedeemedAt: user.fifteenthStampRedeemedAt,
+
       fifthStampReward: (fifthCode && fifthEligible) ? {
         code: fifthCode.code,
         description: fifthCode.description,
         discountType: fifthCode.discountType,
         discountValue: fifthCode.discountValue,
       } : null,
+
       tenthStampReward: (tenthCode && tenthEligible) ? {
         code: tenthCode.code,
         description: tenthCode.description,
         discountType: tenthCode.discountType,
         discountValue: tenthCode.discountValue,
       } : null,
+
+      fifteenthStampReward: (fifteenthCode && fifteenthEligible) ? {
+        code: fifteenthCode.code,
+        description: fifteenthCode.description,
+        discountType: fifteenthCode.discountType,
+        discountValue: fifteenthCode.discountValue,
+      } : null,
     }
   }
 
-  // ─── USER: GET MILESTONE REWARDS (for walk-in lookup) ────────────────────
   async getMilestoneRewards() {
-    const [fifthPromo, tenthPromo] = await Promise.all([
+    const [fifthPromo, tenthPromo, fifteenthPromo] = await Promise.all([
       PromoCodeRepository.findByMilestone('FIFTH'),
       PromoCodeRepository.findByMilestone('TENTH'),
+      PromoCodeRepository.findByMilestone('FIFTEENTH'),
     ]);
 
     return {
@@ -170,21 +174,27 @@ class PromoCodeService {
         discountType: fifthPromo.discountType,
         discountValue: fifthPromo.discountValue,
       } : null,
+
       tenthStampReward: tenthPromo ? {
         code: tenthPromo.code,
         description: tenthPromo.description,
         discountType: tenthPromo.discountType,
         discountValue: tenthPromo.discountValue,
       } : null,
+
+      fifteenthStampReward: fifteenthPromo ? {
+        code: fifteenthPromo.code,
+        description: fifteenthPromo.description,
+        discountType: fifteenthPromo.discountType,
+        discountValue: fifteenthPromo.discountValue,
+      } : null,
     };
   }
 
-  // ─── INTERNAL: Release a reservation if booking fails after reserve ────────
   async releasePromoCode(promoCodeId) {
     return PromoCodeRepository.releaseUse(promoCodeId)
   }
 
-  // ─── HELPER ────────────────────────────────────────────────────────────────
   _computeDiscount(promo, subtotal) {
     if (promo.discountType === 'flat') {
       return Math.min(promo.discountValue, subtotal)

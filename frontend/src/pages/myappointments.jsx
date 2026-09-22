@@ -248,7 +248,7 @@ const AppointmentCard = ({
             {item.promoCode && (
               <div className='mt-2 bg-green-50 border border-green-200 px-3 py-2'>
                 <p className='font-sans text-sm text-green-700 font-bold mb-1'>
-                  ✓ Promo Applied: <strong>{item.promoCode}</strong>
+                   Promo Applied: <strong>{item.promoCode}</strong>
                 </p>
                 <p className='font-sans text-xs text-green-600'>
                   {item.discountType === 'percent'
