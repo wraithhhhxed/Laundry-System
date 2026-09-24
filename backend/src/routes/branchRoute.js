@@ -28,6 +28,7 @@ import {
 } from '../controllers/promoCodeController.js'
 import {
   spinWheelForCustomer,
+  getWheelSetup,
 } from '../controllers/LuckyWheelController.js'
 
 const branchRouter = express.Router()
@@ -66,6 +67,7 @@ branchRouter.get('/lookup-phone/:phone',     protect('branch'), lookupPhone)
 branchRouter.post('/archive-appointment',    protect('branch'), archiveAppointment)
 
 // Lucky Wheel (walk-in staff spin)
+branchRouter.get('/lucky-wheel/setup', protect('branch'), getWheelSetup)
 branchRouter.post('/lucky-wheel/spin', protect('branch'), spinWheelForCustomer)
 
 // Promo Codes (read-only)

@@ -29,6 +29,7 @@ const BranchesContextProvider = (props) => {
   const [appointments, setAppointments]   = useState([])
   const [dashData, setDashData]           = useState(null)
   const [walkInServices, setWalkInServices] = useState([])
+  const [wheelDiscountAmount, setWheelDiscountAmount] = useState(50)
 
   const getWalkInServices = async () => {
     try {
@@ -37,6 +38,15 @@ const BranchesContextProvider = (props) => {
       else toast.error(data.message)
     } catch (error) {
       toast.error(error.message)
+    }
+  }
+
+  const getWheelDiscountAmount = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + '/api/branch/lucky-wheel/setup', { headers: authHeader(bToken) })
+      if (data.success) setWheelDiscountAmount(data.data?.discountAmount ?? 50)
+    } catch (error) {
+      // silent fallback to default 50
     }
   }
 
@@ -399,6 +409,7 @@ const BranchesContextProvider = (props) => {
     archiveAppointment,
     confirmPayment,
     walkInServices, getWalkInServices,
+    wheelDiscountAmount, getWheelDiscountAmount,
     lookupPhone,
     createWalkInAppointment,
     spinWheelForCustomer,

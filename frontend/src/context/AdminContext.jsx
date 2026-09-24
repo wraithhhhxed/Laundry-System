@@ -21,6 +21,7 @@ const AdminContextProvider = (props) => {
   const [promoCodes, setPromoCodes]       = useState([])
   const [extraServices, setExtraServices] = useState([])
   const [walkInServices, setWalkInServices] = useState([])
+  const [wheelDiscountAmount, setWheelDiscountAmount] = useState(50)
 
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
@@ -396,6 +397,15 @@ const AdminContextProvider = (props) => {
     }
   }
 
+  const getWheelDiscountAmount = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + '/api/admin/lucky-wheel/setup', { headers: authHeader(aToken) })
+      if (data.success) setWheelDiscountAmount(data.data?.discountAmount ?? 50)
+    } catch (error) {
+      // silent fallback to default 50
+    }
+  }
+
   const lookupPhone = async (phone) => {
     try {
       const { data } = await axios.get(
@@ -616,6 +626,7 @@ const AdminContextProvider = (props) => {
     promoCodes, getAllPromoCodes, addPromoCode, updatePromoCode, deletePromoCode, togglePromoCode,
     extraServices, getAllExtraServices, addExtraService, updateExtraService, toggleExtraService, deleteExtraService,
     walkInServices, getWalkInServices,
+    wheelDiscountAmount, getWheelDiscountAmount,
     lookupPhone,
     createWalkInAppointment,
     spinWheelForCustomer,

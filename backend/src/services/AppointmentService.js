@@ -79,12 +79,14 @@ class AppointmentService {
     const bagSpin = heldSpins.find((s) => s.prizeType === 'FREE_BAG');
 
     if (discountSpin) {
+      const wheelSetup = await LuckyWheelRepository.getSetup();
+      const wheelDiscountAmount = wheelSetup?.discountAmount ?? 50;
       const room = Math.max(0, subtotal - discountAmount);
-      const luckyOff = Math.min(50, room);
+      const luckyOff = Math.min(wheelDiscountAmount, room);
       if (luckyOff > 0) {
         luckySpin = discountSpin;
         luckyPrizeType = 'FREE_DISCOUNT';
-        luckyPrizeLabel = 'Lucky Wheel: ₱50 OFF';
+        luckyPrizeLabel = `Lucky Wheel: ₱${wheelDiscountAmount} OFF`;
         discountAmount += luckyOff;
       }
     } else if (bagSpin) {
@@ -757,12 +759,14 @@ class AppointmentService {
     const bagSpin = heldSpins.find((s) => s.prizeType === 'FREE_BAG');
 
     if (discountSpin) {
+      const wheelSetup = await LuckyWheelRepository.getSetup();
+      const wheelDiscountAmount = wheelSetup?.discountAmount ?? 50;
       const room = Math.max(0, subtotal - discountAmount);
-      const luckyOff = Math.min(50, room);
+      const luckyOff = Math.min(wheelDiscountAmount, room);
       if (luckyOff > 0) {
         luckySpin = discountSpin;
         luckyPrizeType = 'FREE_DISCOUNT';
-        luckyPrizeLabel = 'Lucky Wheel: ₱50 OFF';
+        luckyPrizeLabel = `Lucky Wheel: ₱${wheelDiscountAmount} OFF`;
         discountAmount += luckyOff;
       }
     } else if (bagSpin) {

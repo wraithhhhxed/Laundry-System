@@ -94,7 +94,7 @@ class PromoCodeService {
       } else if (promo.assignedMilestone === 'FIFTEENTH') {
         eligible = user.loyaltyStamps >= 14 && !user.fifteenthStampRedeemedAt
       } else if (promo.assignedMilestone === 'LUCKY_WHEEL') {
-        eligible = true
+        eligible = user.loyaltyStamps >= 19
       }
 
       if (!eligible) {

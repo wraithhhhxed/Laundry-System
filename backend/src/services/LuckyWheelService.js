@@ -18,7 +18,7 @@ class LuckyWheelService {
     if (!user) throw new ApiError(404, 'User not found')
 
     if (user.loyaltyStamps < 19)
-  throw new ApiError(400, 'User must have at least 19 stamps to spin')
+      throw new ApiError(400, 'User must have at least 19 stamps to spin')
 
     const existingUnredeemed = await LuckyWheelRepository.getUserSpins(userId, true)
     if (existingUnredeemed.length > 0)
@@ -56,8 +56,6 @@ class LuckyWheelService {
       await LuckyWheelRepository.updateSpin(createdSpin.id, { selectedValue: selectedService })
     }
 
-    
-
     const spin = await LuckyWheelRepository.getSpinById(createdSpin.id)
     return { spin, slotNumber, prizeType }
   }
@@ -71,19 +69,22 @@ class LuckyWheelService {
     const setup = await LuckyWheelRepository.getSetup()
 
     if (spin.prizeType === 'FREE_SERVICE') {
+      // If spinWheel already picked the service, keep it — don't re-randomize.
+      if (spin.selectedValue) {
+        return spin
+      }
+
       if (!setup.availableServices || setup.availableServices.length === 0)
         throw new ApiError(400, 'No services available for lucky wheel')
 
       const randomIndex = Math.floor(Math.random() * setup.availableServices.length)
       const selectedService = setup.availableServices[randomIndex]
       await LuckyWheelRepository.updateSpin(spinId, { selectedValue: selectedService })
-    } else if (spin.prizeType === 'FREE_DISCOUNT') {
-      const code = await this.generatePromoCodeForPrize(spin, 'DISCOUNT')
-      await LuckyWheelRepository.updateSpin(spinId, { promoCodeId: code.id, promoCode: code.code })
-    } else if (spin.prizeType === 'FREE_BAG') {
-      const code = await this.generatePromoCodeForPrize(spin, 'BAG')
-      await LuckyWheelRepository.updateSpin(spinId, { promoCodeId: code.id, promoCode: code.code })
     }
+    // FREE_DISCOUNT and FREE_BAG no longer generate promo codes.
+    // The discount / bag prize is applied automatically by
+    // AppointmentService.bookAppointment() and createWalkInAppointment()
+    // based on the held spin's prizeType.
 
     return await LuckyWheelRepository.getSpinById(spinId)
   }
@@ -93,10 +94,13 @@ class LuckyWheelService {
     let code, description, discountType, discountValue
 
     if (type === 'DISCOUNT') {
+      const setup = await LuckyWheelRepository.getSetup()
+      const wheelDiscountAmount = setup?.discountAmount ?? 50
+
       code = `FREEDISCOUNT${timestamp}`
-      description = 'Lucky Wheel: Free ₱50 Discount'
+      description = `Lucky Wheel: Free ₱${wheelDiscountAmount} Discount`
       discountType = 'flat'
-      discountValue = 50
+      discountValue = wheelDiscountAmount
     } else if (type === 'BAG') {
       code = `FREELAUNDYBAG${timestamp}`
       description = 'Lucky Wheel: Free Laundry Bag'
