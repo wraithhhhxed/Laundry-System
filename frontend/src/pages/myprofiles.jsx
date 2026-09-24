@@ -16,17 +16,39 @@ const MILESTONES = {
   20: { label: 'Lucky Wheel', short: 'WHEEL' },
 }
 
-// Lucky Wheel prizes — kailangan tumugma sa backend prizes
 const WHEEL_PRIZES = [
-  { type: 'FREE_DISCOUNT', label: '₱50 OFF',      color: '#8b5cf6' },
-  { type: 'FREE_SERVICE',  label: 'FREE SERVICE', color: '#3b82f6' },
-  { type: 'FREE_BAG',      label: 'FREE BAG',     color: '#8b5cf6' },
-  { type: 'FREE_DISCOUNT', label: '₱50 OFF',      color: '#3b82f6' },
-  { type: 'FREE_SERVICE',  label: 'FREE SERVICE', color: '#8b5cf6' },
-  { type: 'FREE_BAG',      label: 'FREE BAG',     color: '#3b82f6' },
+  { type: 'FREE_DISCOUNT', label: '₱50 OFF' },
+  { type: 'FREE_SERVICE',  label: 'FREE SERVICE' },
+  { type: 'FREE_BAG',      label: 'FREE BAG' },
+  { type: 'FREE_DISCOUNT', label: '₱50 OFF' },
+  { type: 'FREE_SERVICE',  label: 'FREE SERVICE' },
+  { type: 'FREE_BAG',      label: 'FREE BAG' },
 ]
 
 const SEGMENT_ANGLE = 360 / WHEEL_PRIZES.length
+const SEGMENT_COLORS = ['#2563eb', '#1d4ed8']
+
+// Convert polar coords to cartesian (SVG coordinate space)
+const polarToCartesian = (cx, cy, r, angleDeg) => {
+  const rad = ((angleDeg - 90) * Math.PI) / 180
+  return {
+    x: cx + r * Math.cos(rad),
+    y: cy + r * Math.sin(rad),
+  }
+}
+
+// Build a single pie-slice path from center
+const describeArc = (cx, cy, r, startAngle, endAngle) => {
+  const start = polarToCartesian(cx, cy, r, endAngle)
+  const end   = polarToCartesian(cx, cy, r, startAngle)
+  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
+  return [
+    `M ${cx} ${cy}`,
+    `L ${start.x} ${start.y}`,
+    `A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    'Z',
+  ].join(' ')
+}
 
 const MyProfiles = () => {
   const { userData, setUserData, backendUrl, token, loadUserProfileData } = useContext(AppContext)
@@ -97,7 +119,6 @@ const MyProfiles = () => {
     }
   }
 
-  // ── Lucky Wheel spin ──────────────────────────────────────────────────
   const handleSpin = async () => {
     if (spinning) return
     setSpinning(true)
@@ -129,7 +150,6 @@ const MyProfiles = () => {
     }, 3600)
   }
 
-  // Isara ang modal — hindi pwedeng isara habang umiikot
   const closeWheelModal = () => {
     if (spinning) return
     setShowWheelModal(false)
@@ -386,7 +406,7 @@ const MyProfiles = () => {
                         5:  !!(loyalty.fifthAvailable || loyalty.fifthStampRedeemedAt),
                         10: !!(loyalty.tenthAvailable || loyalty.tenthStampRedeemedAt),
                         15: !!(loyalty.fifteenthAvailable || loyalty.fifteenthStampRedeemedAt),
-                        20: (loyalty.loyaltyStamps || 0) >= 20,
+                        20: (loyalty.loyaltyStamps || 0) >= 19,
                       }
                       const hintMap = { 5: 'Unlocks at 4 stamps', 10: 'Unlocks at 9 stamps', 15: 'Unlocks at 14 stamps', 20: 'At 20 stamps' }
                       const unlocked = unlockedMap[stampNum]
@@ -413,8 +433,8 @@ const MyProfiles = () => {
                   </div>
 
                   {heldPrize && (
-                    <div className='border-2 border-purple-200 bg-purple-50 p-4'>
-                      <p className='font-sans text-[10px] font-black uppercase tracking-widest text-purple-500 mb-1'>
+                    <div className='border-2 border-blue-200 bg-blue-50 p-4'>
+                      <p className='font-sans text-[10px] font-black uppercase tracking-widest text-blue-500 mb-1'>
                         Lucky Wheel Prize
                       </p>
                       <p className='font-sans text-sm font-bold text-neutral-800'>
@@ -425,13 +445,13 @@ const MyProfiles = () => {
                     </div>
                   )}
 
-                  {!heldPrize && loyalty.loyaltyStamps >= 20 && (
-                    <p className='font-sans text-xs text-purple-600 font-bold'>
-                      20 stamps reached! Spin the Lucky Wheel below for your grand prize.
+                  {!heldPrize && loyalty.loyaltyStamps >= 19 && (
+                    <p className='font-sans text-xs text-blue-600 font-bold'>
+                      19 stamps reached. Spin the Lucky Wheel below for your grand prize.
                     </p>
                   )}
 
-                  {loyalty.loyaltyStamps < 20 && (() => {
+                  {loyalty.loyaltyStamps < 19 && (() => {
                     const tiers = [
                       { name: '15th', available: loyalty.fifteenthAvailable, redeemedAt: loyalty.fifteenthStampRedeemedAt, label: '₱100 OFF' },
                       { name: '10th', available: loyalty.tenthAvailable,     redeemedAt: loyalty.tenthStampRedeemedAt,     label: '50% OFF' },
@@ -441,15 +461,14 @@ const MyProfiles = () => {
                     if (active) {
                       return (
                         <p className='font-sans text-xs text-blue-600 font-bold'>
-                          {active.name} stamp reward unlocked — {active.label}! Check your promo codes at checkout.
+                          {active.name} stamp reward unlocked — {active.label}. Check your promo codes at checkout.
                         </p>
                       )
                     }
 
                     const claimed = tiers.find(t => t.redeemedAt)
                     const stamps = loyalty.loyaltyStamps || 0
-                    const next = stamps < 4 ? 4 : stamps < 9 ? 9 : stamps < 14 ? 14 : 20
-
+                    const next = stamps < 4 ? 4 : stamps < 9 ? 9 : stamps < 14 ? 14 : 19
                     return (
                       <div className='space-y-1'>
                         {claimed && (
@@ -459,7 +478,7 @@ const MyProfiles = () => {
                         )}
                         {next && (
                           <p className='font-sans text-xs text-neutral-400'>
-                            {next - stamps} more completed order{next - stamps === 1 ? '' : 's'} until {next === 20 ? 'the Lucky Wheel unlocks' : 'your next reward unlocks'}{next === 20 && next - stamps === 1 ? '!' : '.'}
+                            {next - stamps} more completed order{next - stamps === 1 ? '' : 's'} until {next === 19 ? 'the Lucky Wheel unlocks' : 'your next reward unlocks'}.
                           </p>
                         )}
                       </div>
@@ -471,30 +490,28 @@ const MyProfiles = () => {
               )}
             </section>
 
-            {/* ── LUCKY WHEEL CTA (button lang, hindi na inline wheel) ── */}
-            {loyalty && loyalty.loyaltyStamps >= 20 && !heldPrize && (
+            {loyalty && loyalty.loyaltyStamps >= 19 && !heldPrize && (
               <section>
                 <div className='flex items-center gap-4 mb-6'>
-                  <span className='uppercase tracking-[0.3em] text-[10px] text-purple-500 font-sans font-black whitespace-nowrap'>
+                  <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black whitespace-nowrap'>
                     Lucky Wheel
                   </span>
-                  <div className='h-px bg-purple-100 w-full' />
+                  <div className='h-px bg-blue-100 w-full' />
                 </div>
 
-                <div className='bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 p-8 text-center'>
+                <div className='bg-blue-50 border-2 border-blue-200 p-8 text-center'>
                   <p className='font-sans text-sm text-neutral-700 mb-2'>
-                    Congratulations! You've earned <span className='font-black text-purple-600'>20 loyalty stamps</span>!
+                    Congratulations! You've earned <span className='font-black text-blue-600'>{loyalty.loyaltyStamps} loyalty stamps</span>.
                   </p>
                   <p className='font-sans text-xs text-neutral-500 mb-6'>
                     You have one Lucky Wheel spin available. Open the wheel to claim your prize.
                   </p>
                   <button
                     onClick={() => setShowWheelModal(true)}
-                    className='group relative overflow-hidden px-8 py-3 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg transition-all'
+                    className='group relative overflow-hidden px-8 py-3 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors'
                     style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                   >
-                    <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300' />
-                    <span className='relative z-10'>🎡 Open Lucky Wheel</span>
+                    <span className='relative z-10'>Open Lucky Wheel</span>
                   </button>
                 </div>
               </section>
@@ -503,7 +520,6 @@ const MyProfiles = () => {
         </div>
       </div>
 
-      {/* ══════════════════ LUCKY WHEEL MODAL ══════════════════ */}
       {showWheelModal && (
         <div
           className='fixed inset-0 z-50 flex items-center justify-center p-4'
@@ -511,14 +527,13 @@ const MyProfiles = () => {
           onClick={closeWheelModal}
         >
           <div
-            className='relative bg-white border-2 border-purple-200 max-w-lg w-full p-8'
+            className='relative bg-white border-2 border-blue-200 max-w-lg w-full p-8'
             style={{
               clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)',
               animation: 'modalIn 0.3s ease-out',
             }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Close button */}
             <button
               onClick={closeWheelModal}
               disabled={spinning}
@@ -528,28 +543,25 @@ const MyProfiles = () => {
               ✕
             </button>
 
-            {/* Header */}
             <div className='text-center mb-6'>
-              <span className='uppercase tracking-[0.3em] text-[10px] text-purple-500 font-sans font-black block mb-2'>
+              <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black block mb-2'>
                 Lucky Wheel
               </span>
               <h2
-                className='leading-none text-purple-900 mb-2'
+                className='leading-none text-blue-900 mb-2'
                 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em' }}
               >
-                Spin & Win!
+                Spin and Win
               </h2>
               <p className='font-sans text-xs text-neutral-500'>
                 {spinResult
-                  ? 'Congratulations on your prize!'
-                  : 'One spin available. Good luck!'}
+                  ? 'Congratulations on your prize.'
+                  : 'One spin available. Good luck.'}
               </p>
             </div>
 
-            {/* Wheel */}
             <div className='flex justify-center mb-6'>
               <div className='relative w-56 h-56'>
-                {/* Pointer */}
                 <div
                   className='absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20'
                   style={{
@@ -557,82 +569,88 @@ const MyProfiles = () => {
                     height: 0,
                     borderLeft: '12px solid transparent',
                     borderRight: '12px solid transparent',
-                    borderTop: '20px solid #7c3aed',
+                    borderTop: '20px solid #2563eb',
                     filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.3))',
                   }}
                 />
-                {/* Wheel */}
+
                 <div
                   ref={wheelRef}
-                  className='w-full h-full rounded-full border-4 border-purple-300 shadow-xl relative overflow-hidden'
+                  className='w-full h-full rounded-full border-4 border-blue-300 shadow-xl overflow-hidden'
                   style={{
                     transform: `rotate(${rotation}deg)`,
                     transition: spinning ? 'transform 3.5s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
                   }}
                 >
-                  {WHEEL_PRIZES.map((prize, i) => {
-                    const angle = i * SEGMENT_ANGLE
-                    const skew = 90 - SEGMENT_ANGLE
-                    return (
-                      <div
-                        key={i}
-                        className='absolute top-0 left-1/2 origin-bottom'
-                        style={{
-                          width: '50%',
-                          height: '50%',
-                          transform: `translateX(-50%) rotate(${angle}deg) skewY(${skew}deg)`,
-                          transformOrigin: 'bottom center',
-                          background: prize.color,
-                          borderRight: '1px solid rgba(255,255,255,0.4)',
-                        }}
-                      >
-                        <span
-                          className='absolute font-sans text-[10px] font-black text-white whitespace-nowrap'
-                          style={{
-                            top: '20%',
-                            left: '50%',
-                            transform: `translateX(-50%) skewY(${-skew}deg) rotate(${SEGMENT_ANGLE / 2}deg)`,
-                            transformOrigin: 'center',
-                          }}
-                        >
-                          {prize.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                  {/* Center hub */}
-                  <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white border-4 border-purple-400 flex items-center justify-center z-10'>
-                    <span className='text-purple-600 font-black text-lg'>★</span>
-                  </div>
+                  <svg viewBox="0 0 200 200" className="w-full h-full block">
+                    {WHEEL_PRIZES.map((prize, i) => {
+                      const startAngle = i * SEGMENT_ANGLE
+                      const endAngle = startAngle + SEGMENT_ANGLE
+                      const midAngle = startAngle + SEGMENT_ANGLE / 2
+                      const labelPos = polarToCartesian(100, 100, 65, midAngle)
+                      return (
+                        <g key={i}>
+                          <path
+                            d={describeArc(100, 100, 100, startAngle, endAngle)}
+                            fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
+                            stroke="#ffffff"
+                            strokeWidth="0.75"
+                          />
+                          <text
+                            x={labelPos.x}
+                            y={labelPos.y}
+                            fill="#ffffff"
+                            fontSize="8"
+                            fontWeight="900"
+                            fontFamily="ui-sans-serif, system-ui, sans-serif"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            transform={`rotate(${midAngle} ${labelPos.x} ${labelPos.y})`}
+                          >
+                            {prize.label}
+                          </text>
+                        </g>
+                      )
+                    })}
+                    <circle cx="100" cy="100" r="18" fill="#ffffff" stroke="#60a5fa" strokeWidth="3" />
+                    <text
+                      x="100"
+                      y="100"
+                      fill="#2563eb"
+                      fontSize="16"
+                      fontWeight="900"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      ★
+                    </text>
+                  </svg>
                 </div>
               </div>
             </div>
 
-            {/* Result message */}
             {spinResult && (
-              <div className='mb-5 p-4 bg-purple-100 border border-purple-300 text-center'>
-                <p className='font-sans text-sm font-black text-purple-700'>
-                  🎉 You won: {spinResult.prizeType.replace(/_/g, ' ')}!
+              <div className='mb-5 p-4 bg-blue-100 border border-blue-300 text-center'>
+                <p className='font-sans text-sm font-black text-blue-700'>
+                  You won: {spinResult.prizeType.replace(/_/g, ' ')}
                 </p>
               </div>
             )}
 
-            {/* Action buttons */}
             <div className='flex flex-col gap-3'>
               {!spinResult ? (
                 <button
                   onClick={handleSpin}
                   disabled={spinning}
-                  className='group relative overflow-hidden w-full py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed'
+                  className='group relative overflow-hidden w-full py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
-                  <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300' />
                   <span className='relative z-10'>{spinning ? 'SPINNING...' : 'SPIN THE WHEEL'}</span>
                 </button>
               ) : (
                 <button
                   onClick={closeWheelModal}
-                  className='w-full py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-purple-600 text-white hover:bg-purple-700 transition-colors'
+                  className='w-full py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors'
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
                   Claim Prize
@@ -653,7 +671,6 @@ const MyProfiles = () => {
         </div>
       )}
 
-      {/* Keyframe animation for modal */}
       <style>{`
         @keyframes modalIn {
           from { opacity: 0; transform: scale(0.95) translateY(10px); }

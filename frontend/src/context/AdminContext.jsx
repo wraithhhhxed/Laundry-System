@@ -435,6 +435,25 @@ const AdminContextProvider = (props) => {
     }
   }
 
+  const spinWheelForCustomer = async (userId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/admin/lucky-wheel/spin',
+        { userId },
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        return data.data
+      } else {
+        toast.error(data.message)
+        return null
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
   const generateQrPayment = async (appointmentId) => {
     if (USE_MOCK_QR) {
       mockPollAttempts.current[appointmentId] = 0
@@ -599,6 +618,7 @@ const AdminContextProvider = (props) => {
     walkInServices, getWalkInServices,
     lookupPhone,
     createWalkInAppointment,
+    spinWheelForCustomer,
     generateQrPayment,
     getQrPaymentStatus,
     getVatRate, updateVatRate,

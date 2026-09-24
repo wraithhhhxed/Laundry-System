@@ -17,8 +17,8 @@ class LuckyWheelService {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new ApiError(404, 'User not found')
 
-    if (user.loyaltyStamps < 20)
-      throw new ApiError(400, 'User must have exactly 20 stamps to spin')
+    if (user.loyaltyStamps < 19)
+  throw new ApiError(400, 'User must have at least 19 stamps to spin')
 
     const existingUnredeemed = await LuckyWheelRepository.getUserSpins(userId, true)
     if (existingUnredeemed.length > 0)
@@ -56,7 +56,7 @@ class LuckyWheelService {
       await LuckyWheelRepository.updateSpin(createdSpin.id, { selectedValue: selectedService })
     }
 
-    await UserRepository.resetLoyaltyCycle(userId)
+    
 
     const spin = await LuckyWheelRepository.getSpinById(createdSpin.id)
     return { spin, slotNumber, prizeType }

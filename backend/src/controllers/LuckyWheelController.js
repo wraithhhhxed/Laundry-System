@@ -53,6 +53,19 @@ const spinWheel = asyncHandler(async (req, res) => {
   ))
 })
 
+// ─── ADMIN/BRANCH: Spin Wheel on Behalf of Walk-in Customer ─────
+const spinWheelForCustomer = asyncHandler(async (req, res) => {
+  const { userId } = req.body
+  if (!userId) throw new ApiError(400, 'userId is required')
+
+  const { spin, slotNumber, prizeType } = await LuckyWheelService.spinWheel(userId)
+
+  res.json(new ApiResponse(200,
+    { spin, slotNumber, prizeType },
+    'Wheel spun successfully!'
+  ))
+})
+
 // ─── USER: Pick Prize (after spin) ───────────────────────────────
 const pickPrize = asyncHandler(async (req, res) => {
   const userId = req.user?.id
@@ -101,7 +114,7 @@ const redeemSpin = asyncHandler(async (req, res) => {
 
 export {
   getWheelSetup, updateWheelSetup,
-  spinWheel, pickPrize,
+  spinWheel, spinWheelForCustomer, pickPrize,
   getUnredeemedSpins, getAllSpins,
   redeemSpin,
 }

@@ -1,4 +1,4 @@
-import { useEffect, useContext, useState, useCallback, useRef } from 'react'
+import { useEffect, useContext, useState, useRef } from 'react'
 import { BranchesContext } from '../../context/BranchesContext'
 import axios from 'axios'
 
@@ -9,7 +9,6 @@ const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
 const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
 
-// ─── VALIDATION HELPERS ──────────────────────────────────────────
 const validatePhone = (phone) => {
   const digits = phone.replace(/\D/g, '')
   return digits.length >= 10 && digits.length <= 11 && digits.startsWith('09')
@@ -17,6 +16,39 @@ const validatePhone = (phone) => {
 
 const validateName = (name) => {
   return /^[A-Za-z\s.\-']{2,}$/.test(name.trim())
+}
+
+// ─── WHEEL CONFIG ────────────────────────────────────────────────
+const WHEEL_PRIZES = [
+  { type: 'FREE_DISCOUNT', label: '₱50 OFF' },
+  { type: 'FREE_SERVICE',  label: 'FREE SERVICE' },
+  { type: 'FREE_BAG',      label: 'FREE BAG' },
+  { type: 'FREE_DISCOUNT', label: '₱50 OFF' },
+  { type: 'FREE_SERVICE',  label: 'FREE SERVICE' },
+  { type: 'FREE_BAG',      label: 'FREE BAG' },
+]
+
+const SEGMENT_ANGLE = 360 / WHEEL_PRIZES.length
+const SEGMENT_COLORS = ['#2563eb', '#1d4ed8']
+
+const polarToCartesian = (cx, cy, r, angleDeg) => {
+  const rad = ((angleDeg - 90) * Math.PI) / 180
+  return {
+    x: cx + r * Math.cos(rad),
+    y: cy + r * Math.sin(rad),
+  }
+}
+
+const describeArc = (cx, cy, r, startAngle, endAngle) => {
+  const start = polarToCartesian(cx, cy, r, endAngle)
+  const end   = polarToCartesian(cx, cy, r, startAngle)
+  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
+  return [
+    `M ${cx} ${cy}`,
+    `L ${start.x} ${start.y}`,
+    `A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    'Z',
+  ].join(' ')
 }
 
 const BranchWalkIn = () => {
@@ -27,12 +59,12 @@ const BranchWalkIn = () => {
     lookupPhone, createWalkInAppointment,
     generateQrPayment, getQrPaymentStatus,
     confirmPayment,
+    spinWheelForCustomer,
   } = useContext(BranchesContext)
 
   useEffect(() => { getWalkInServices() }, [])
   useEffect(() => { if (!branchProfile) getBranchProfile() }, [])
 
-  // ─── Add-ons / Extra Products ────────────────────────────────
   const [productsList, setProductsList] = useState([])
   const [addOnQty, setAddOnQty] = useState({})
 
@@ -64,7 +96,6 @@ const BranchWalkIn = () => {
   const decrementQty = (productId) =>
     setAddOnQty(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) - 1) }))
 
-  // Fetch products + inventory on mount (branch staff knows their branch)
   useEffect(() => {
     const branchId = branchProfile?.id
     if (!branchId) return
@@ -83,16 +114,21 @@ const BranchWalkIn = () => {
     }).catch(() => setProductsList([]))
   }, [backendUrl, branchProfile])
 
-  // ─── Phone lookup ───────────────────────────────────────────────
   const [phone, setPhone]           = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [guestName, setGuestName]   = useState('')
   const [nameError, setNameError]   = useState('')
   const [foundUser, setFoundUser]   = useState(null)
-  const [lookupState, setLookupState] = useState('idle') // idle | loading | found | not_found
+  const [lookupState, setLookupState] = useState('idle')
   const lookupTimer = useRef(null)
 
-  // Validate phone on change
+  // ─── WHEEL MODAL STATE ────────────────────────────────────────
+  const [showWheelModal, setShowWheelModal] = useState(false)
+  const [spinning, setSpinning] = useState(false)
+  const [rotation, setRotation] = useState(0)
+  const [spinResult, setSpinResult] = useState(null)
+  const wheelRef = useRef(null)
+
   useEffect(() => {
     if (phone && phone.trim().length > 0) {
       if (!validatePhone(phone.trim())) {
@@ -105,7 +141,6 @@ const BranchWalkIn = () => {
     }
   }, [phone])
 
-  // Validate name on change
   useEffect(() => {
     if (guestName && guestName.trim().length > 0) {
       if (!validateName(guestName)) {
@@ -118,7 +153,6 @@ const BranchWalkIn = () => {
     }
   }, [guestName])
 
-  // Phone lookup with debounce
   useEffect(() => {
     if (lookupTimer.current) clearTimeout(lookupTimer.current)
     if (!phone || phone.trim().length < 7 || phoneError) {
@@ -141,7 +175,6 @@ const BranchWalkIn = () => {
     return () => clearTimeout(lookupTimer.current)
   }, [phone, phoneError])
 
-  // ─── Basket / services selection ────────────────────────────────
   const [baskets, setBaskets] = useState([{ serviceId: '', actualKg: '' }])
 
   const addBasket    = () => setBaskets(prev => [...prev, { serviceId: '', actualKg: '' }])
@@ -157,17 +190,13 @@ const BranchWalkIn = () => {
 
   const anyOverweight = baskets.some(b => Number(b.actualKg) > 7)
 
-  // ─── Overweight resolution (only asked if any basket > 7kg) ─────
   const [overweightResolution, setOverweightResolution] = useState('')
 
-  // ─── Fulfillment method (self pickup vs delivery) ───────────────
   const [fulfillmentMethod, setFulfillmentMethod] = useState('SELF_PICKUP')
   const [deliveryAddress, setDeliveryAddress] = useState('')
 
-  // ─── Payment method (cash vs online) ────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState('CASH')
 
-  // ─── Promo auto-apply preview ──────────────────────────────────
   const autoPromo = (() => {
     if (!foundUser) return null
 
@@ -183,24 +212,36 @@ const BranchWalkIn = () => {
     return null
   })()
 
-  const discountAmount = autoPromo
+  const stampDiscount = autoPromo
     ? autoPromo.discountType === 'percent'
       ? estimatedTotal * (autoPromo.discountValue / 100)
       : autoPromo.discountValue
     : 0
 
+  const heldSpin = foundUser?.unredeemedSpins?.[0] || null
+  const heldDiscountSpin = heldSpin?.prizeType === 'FREE_DISCOUNT' ? heldSpin : null
+  const heldServiceSpin  = heldSpin?.prizeType === 'FREE_SERVICE' ? heldSpin : null
+
+  const matchedFreeServiceBasket = heldServiceSpin
+    ? baskets.find(b => walkInServices.find(s => s.id === b.serviceId)?.name === heldServiceSpin.selectedValue)
+    : null
+
+  const luckyDiscount = heldDiscountSpin
+    ? Math.min(50, Math.max(0, estimatedTotal - stampDiscount))
+    : matchedFreeServiceBasket
+      ? getServicePrice(matchedFreeServiceBasket.serviceId)
+      : 0
+
+  const discountAmount = stampDiscount + luckyDiscount
   const finalEstimate = Math.max(0, estimatedTotal - discountAmount)
 
-  // ─── Submit ───────────────────────────────────────────────────
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
 
-  // ─── Check if any basket has actualKg but no service ────────────
   const hasIncompleteBasket = baskets.some(b => b.actualKg && !b.serviceId)
   const hasServiceNoWeight = baskets.some(b => b.serviceId && !b.actualKg)
   const hasInvalidWeight = baskets.some(b => b.actualKg && Number(b.actualKg) < 0)
 
-  // ─── QR PAYMENT STATES ──────────────────────────────────────────
   const [showQrModal, setShowQrModal]         = useState(false)
   const [qrImageUrl, setQrImageUrl]           = useState('')
   const [isPolling, setIsPolling]             = useState(false)
@@ -216,10 +257,11 @@ const BranchWalkIn = () => {
     setFulfillmentMethod('SELF_PICKUP')
     setDeliveryAddress('')
     setPaymentMethod('CASH')
-    setAddOnQty({})   // ← NEW
+    setAddOnQty({})
+    setSpinResult(null)
+    setRotation(0)
   }
 
-  // ─── Can submit ──────────────────────────────────────────────────
   const canSubmit =
     phone.trim().length >= 7 &&
     !phoneError &&
@@ -232,7 +274,6 @@ const BranchWalkIn = () => {
     !hasInvalidWeight &&
     (!anyOverweight || overweightResolution)
 
-  // ─── SPLIT LOAD — expands overweight baskets into 7kg chunks ────
   const handleSplitLoad = () => {
     const newBaskets = []
 
@@ -257,7 +298,40 @@ const BranchWalkIn = () => {
     setOverweightResolution('split')
   }
 
-  // ─── QR: Open modal + generate QR ───────────────────────────────
+  // ─── WHEEL HANDLERS ───────────────────────────────────────────
+  const openWheelModal = () => {
+    if (!foundUser || spinning) return
+    setSpinResult(null)
+    setShowWheelModal(true)
+  }
+
+  const closeWheelModal = () => {
+    if (spinning) return
+    setShowWheelModal(false)
+  }
+
+  const handleSpin = async () => {
+    if (!foundUser || spinning) return
+    setSpinning(true)
+    setSpinResult(null)
+
+    const fullSpins = 5 + Math.floor(Math.random() * 3)
+    const randomOffset = Math.floor(Math.random() * 360)
+    const totalRotation = rotation + fullSpins * 360 + randomOffset
+
+    setRotation(totalRotation)
+
+    setTimeout(async () => {
+      const result = await spinWheelForCustomer(foundUser.id)
+      if (result) {
+        setSpinResult(result)
+        const refreshedUser = await lookupPhone(phone.trim())
+        if (refreshedUser) setFoundUser(refreshedUser)
+      }
+      setSpinning(false)
+    }, 3600)
+  }
+
   const openQrFlow = async (appointmentId) => {
     setShowQrModal(true)
     setQrError('')
@@ -277,7 +351,6 @@ const BranchWalkIn = () => {
     }
   }
 
-  // ─── QR: Polling effect ─────────────────────────────────────────
   useEffect(() => {
     if (!isPolling || !createdAppointmentId) return
 
@@ -290,7 +363,7 @@ const BranchWalkIn = () => {
 
           setPaymentConfirmed(true)
           setIsPolling(false)
-          setSuccessMsg('Payment confirmed! Walk-in appointment is fully paid.')
+          setSuccessMsg('Payment confirmed. Walk-in appointment is fully paid.')
           setTimeout(() => {
             setShowQrModal(false)
             resetForm()
@@ -312,7 +385,6 @@ const BranchWalkIn = () => {
     }
   }, [isPolling, createdAppointmentId, confirmPayment])
 
-  // cleanup on unmount
   useEffect(() => {
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current)
@@ -331,7 +403,6 @@ const BranchWalkIn = () => {
     setSuccessMsg('Walk-in appointment created. QR payment pending — client can still pay later.')
   }
 
-  // ─── Auto-fill address when DELIVERY selected + user found ──
   useEffect(() => {
     if (fulfillmentMethod === 'DELIVERY' && foundUser?.address) {
       setDeliveryAddress(foundUser.address)
@@ -340,13 +411,11 @@ const BranchWalkIn = () => {
     }
   }, [fulfillmentMethod, foundUser])
 
-  // ─── SUBMIT (with promo auto-apply) ─────────────────────────────
   const handleSubmit = async () => {
     if (!canSubmit) return
     setSubmitting(true)
     setSuccessMsg('')
 
-    // Auto-apply milestone reward if exists (15th > 10th > 5th priority)
     let promoCodeToApply = null
     if (foundUser?.fifteenthStampReward?.code && !foundUser?.fifteenthStampRedeemedAt) {
       promoCodeToApply = foundUser.fifteenthStampReward.code
@@ -365,7 +434,7 @@ const BranchWalkIn = () => {
       paymentMethod,
       promoCode: promoCodeToApply,
       address: deliveryAddress.trim() || null,
-      addOns: selectedAddOns,   // ← NEW
+      addOns: selectedAddOns,
     }
 
     const result = await createWalkInAppointment(payload)
@@ -381,7 +450,7 @@ const BranchWalkIn = () => {
         setCreatedAppointmentId(appointmentId)
         openQrFlow(appointmentId)
       } else {
-        setSuccessMsg('Walk-in appointment created! Client will now appear under Appointments.')
+        setSuccessMsg('Walk-in appointment created. Client will now appear under Appointments.')
         resetForm()
       }
     }
@@ -409,21 +478,20 @@ const BranchWalkIn = () => {
           </div>
         )}
 
-        {/* ─── CLIENT INFO ─────────────────────────────────────── */}
         <SectionLabel>Client Info</SectionLabel>
         <Divider />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-10">
           <div>
             <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">Phone Number</label>
-            <input 
-              type="tel" 
-              value={phone} 
+            <input
+              type="tel"
+              value={phone}
               onChange={e => {
                 const value = e.target.value.replace(/\D/g, '').slice(0, 11)
                 setPhone(value)
               }}
-              placeholder="e.g. 09171234567" 
-              className={phoneError ? inputErrorClass : inputClass} 
+              placeholder="e.g. 09171234567"
+              className={phoneError ? inputErrorClass : inputClass}
               maxLength={11}
             />
             {phoneError && <p className="font-sans text-xs text-red-500 mt-1.5">{phoneError}</p>}
@@ -439,16 +507,16 @@ const BranchWalkIn = () => {
             <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
               Name {lookupState === 'found' && <span className="text-neutral-300 normal-case">(from record)</span>}
             </label>
-            <input 
-              type="text" 
-              value={guestName} 
+            <input
+              type="text"
+              value={guestName}
               onChange={e => {
                 const value = e.target.value.replace(/[^A-Za-z\s.\-']/g, '')
                 setGuestName(value)
               }}
               disabled={lookupState === 'found'}
-              placeholder="Client name" 
-              className={nameError ? inputErrorClass : `${inputClass} disabled:bg-neutral-50 disabled:text-neutral-400`} 
+              placeholder="Client name"
+              className={nameError ? inputErrorClass : `${inputClass} disabled:bg-neutral-50 disabled:text-neutral-400`}
             />
             {nameError && <p className="font-sans text-xs text-red-500 mt-1.5">{nameError}</p>}
             {!nameError && guestName && guestName.trim().length > 0 && guestName.trim().length < 2 && (
@@ -457,7 +525,6 @@ const BranchWalkIn = () => {
           </div>
         </div>
 
-        {/* ─── LOYALTY STAMP PREVIEW (if existing customer) ─────── */}
         {foundUser && lookupState === 'found' && (
           <>
             <SectionLabel>Customer Loyalty</SectionLabel>
@@ -552,34 +619,52 @@ const BranchWalkIn = () => {
           </>
         )}
 
-        {/* ─── LUCKY WHEEL PRIZE ON HOLD ─────────────────────────── */}
-        {foundUser && lookupState === 'found' && foundUser.unredeemedSpins && foundUser.unredeemedSpins.length > 0 && (
+        {foundUser && lookupState === 'found' && (
           <>
-            <SectionLabel>Lucky Wheel Prize</SectionLabel>
-            <Divider />
-            <div className="mb-10 space-y-3">
-              {foundUser.unredeemedSpins.map((spin) => (
-                <div key={spin.id} className="border border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 px-5 py-4">
-                  <p className="font-sans text-sm font-bold text-neutral-700">
-                    {spin.prizeType === 'FREE_SERVICE' && `Free Service${spin.selectedValue ? `: ${spin.selectedValue}` : ''}`}
-                    {spin.prizeType === 'FREE_DISCOUNT' && 'Free Discount (₱50 OFF)'}
-                    {spin.prizeType === 'FREE_BAG' && 'Free Selfie Wash Laundry Bag'}
-                  </p>
-                  <p className="font-sans text-xs text-purple-600 font-bold mt-1">
-                    {spin.prizeType === 'FREE_BAG' && 'Will be included with this order.'}
-                    {spin.prizeType === 'FREE_DISCOUNT' && '₱50 OFF will be applied to this order.'}
-                    {spin.prizeType === 'FREE_SERVICE' && `Choose ${spin.selectedValue || 'the free service'} in the baskets to make it ₱0.`}
-                  </p>
-                  <p className="font-sans text-xs text-neutral-400 mt-1">
-                    Spun on: {new Date(spin.spinDate).toLocaleDateString()}
-                  </p>
+            {((foundUser.unredeemedSpins && foundUser.unredeemedSpins.length > 0) || (foundUser.loyaltyStamps || 0) >= 19) && (
+              <>
+                <SectionLabel>Lucky Wheel</SectionLabel>
+                <Divider />
+                <div className="mb-10">
+                  {foundUser.unredeemedSpins && foundUser.unredeemedSpins.length > 0 ? (
+                    <div className="space-y-3">
+                      {foundUser.unredeemedSpins.map((spin) => (
+                        <div key={spin.id} className="border border-blue-200 bg-blue-50 px-5 py-4">
+                          <p className="font-sans text-sm font-bold text-neutral-700">
+                            {spin.prizeType === 'FREE_SERVICE' && `Free Service${spin.selectedValue ? `: ${spin.selectedValue}` : ''}`}
+                            {spin.prizeType === 'FREE_DISCOUNT' && 'Free Discount (₱50 OFF)'}
+                            {spin.prizeType === 'FREE_BAG' && 'Free Selfie Wash Laundry Bag'}
+                          </p>
+                          <p className="font-sans text-xs text-blue-600 font-bold mt-1">
+                            {spin.prizeType === 'FREE_BAG' && 'Will be included with this order.'}
+                            {spin.prizeType === 'FREE_DISCOUNT' && '₱50 OFF will be applied to this order.'}
+                            {spin.prizeType === 'FREE_SERVICE' && `Choose ${spin.selectedValue || 'the free service'} in the baskets to make it ₱0.`}
+                          </p>
+                          <p className="font-sans text-xs text-neutral-400 mt-1">
+                            Spun on: {new Date(spin.spinDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border border-amber-200 bg-amber-50 px-5 py-4">
+                      <p className="font-sans text-xs text-amber-700 mb-3">
+                        Customer is eligible for the Lucky Wheel (19th stamp).
+                      </p>
+                      <button
+                        onClick={openWheelModal}
+                        className="group relative overflow-hidden w-full py-2.5 font-sans text-xs uppercase tracking-widest font-bold bg-amber-600 text-white border border-amber-600 hover:bg-amber-700 transition-colors"
+                        style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                        Open Lucky Wheel
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </>
         )}
 
-        {/* ─── BASKETS ─────────────────────────────────────────── */}
         <SectionLabel>Baskets</SectionLabel>
         <Divider />
         <div className="space-y-4 mb-6">
@@ -587,18 +672,18 @@ const BranchWalkIn = () => {
             const hasServiceError = basket.actualKg && !basket.serviceId
             const hasWeightError = basket.serviceId && !basket.actualKg
             const weightValue = basket.actualKg ? Number(basket.actualKg) : 0
-            
+
             return (
               <div key={idx} className={`border ${hasServiceError || hasWeightError ? 'border-red-300 bg-red-50/30' : 'border-blue-100'} px-5 py-4 flex flex-col sm:flex-row gap-4 sm:items-end`}>
                 <div className="flex-1">
                   <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">Service</label>
-                  <select 
-                    value={basket.serviceId} 
-                    onChange={e => updateBasket(idx, 'serviceId', e.target.value)} 
+                  <select
+                    value={basket.serviceId}
+                    onChange={e => updateBasket(idx, 'serviceId', e.target.value)}
                     className={hasServiceError ? selectErrorClass : selectClass}
                   >
                     <option value="">Select service...</option>
-                    {walkInServices.map(s => (
+                    {walkInServices.filter(s => branchProfile?.speciality?.includes(s.name)).map(s => (
                       <option key={s.id} value={s.id}>{s.name} — {fmt(s.price)}</option>
                     ))}
                   </select>
@@ -608,10 +693,10 @@ const BranchWalkIn = () => {
                 </div>
                 <div className="w-full sm:w-32">
                   <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">Weight (kg)</label>
-                  <input 
-                    type="number" 
-                    min="0.1" 
-                    step="0.1" 
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
                     value={basket.actualKg}
                     onChange={e => {
                       const val = e.target.value
@@ -619,8 +704,8 @@ const BranchWalkIn = () => {
                         updateBasket(idx, 'actualKg', val)
                       }
                     }}
-                    placeholder="e.g. 7" 
-                    className={hasWeightError ? inputErrorClass : inputClass} 
+                    placeholder="e.g. 7"
+                    className={hasWeightError ? inputErrorClass : inputClass}
                   />
                   {hasWeightError && (
                     <p className="font-sans text-xs text-red-500 mt-1">Please enter weight</p>
@@ -647,7 +732,6 @@ const BranchWalkIn = () => {
           + Add Another Basket
         </button>
 
-        {/* ─── ADD-ONS ─────────────────────────────────────────── */}
         <SectionLabel>Add-ons (Optional)</SectionLabel>
         <Divider />
         <div className="space-y-6 mb-10">
@@ -736,7 +820,6 @@ const BranchWalkIn = () => {
           </div>
         )}
 
-        {/* ─── FULFILLMENT METHOD ──────────────────────────────── */}
         <SectionLabel>How will the client get this back?</SectionLabel>
         <Divider />
         <div className="flex gap-3 mb-10">
@@ -750,17 +833,16 @@ const BranchWalkIn = () => {
           </button>
         </div>
 
-        {/* ─── DELIVERY ADDRESS (if DELIVERY selected) ──────────── */}
         {fulfillmentMethod === 'DELIVERY' && (
           <div className="mb-10">
             <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
               Delivery Address {foundUser?.address && <span className="text-neutral-300 normal-case">(from record)</span>}
             </label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={deliveryAddress}
               onChange={e => setDeliveryAddress(e.target.value)}
-              placeholder="e.g. 123 Main St, Taguig City" 
+              placeholder="e.g. 123 Main St, Taguig City"
               className={inputClass}
             />
             {deliveryAddress && (
@@ -769,7 +851,6 @@ const BranchWalkIn = () => {
           </div>
         )}
 
-        {/* ─── PAYMENT METHOD ──────────────────────────────────── */}
         <SectionLabel>How will the client pay?</SectionLabel>
         <Divider />
         <div className="flex gap-3 mb-5">
@@ -785,13 +866,12 @@ const BranchWalkIn = () => {
 
         {paymentMethod === 'CASH' && <div className="mb-10" />}
 
-        {/* ─── SUMMARY ─────────────────────────────────────────── */}
         <SectionLabel>Estimated Total</SectionLabel>
         <Divider />
         <div className="bg-blue-50 border border-blue-100 px-5 py-4 mb-10">
           <div className="flex items-center justify-between mb-1">
             <span className="font-sans text-xs uppercase tracking-widest text-neutral-500">Subtotal (before VAT)</span>
-            <span className={`font-sans font-black text-blue-700 text-xl ${autoPromo ? 'line-through text-neutral-300 text-base' : ''}`} style={{ letterSpacing: '-0.02em' }}>
+            <span className={`font-sans font-black text-blue-700 text-xl ${(autoPromo || luckyDiscount > 0) ? 'line-through text-neutral-300 text-base' : ''}`} style={{ letterSpacing: '-0.02em' }}>
               {fmt(estimatedTotal)}
             </span>
           </div>
@@ -799,15 +879,26 @@ const BranchWalkIn = () => {
           {autoPromo && (
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-100">
               <span className="font-sans text-xs uppercase tracking-widest text-green-700 font-bold">
-                ✓ Promo {autoPromo.tier} stamp — {autoPromo.code}
+                Promo {autoPromo.tier} stamp — {autoPromo.code}
               </span>
               <span className="font-sans text-sm font-bold text-green-700">
-                − {fmt(discountAmount)}
+                − {fmt(stampDiscount)}
               </span>
             </div>
           )}
 
-          {autoPromo && (
+          {luckyDiscount > 0 && (
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-100">
+              <span className="font-sans text-xs uppercase tracking-widest text-amber-700 font-bold">
+                Lucky Wheel — {heldDiscountSpin ? '₱50 OFF' : 'Free Service'}
+              </span>
+              <span className="font-sans text-sm font-bold text-amber-700">
+                − {fmt(luckyDiscount)}
+              </span>
+            </div>
+          )}
+
+          {(autoPromo || luckyDiscount > 0) && (
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-200">
               <span className="font-sans text-xs uppercase tracking-widest text-blue-700 font-bold">Final Estimated Total</span>
               <span className="font-sans font-black text-blue-700 text-xl" style={{ letterSpacing: '-0.02em' }}>
@@ -821,17 +912,169 @@ const BranchWalkIn = () => {
           className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 w-full py-3.5 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ clipPath: 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)' }}>
           <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-          <span className="relative">{submitting ? 'Creating...' : '✓ Create Walk-In Appointment'}</span>
+          <span className="relative">{submitting ? 'Creating...' : 'Create Walk-In Appointment'}</span>
         </button>
 
       </div>
 
-      {/* ─── QR PAYMENT MODAL ───────────────────────────────────── */}
+      {/* ─── LUCKY WHEEL MODAL ───────────────────────────────── */}
+      {showWheelModal && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center p-4'
+          style={{ background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(4px)' }}
+          onClick={closeWheelModal}
+        >
+          <div
+            className='relative bg-white border-2 border-blue-200 max-w-lg w-full p-8'
+            style={{
+              clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)',
+              animation: 'modalIn 0.3s ease-out',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={closeWheelModal}
+              disabled={spinning}
+              className='absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-sans text-lg font-black'
+              aria-label='Close'
+            >
+              ✕
+            </button>
+
+            <div className='text-center mb-6'>
+              <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black block mb-2'>
+                Lucky Wheel
+              </span>
+              <h2
+                className='leading-none text-blue-900 mb-2'
+                style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, letterSpacing: '-0.03em' }}
+              >
+                Spin for {foundUser?.name?.split(' ')[0] || 'Customer'}
+              </h2>
+              <p className='font-sans text-xs text-neutral-500'>
+                {spinResult
+                  ? 'Congratulations on the prize.'
+                  : 'One spin available. Good luck.'}
+              </p>
+            </div>
+
+            <div className='flex justify-center mb-6'>
+              <div className='relative w-56 h-56'>
+                <div
+                  className='absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20'
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: '12px solid transparent',
+                    borderRight: '12px solid transparent',
+                    borderTop: '20px solid #2563eb',
+                    filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.3))',
+                  }}
+                />
+
+                <div
+                  ref={wheelRef}
+                  className='w-full h-full rounded-full border-4 border-blue-300 shadow-xl overflow-hidden'
+                  style={{
+                    transform: `rotate(${rotation}deg)`,
+                    transition: spinning ? 'transform 3.5s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
+                  }}
+                >
+                  <svg viewBox="0 0 200 200" className="w-full h-full block">
+                    {WHEEL_PRIZES.map((prize, i) => {
+                      const startAngle = i * SEGMENT_ANGLE
+                      const endAngle = startAngle + SEGMENT_ANGLE
+                      const midAngle = startAngle + SEGMENT_ANGLE / 2
+                      const labelPos = polarToCartesian(100, 100, 65, midAngle)
+                      return (
+                        <g key={i}>
+                          <path
+                            d={describeArc(100, 100, 100, startAngle, endAngle)}
+                            fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]}
+                            stroke="#ffffff"
+                            strokeWidth="0.75"
+                          />
+                          <text
+                            x={labelPos.x}
+                            y={labelPos.y}
+                            fill="#ffffff"
+                            fontSize="8"
+                            fontWeight="900"
+                            fontFamily="ui-sans-serif, system-ui, sans-serif"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            transform={`rotate(${midAngle} ${labelPos.x} ${labelPos.y})`}
+                          >
+                            {prize.label}
+                          </text>
+                        </g>
+                      )
+                    })}
+                    <circle cx="100" cy="100" r="18" fill="#ffffff" stroke="#60a5fa" strokeWidth="3" />
+                    <text
+                      x="100"
+                      y="100"
+                      fill="#2563eb"
+                      fontSize="16"
+                      fontWeight="900"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
+                      ★
+                    </text>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {spinResult && (
+              <div className='mb-5 p-4 bg-blue-100 border border-blue-300 text-center'>
+                <p className='font-sans text-sm font-black text-blue-700'>
+                  {foundUser?.name?.split(' ')[0] || 'Customer'} won: {spinResult.prizeType.replace(/_/g, ' ')}
+                </p>
+              </div>
+            )}
+
+            <div className='flex flex-col gap-3'>
+              {!spinResult ? (
+                <button
+                  onClick={handleSpin}
+                  disabled={spinning}
+                  className='group relative overflow-hidden w-full py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  <span className='relative z-10'>{spinning ? 'SPINNING...' : 'SPIN THE WHEEL'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={closeWheelModal}
+                  className='w-full py-3.5 font-sans text-[11px] tracking-[0.2em] uppercase font-black bg-blue-600 text-white hover:bg-blue-700 transition-colors'
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
+                >
+                  Done
+                </button>
+              )}
+
+              {!spinResult && (
+                <button
+                  onClick={closeWheelModal}
+                  disabled={spinning}
+                  className='w-full py-3 font-sans text-[10px] tracking-[0.2em] uppercase font-bold border border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-neutral-700 transition-all disabled:opacity-30 disabled:cursor-not-allowed'
+                >
+                  Maybe Later
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── QR PAYMENT MODAL ─────────────────────────────────── */}
       {showQrModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white max-w-md w-full p-8 relative"
                style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-            
+
             {!paymentConfirmed && (
               <button onClick={closeQrModal}
                 className="absolute top-3 right-3 text-neutral-300 hover:text-neutral-500 text-2xl leading-none">
@@ -869,7 +1112,7 @@ const BranchWalkIn = () => {
             {paymentConfirmed ? (
               <div className="bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-3">
                 <span className="text-green-600 text-lg">✓</span>
-                <p className="font-sans text-sm text-green-700">Payment confirmed! Closing...</p>
+                <p className="font-sans text-sm text-green-700">Payment confirmed. Closing...</p>
               </div>
             ) : (
               <div className="bg-blue-50 border border-blue-100 px-4 py-3 flex items-center gap-3">
@@ -882,6 +1125,13 @@ const BranchWalkIn = () => {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes modalIn {
+          from { opacity: 0; transform: scale(0.95) translateY(10px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }

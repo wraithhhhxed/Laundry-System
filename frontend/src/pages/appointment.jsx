@@ -558,7 +558,7 @@ if (loyaltyStatus.fifthStampReward?.code) {
             </p>
 
             <div className='flex flex-col gap-3 mb-6'>
-              {servicesList.map(service => {
+              {servicesList.filter(service => branchInfo.speciality?.includes(service.name)).map(service => {
                 const qty = getQtyForService(service.id)
                 return (
                   <div key={service.id}

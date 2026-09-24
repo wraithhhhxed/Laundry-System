@@ -245,7 +245,7 @@ const AppointmentCard = ({
                 {item.addOns.map(a => `${a.name} ×${a.quantity}`).join(', ')}
               </p>
             )}
-            {item.promoCode && (
+                        {item.promoCode && (
               <div className='mt-2 bg-green-50 border border-green-200 px-3 py-2'>
                 <p className='font-sans text-sm text-green-700 font-bold mb-1'>
                    Promo Applied: <strong>{item.promoCode}</strong>
@@ -255,6 +255,13 @@ const AppointmentCard = ({
                     ? `${item.discountValue}% off`
                     : `${currencySymbol || '₱'}${item.discountValue} off`
                   } — You saved {currencySymbol}{Number(item.discountAmount || 0).toFixed(2)}
+                </p>
+              </div>
+            )}
+            {item.luckyWheelSpinId && (
+              <div className='mt-2 bg-purple-50 border border-purple-200 px-3 py-2'>
+                <p className='font-sans text-sm text-purple-700 font-bold'>
+                   {item.luckyWheelPrizeLabel || 'Lucky Wheel Prize Applied'}
                 </p>
               </div>
             )}
@@ -326,7 +333,7 @@ const AppointmentCard = ({
               disabled={isResolvingThis}
               className='font-sans text-sm px-6 py-2.5 bg-blue-600 text-white uppercase tracking-widest font-bold disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto'
               style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
-              {isResolvingThis ? 'Processing...' : 'Split into 2 Loads'}
+              {isResolvingThis ? 'Processing...' : 'Split excess load'}
             </button>
             <button
               onClick={() => onResolveOverweight(item.id, 'trim')}

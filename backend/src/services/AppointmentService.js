@@ -69,18 +69,28 @@ class AppointmentService {
       discountAmount = validatedPromo.discountAmount;
     }
 
-    // Lucky Wheel FREE_DISCOUNT: auto-apply if the customer holds one
+    // Lucky Wheel: auto-apply FREE_DISCOUNT or FREE_BAG if the customer holds one
     let luckySpin = null;
+    let luckyPrizeType = null;
+    let luckyPrizeLabel = null;
     let luckyClaimed = false;
     const heldSpins = await LuckyWheelRepository.getUserSpins(userId, true);
     const discountSpin = heldSpins.find((s) => s.prizeType === 'FREE_DISCOUNT');
+    const bagSpin = heldSpins.find((s) => s.prizeType === 'FREE_BAG');
+
     if (discountSpin) {
       const room = Math.max(0, subtotal - discountAmount);
       const luckyOff = Math.min(50, room);
       if (luckyOff > 0) {
         luckySpin = discountSpin;
+        luckyPrizeType = 'FREE_DISCOUNT';
+        luckyPrizeLabel = 'Lucky Wheel: ₱50 OFF';
         discountAmount += luckyOff;
       }
+    } else if (bagSpin) {
+      luckySpin = bagSpin;
+      luckyPrizeType = 'FREE_BAG';
+      luckyPrizeLabel = bagSpin.bagPrizeName || 'Selfie Wash Laundry Bag';
     }
 
     let vatRate = 0;
@@ -123,8 +133,8 @@ class AppointmentService {
         {
           userId,
           luckyWheelSpinId: luckySpin ? luckySpin.id : null,
-          luckyWheelPrizeType: luckySpin ? 'FREE_DISCOUNT' : null,
-          luckyWheelPrizeLabel: luckySpin ? 'Lucky Wheel: ₱50 OFF' : null,
+          luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
+          luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
           branchData: branch,
           userData: user,
           services: enrichedServices,
@@ -635,20 +645,18 @@ class AppointmentService {
             'Reward Unlocked!',
             'You now have 9 stamps — your 10th order gets 50% OFF!'
           );
-        } else if (newStampCount === 14) {
-          await NotificationService.create(
-            appointment.userId,
-            'stamp_milestone_15',
-            'Reward Unlocked!',
-            'You now have 14 stamps — your 15th order gets ₱100 OFF!'
-          );
-        } else if (newStampCount === 20) {
+          } else if (newStampCount === 20) {
           await NotificationService.create(
             appointment.userId,
             'stamp_milestone_20',
             'LUCKY WHEEL READY!',
             'You\'ve earned your 20th stamp! Spin the Lucky Wheel for amazing prizes!'
           );
+
+          const heldSpins = await LuckyWheelRepository.getUserSpins(appointment.userId, true);
+          if (heldSpins.length === 0) {
+            await UserRepository.resetLoyaltyCycle(appointment.userId);
+          }
         }
       } catch (err) {
         console.warn(`[Loyalty] Stamp increment failed: ${err.message}`);
@@ -739,18 +747,28 @@ class AppointmentService {
       discountAmount = validatedPromo.discountAmount;
     }
 
-    // Lucky Wheel FREE_DISCOUNT: auto-apply if the customer holds one
+    // Lucky Wheel: auto-apply FREE_DISCOUNT or FREE_BAG if the customer holds one
     let luckySpin = null;
+    let luckyPrizeType = null;
+    let luckyPrizeLabel = null;
     let luckyClaimed = false;
     const heldSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
     const discountSpin = heldSpins.find((s) => s.prizeType === 'FREE_DISCOUNT');
+    const bagSpin = heldSpins.find((s) => s.prizeType === 'FREE_BAG');
+
     if (discountSpin) {
       const room = Math.max(0, subtotal - discountAmount);
       const luckyOff = Math.min(50, room);
       if (luckyOff > 0) {
         luckySpin = discountSpin;
+        luckyPrizeType = 'FREE_DISCOUNT';
+        luckyPrizeLabel = 'Lucky Wheel: ₱50 OFF';
         discountAmount += luckyOff;
       }
+    } else if (bagSpin) {
+      luckySpin = bagSpin;
+      luckyPrizeType = 'FREE_BAG';
+      luckyPrizeLabel = bagSpin.bagPrizeName || 'Selfie Wash Laundry Bag';
     }
 
     let vatRate = 0;
@@ -798,8 +816,8 @@ class AppointmentService {
           guestContact: phone,
           fulfillmentMethod,
           luckyWheelSpinId: luckySpin ? luckySpin.id : null,
-          luckyWheelPrizeType: luckySpin ? 'FREE_DISCOUNT' : null,
-          luckyWheelPrizeLabel: luckySpin ? 'Lucky Wheel: ₱50 OFF' : null,
+          luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
+          luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
           branchData: branch,
           userData: user,
           services: enrichedServices,
@@ -831,6 +849,14 @@ class AppointmentService {
 
       if (luckySpin && luckyClaimed) {
         await LuckyWheelRepository.linkSpinToAppointment(luckySpin.id, appointment.id);
+
+        // Walk-in never increments loyalty stamps, so it can never reach the
+        // online-side "newStampCount === 20" reset trigger. Reset here instead,
+        // right when the spin's prize gets used, if no other spin is still held.
+        const remainingSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
+        if (remainingSpins.length === 0) {
+          await UserRepository.resetLoyaltyCycle(user.id);
+        }
       }
 
       if (fulfillmentMethod === 'DELIVERY' && extraDetails.address && extraDetails.address.trim()) {
@@ -964,6 +990,7 @@ class AppointmentService {
     }
 
     return {
+      id: user.id,
       name: user.name,
       phone: user.phone,
       email: user.email,

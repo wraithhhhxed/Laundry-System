@@ -6,7 +6,6 @@ export const BranchesContext = createContext()
 
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
-// ─── JWT DECODER ──────────────────────────────────────────────────────────────
 const decodeToken = (token) => {
   try {
     const payload = token.split('.')[1]
@@ -17,24 +16,18 @@ const decodeToken = (token) => {
 }
 
 const BranchesContextProvider = (props) => {
-  // ─── MOCK QR MODE (for testing while waiting PayMongo) ──────────
-  const USE_MOCK_QR = true  // ← SWITCH TO FALSE kapag PayMongo ready na
-
-  // ✅ Mock poll counter — tracks how many times each appointment has been polled
+  const USE_MOCK_QR = true
   const mockPollAttempts = useRef({})
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
   const [bToken, setBToken] = useState(localStorage.getItem('bToken') || '')
-  
-  // Derive staffRole from JWT token
+
   const staffRole = bToken ? decodeToken(bToken)?.staffRole : null
 
   const [branchProfile, setBranchProfile] = useState(null)
   const [appointments, setAppointments]   = useState([])
   const [dashData, setDashData]           = useState(null)
-
-  // ─── WALK-IN ──────────────────────────────────────────────────
   const [walkInServices, setWalkInServices] = useState([])
 
   const getWalkInServices = async () => {
@@ -42,8 +35,8 @@ const BranchesContextProvider = (props) => {
       const { data } = await axios.get(backendUrl + '/api/user/services')
       if (data.success) setWalkInServices(data.data.services)
       else toast.error(data.message)
-    } catch (error) { 
-      toast.error(error.message) 
+    } catch (error) {
+      toast.error(error.message)
     }
   }
 
@@ -70,7 +63,6 @@ const BranchesContextProvider = (props) => {
       if (data.success) {
         toast.success('Walk-in appointment created successfully.')
         debouncedRefresh()
-        // Return the appointment object so caller can grab the id for QR flow
         return (
           data.data?.appointment ||
           data.appointment ||
@@ -87,7 +79,25 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // ─── Debounced refresh ────────────────────────────────────────
+  const spinWheelForCustomer = async (userId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/branch/lucky-wheel/spin',
+        { userId },
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        return data.data
+      } else {
+        toast.error(data.message)
+        return null
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
   const MIN_INTERVAL = 3000
@@ -136,7 +146,7 @@ const BranchesContextProvider = (props) => {
       console.error('Logout audit failed:', error)
     } finally {
       if (refreshTimer.current) clearTimeout(refreshTimer.current)
-      mockPollAttempts.current = {}          // ✅ reset mock poll counter on logout
+      mockPollAttempts.current = {}
       localStorage.removeItem('bToken')
       setBToken('')
       setBranchProfile(null)
@@ -267,20 +277,16 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
   const generateQrPayment = async (appointmentId) => {
     try {
       if (USE_MOCK_QR) {
-        // ✅ Reset poll counter for this appointment
         mockPollAttempts.current[appointmentId] = 0
 
-        // ✅ MOCK MODE — fake QR image
         return {
           qrImageUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjMzMzIj5Nb2NrIFFSIENvZGU8L3RleHQ+PC9zdmc+',
           paymentIntentId: 'mock_' + appointmentId
         }
       } else {
-        // 🔴 REAL MODE — call actual PayMongo
         const { data } = await axios.post(
           backendUrl + `/api/branch/appointments/${appointmentId}/qr-payment`,
           {},
@@ -303,7 +309,6 @@ const BranchesContextProvider = (props) => {
   const getQrPaymentStatus = async (appointmentId) => {
     try {
       if (USE_MOCK_QR) {
-        // ✅ MOCK MODE — smarter mock: pending for first 2 polls, then paid on 3rd
         const attempts = (mockPollAttempts.current[appointmentId] || 0) + 1
         mockPollAttempts.current[appointmentId] = attempts
 
@@ -312,7 +317,6 @@ const BranchesContextProvider = (props) => {
         }
         return { paid: false, status: 'pending' }
       } else {
-        // 🔴 REAL MODE — check actual PayMongo status
         const { data } = await axios.get(
           backendUrl + `/api/branch/appointments/${appointmentId}/qr-payment/status`,
           { headers: authHeader(bToken) }
@@ -330,7 +334,6 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // ARCHIVE APPOINTMENT - SIMPLE
   const archiveAppointment = async (appointmentId) => {
     try {
       const { data } = await axios.post(
@@ -338,10 +341,10 @@ const BranchesContextProvider = (props) => {
         { appointmentId },
         { headers: authHeader(bToken) }
       )
-      
+
       if (data.success) {
         toast.success('Appointment archived successfully')
-        await getBranchAppointments()  // Immediate refresh, not debounced
+        await getBranchAppointments()
         return true
       } else {
         toast.error(data.message)
@@ -354,7 +357,6 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // ─── STAFF MANAGEMENT ─────────────────────────────────────────
   const deleteStaff = async (staffId) => {
     try {
       const { data } = await axios.delete(
@@ -374,7 +376,6 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // Tab visibility refresh
   useEffect(() => {
     if (!bToken) return
     const handleVisibilityChange = () => {
@@ -387,7 +388,7 @@ const BranchesContextProvider = (props) => {
   const value = {
     backendUrl,
     bToken, setBToken,
-    staffRole,   // ✓ IDINAGDAG — derived from JWT
+    staffRole,
     loginBranch, logoutBranch,
     branchProfile, getBranchProfile, updateBranchProfile,
     appointments, getBranchAppointments,
@@ -397,14 +398,12 @@ const BranchesContextProvider = (props) => {
     confirmActualWeight,
     archiveAppointment,
     confirmPayment,
-    // ── WALK-IN ──────────────────────────────────────────────────
     walkInServices, getWalkInServices,
     lookupPhone,
     createWalkInAppointment,
-    // ── QR PAYMENT ───────────────────────────────────────────────
+    spinWheelForCustomer,
     generateQrPayment,
     getQrPaymentStatus,
-    // ── STAFF MANAGEMENT ────────────────────────────────────────
     deleteStaff,
   }
 

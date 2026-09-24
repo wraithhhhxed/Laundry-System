@@ -112,7 +112,12 @@ const renderAmount = (appt) => {
     <div className="space-y-1">
       {appt.promoCode && appt.discountAmount > 0 && (
         <p className="font-sans text-xs text-green-600 font-semibold">
-           {appt.promoCode} — −{fmt(appt.discountAmount)}
+          {appt.promoCode} — −{fmt(appt.discountAmount)}
+        </p>
+      )}
+      {appt.luckyWheelSpinId && (
+        <p className="font-sans text-xs text-purple-600 font-semibold">
+           {appt.luckyWheelPrizeLabel || 'Lucky Wheel Prize'}
         </p>
       )}
       {hasActual ? (

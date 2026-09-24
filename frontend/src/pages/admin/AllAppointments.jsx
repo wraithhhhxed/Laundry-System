@@ -111,6 +111,11 @@ const renderAmount = (appt) => {
           {appt.promoCode} — −{fmt(appt.discountAmount)}
         </p>
       )}
+      {appt.luckyWheelSpinId && (
+        <p className="font-sans text-xs text-purple-600 font-semibold">
+           {appt.luckyWheelPrizeLabel || 'Lucky Wheel Prize'}
+        </p>
+      )}
       {hasActual ? (
         <>
           <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">Estimated</p>

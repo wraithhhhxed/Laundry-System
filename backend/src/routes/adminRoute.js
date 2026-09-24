@@ -36,7 +36,7 @@ import {
 } from '../controllers/settingController.js'
 import {
   getWheelSetup, updateWheelSetup,
-  spinWheel, pickPrize,
+  spinWheel, spinWheelForCustomer, pickPrize,
   getUnredeemedSpins, getAllSpins,
   redeemSpin,
 } from '../controllers/LuckyWheelController.js'
@@ -122,6 +122,7 @@ adminRouter.delete('/extra-services/:id',          protect('admin'), deleteExtra
 
 adminRouter.get('/lucky-wheel/setup', protect('admin'), getWheelSetup)
 adminRouter.put('/lucky-wheel/setup', protect('admin'), updateWheelSetup)
+adminRouter.post('/lucky-wheel/spin', protect('admin'), spinWheelForCustomer)
 
 adminRouter.post('/staff/lucky-wheel/redeem', protect('staff'), redeemSpin)
 
