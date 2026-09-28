@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { BranchesContext } from '../../context/BranchesContext'
 
 const BranchSidebar = () => {
-  const { bToken } = useContext(BranchesContext)
+  const { bToken, staffRole } = useContext(BranchesContext)
 
   if (!bToken) return null
 
@@ -12,6 +12,7 @@ const BranchSidebar = () => {
     { to: '/branch/appointments', label: 'Appointments' },
     { to: '/branch/walk-in',      label: 'Walk-In' },
     { to: '/branch/inventory',    label: 'Inventory' },
+    ...(staffRole === 'BRANCH_ADMIN' ? [{ to: '/branch/staff', label: 'Staff' }] : []),
     { to: '/branch/sales-report', label: 'Sales Report' },
   ]
 

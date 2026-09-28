@@ -16,21 +16,21 @@ class InventoryService {
     return InventoryRepository.findLowStock(branchId)
   }
 
-  async setStock(branchId, productId, quantity, lowStockThreshold = 5) {
+  async setStock(branchId, productId, quantity, lowStockThreshold = 5, lastUpdatedBy = null) {
     const product = await ProductRepository.findById(productId)
     if (!product) throw new ApiError(404, 'Product not found')
     if (quantity < 0) throw new ApiError(400, 'Quantity cannot be negative')
 
-    return InventoryRepository.upsert(branchId, productId, quantity, lowStockThreshold)
+    return InventoryRepository.upsert(branchId, productId, quantity, lowStockThreshold, lastUpdatedBy)
   }
 
-  async restock(branchId, productId, qty) {
+  async restock(branchId, productId, qty, lastUpdatedBy = null) {
     if (qty <= 0) throw new ApiError(400, 'Restock quantity must be greater than zero')
 
     const existing = await InventoryRepository.findByBranchAndProduct(branchId, productId)
     if (!existing) throw new ApiError(404, 'Inventory record not found for this branch')
 
-    return InventoryRepository.restock(branchId, productId, qty)
+    return InventoryRepository.restock(branchId, productId, qty, lastUpdatedBy)
   }
 
   async deduct(branchId, productId, qty) {

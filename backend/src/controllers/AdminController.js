@@ -16,6 +16,8 @@ import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
 import extraServiceService from '../services/ExtraServiceService.js'
 import AuditRepository from '../repositories/AuditRepository.js'
 import AdminRepository from '../repositories/AdminRepository.js'
+import branchStaffService from '../services/BranchStaffService.js'
+import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
 
 // ─── HELPERS ──────────────────────────────────────────────────────
 
@@ -134,12 +136,14 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
   const appointment = await AppointmentRepository.findById(appointmentId)
   if (!appointment) throw new ApiError(404, 'Appointment not found')
 
-  const fromStatus = appointment.deliveryStatus
-  await AppointmentRepository.updateDeliveryStatus(appointmentId, status)
+  const updated = await appointmentService.updateDeliveryStatus(
+    appointmentId,
+    appointment.branchId,
+    status,
+    adminActor(req)
+  )
 
-  await AuditService.logStatusChange(adminActor(req), appointment, fromStatus, status)
-
-  res.json(new ApiResponse(200, {}, 'Delivery status updated'))
+  res.json(new ApiResponse(200, { appointment: updated }, 'Delivery status updated'))
 })
 
 // ─── CONFIRM ACTUAL WEIGHT (admin override) ───────────────────────
@@ -183,7 +187,7 @@ const archiveAppointment = asyncHandler(async (req, res) => {
 
   await appointmentService.archiveAppointment(
     appointmentId,
-    appointment.branchId,  
+    appointment.branchId,
     adminActor(req)
   )
 
@@ -193,7 +197,7 @@ const archiveAppointment = asyncHandler(async (req, res) => {
 // ─── WALK-IN QUICK ADD ────────
 const createWalkInAppointment = asyncHandler(async (req, res) => {
   const {
-    branchId,      
+    branchId,
     phone,
     guestName,
     slotTime,
@@ -203,9 +207,10 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
     specialInstructions,
     pickupAddress,
     deliveryAddress,
+    address,
     fulfillmentMethod,
     paymentMethod,
-    email,
+    promoCode,
   } = req.body
 
   // ─── VALIDATIONS ──────────────────────────────────────────────
@@ -221,9 +226,6 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
   if (paymentMethod && !['CASH', 'ONLINE'].includes(paymentMethod))
     throw new ApiError(400, 'paymentMethod must be CASH or ONLINE')
 
-  if (paymentMethod === 'ONLINE' && !email)
-    throw new ApiError(400, 'email is required when paymentMethod is ONLINE')
-
   // ─── VERIFY BRANCH EXISTS ───────────────────────────────────────
   const branch = await BranchRepository.findById(branchId)
   if (!branch) throw new ApiError(404, 'Branch not found')
@@ -232,19 +234,20 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
   const appointment = await appointmentService.createWalkInAppointment(
     phone,
     guestName || null,
-    branchId,                     
+    branchId,
     slotTime || 'walk_in',
     services,
     overweightResolution || null,
     {
-      specialInstructions,
-      pickupAddress,
-      deliveryAddress,
-      preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
-      email: paymentMethod === 'ONLINE' ? email : null,
-    },
+  specialInstructions,
+  pickupAddress,
+  deliveryAddress: address || deliveryAddress || null,
+  address: address || null,
+  preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
+  promoCode: promoCode || null,
+},
     addOns || [],
-    adminActor(req),            
+    adminActor(req),
     fulfillmentMethod || 'SELF_PICKUP'
   )
 
@@ -480,12 +483,34 @@ const resetBranchPassword = asyncHandler(async (req, res) => {
   const { newPassword } = req.body
   if (!newPassword || newPassword.length < 8)
     throw new ApiError(400, 'Password must be at least 8 characters')
+
   const branch = await BranchRepository.findById(req.params.id)
   if (!branch) throw new ApiError(404, 'Branch not found')
-  const salt = await bcrypt.genSalt(10)
-  const hashedPassword = await bcrypt.hash(newPassword, salt)
-  await BranchRepository.updateById(req.params.id, { password: hashedPassword })
-  res.json(new ApiResponse(200, {}, 'Branch password reset successfully'))
+
+  const staffList = await BranchStaffRepository.findAllByBranch(req.params.id)
+  const branchAdmin = staffList.find(s => s.role === 'BRANCH_ADMIN')
+  if (!branchAdmin) throw new ApiError(404, 'No Branch Admin account found for this branch')
+
+  const hashedPassword = await bcrypt.hash(newPassword, 10)
+  await BranchStaffRepository.updateById(branchAdmin.id, { password: hashedPassword })
+
+  res.json(new ApiResponse(200, {}, `Password reset for ${branchAdmin.firstName} ${branchAdmin.lastName} (Branch Admin)`))
+})
+
+// ─── STAFF MANAGEMENT (Super Admin) ───────────────────────────────
+const addStaffAdmin = asyncHandler(async (req, res) => {
+  const staff = await branchStaffService.createStaff(adminActor(req), req.body)
+  res.json(new ApiResponse(201, { staff }, 'Staff added successfully'))
+})
+
+const getStaffByBranchAdmin = asyncHandler(async (req, res) => {
+  const staff = await branchStaffService.listByBranch(req.params.branchId)
+  res.json(new ApiResponse(200, { staff }))
+})
+
+const deleteStaffAdmin = asyncHandler(async (req, res) => {
+  const staff = await branchStaffService.deleteStaff(adminActor(req), req.params.id)
+  res.json(new ApiResponse(200, {}, `${staff.firstName} ${staff.lastName} removed successfully`))
 })
 
 // ─── EXTRA SERVICES MAINTENANCE ───────────────────────────────────
@@ -520,6 +545,33 @@ const deleteExtraService = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, {}, 'Extra service deleted'))
 })
 
+// ─── DELETE ALL APPOINTMENTS (maintenance/testing reset) ─────────
+const deleteAllAppointments = asyncHandler(async (req, res) => {
+  const result = await appointmentService.deleteAllAppointments(adminActor(req))
+  res.json(new ApiResponse(200, result, `${result.deletedCount} appointment(s) deleted successfully`))
+})
+
+// ─── QR PAYMENT (WALK-IN) ─────────────────────────────────────────
+const generateQrPayment = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params
+  if (!appointmentId)
+    throw new ApiError(400, 'appointmentId is required')
+
+  const { qrImageUrl, paymentIntentId } = await appointmentService.generateWalkInQrPayment(appointmentId)
+
+  res.json(new ApiResponse(200, { qrImageUrl, paymentIntentId }, 'QR code generated successfully'))
+})
+
+const getQrPaymentStatus = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params
+  if (!appointmentId)
+    throw new ApiError(400, 'appointmentId is required')
+
+  const result = await appointmentService.checkQrPaymentStatus(appointmentId)
+
+  res.json(new ApiResponse(200, result))
+})
+
 export {
   loginAdmin, logoutAdmin,
 
@@ -529,8 +581,8 @@ export {
   updateDeliveryStatus,
   confirmActualWeight, confirmPayment,
   archiveAppointment,
-  createWalkInAppointment, 
-  lookupPhone,              
+  createWalkInAppointment,
+  lookupPhone,
 
   getAllServices, addService, updateService, deleteService,
 
@@ -542,9 +594,14 @@ export {
   getAllUsers, getUserById, addUser, updateUser, toggleUserStatus, deleteUser,
 
   getBranches, getBranchByIdAdmin, updateBranchAdmin,
-  
+
   toggleBranchStatus, deleteBranchAdmin, resetBranchPassword,
-  
+  addStaffAdmin, getStaffByBranchAdmin, deleteStaffAdmin,
+
   getAllExtraServices, getExtraServiceById, addExtraService,
   updateExtraService, toggleExtraServiceStatus, deleteExtraService,
+
+  generateQrPayment,
+  getQrPaymentStatus,
+  deleteAllAppointments,
 }

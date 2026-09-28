@@ -25,6 +25,7 @@ import RefundReasonsSettings from './pages/admin/RefundReasonsSettings'
 import FaqSettings from './pages/admin/FaqSettings'
 import PriceSettings from './pages/admin/PriceSettings'
 import ProductManagement from './pages/admin/ProductManagement'
+import AdminInventory from './pages/admin/AdminInventory'  // <-- BAGONG IMPORT
 import SalesReport from './pages/admin/SalesReport'
 import ExtraServiceList from './pages/admin/ExtraServiceList'
 import AdminWalkIn from './pages/admin/AdminWalkin'
@@ -38,6 +39,7 @@ import BranchWalkIn from './pages/branch/BranchWalkIn'
 import BranchProfile from './pages/branch/branchProfile'
 import BranchInventory from './pages/branch/BranchInventory'
 import BranchSalesReport from './pages/branch/branchSalesReport'
+import BranchStaff from './pages/branch/BranchStaff'
 
 // User
 import UserLayout from './components/UserLayout'
@@ -77,6 +79,7 @@ const App = () => {
               <Route path='/admin/extra-services'     element={<ExtraServiceList />} />
               <Route path='/admin/promo-codes'        element={<PromoCodesList />} />
               <Route path='/admin/products'           element={<ProductManagement />} />
+              <Route path='/admin/inventory'          element={<AdminInventory />} />  {/* <-- BAGONG ROUTE */}
               <Route path='/admin/users'              element={<UserMaintenance />} />
               <Route path='/admin/audit-logs'         element={<AdminAuditLog />} />
               <Route path='/admin/login-history'      element={<AuditLogs />} />
@@ -108,6 +111,7 @@ const App = () => {
               <Route path='/branch/inventory'    element={<BranchInventory />} />
               <Route path='/branch/profile'      element={<BranchProfile />} />
               <Route path='/branch/sales-report' element={<BranchSalesReport />} />
+              <Route path='/branch/staff'        element={<BranchStaff />} />
               <Route path='*'                    element={<Navigate to='/branch/dashboard' replace />} />
             </Routes>
           </main>
@@ -116,35 +120,36 @@ const App = () => {
     )
   }
 
-  return (
-    <div className='mx-4 sm:mx-[10%]'> 
-      <ToastContainer />
-      <Routes>
-        {/* Auth Routes - WITHOUT Navbar and Footer */}
-        <Route path='/login' element={<Login />} />
-        <Route path='/forgot-password' element={<ForgotPassword />} />
-        <Route path='/reset-password/:token' element={<ResetPassword />} />
-        <Route path='/secret-login' element={<Navigate to='/login' replace />} />
-        <Route path='/admin-login' element={<Navigate to='/login' replace />} />
+return (
+  <>
+    <ToastContainer />
+    <Routes>
+      {/* Auth Routes - WITHOUT Navbar and Footer, WITHOUT margins */}
+      <Route path='/login' element={<Login />} />
+      <Route path='/forgot-password' element={<ForgotPassword />} />
+      <Route path='/reset-password/:token' element={<ResetPassword />} />
+      <Route path='/secret-login' element={<Navigate to='/login' replace />} />
+      <Route path='/admin-login' element={<Navigate to='/login' replace />} />
 
-        {/* Main Routes - WITH Navbar and Footer */}
-        <Route element={<UserLayout />}>
-          <Route path='/' element={<Home />} />
-          <Route path='/branches' element={<Branches />} />
-          <Route path='/branches/:speciality' element={<Branches />} />
-          <Route path='/about' element={<About />} />
-          <Route path='/contact' element={<Contact />} />
-          <Route path='/my-profile' element={<MyProfile />} />
-          <Route path='/my-appointments' element={<MyAppointments />} />
-          <Route path='/appointment/:branchid' element={<Appointment />} />
-          <Route path='/payment-success' element={<PaymentSuccess />} />
-          <Route path='/payment-failed' element={<PaymentSuccess />} />
-        </Route>
-        
-        <Route path='*' element={<Navigate to='/' replace />} />
-      </Routes>
-    </div>
-  )
+      {/* Main Routes - WITH Navbar and Footer, WITH margins */}
+      <Route element={<div className='mx-4 sm:mx-[10%]'><UserLayout /></div>}>
+        <Route path='/' element={<Home />} />
+        <Route path='/branches' element={<Branches />} />
+        <Route path='/branches/:speciality' element={<Branches />} />
+        <Route path='/about' element={<About />} />
+        <Route path='/contact' element={<Contact />} />
+        <Route path='/my-profile' element={<MyProfile />} />
+        <Route path='/my-appointments' element={<MyAppointments />} />
+        <Route path='/appointment/:branchid' element={<Appointment />} />
+        <Route path='/payment-success' element={<PaymentSuccess />} />
+        <Route path='/payment-failed' element={<PaymentSuccess />} />
+      </Route>
+      
+      <Route path='*' element={<Navigate to='/' replace />} />
+    </Routes>
+  </>
+)
+
 }
 
 export default App

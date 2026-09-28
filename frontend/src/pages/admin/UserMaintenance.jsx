@@ -137,9 +137,15 @@ const UserMaintenance = () => {
   }
 
   // ── Edit ──────────────────────────────────────────────────────
+  const addressToText = (addr) => {
+    if (!addr) return ''
+    if (typeof addr === 'string') return addr
+    return [addr.line1, addr.line2].filter(Boolean).join(', ')
+  }
+
   const openEdit = (user) => {
     setEditUser(user)
-    setEditForm({ name: user.name, email: user.email, phone: user.phone || '', address: user.address || '' })
+    setEditForm({ name: user.name, email: user.email, phone: user.phone || '', address: addressToText(user.address) })
   }
 
   const handleEditSave = async () => {

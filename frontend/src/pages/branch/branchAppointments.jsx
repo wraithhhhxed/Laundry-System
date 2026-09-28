@@ -91,9 +91,14 @@ const getNextStatus = (current, steps) => {
   return steps[idx + 1]
 }
 
+// ── FIX #1: Summary format for services ────────────────────
 const renderServices = (appt) => {
-  if (Array.isArray(appt.services) && appt.services.length > 0)
-    return appt.services.map(s => s.name ?? s).join(', ')
+  if (Array.isArray(appt.services) && appt.services.length > 0) {
+    const count = appt.services.length
+    const firstName = appt.services[0]?.name ?? appt.services[0]
+    if (count === 1) return firstName
+    return `${firstName} (×${count} baskets)`
+  }
   if (appt.service) return appt.service
   return '—'
 }
@@ -105,6 +110,16 @@ const renderAmount = (appt) => {
   const vatPercent = Math.round((appt.vatRate ?? 0) * 100)
   return (
     <div className="space-y-1">
+      {appt.promoCode && appt.discountAmount > 0 && (
+        <p className="font-sans text-xs text-green-600 font-semibold">
+          {appt.promoCode} — −{fmt(appt.discountAmount)}
+        </p>
+      )}
+      {appt.luckyWheelSpinId && (
+        <p className="font-sans text-xs text-purple-600 font-semibold">
+           {appt.luckyWheelPrizeLabel || 'Lucky Wheel Prize'}
+        </p>
+      )}
       {hasActual ? (
         <>
           <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">Estimated</p>
@@ -118,7 +133,7 @@ const renderAmount = (appt) => {
       ) : (
         <>
           {vatPercent > 0 && (
-            <p className="font-sans text-xs text-neutral-400">VAT ({vatPercent}%): +{fmt(appt.vatAmount)}</p>
+            <p className="font-sans text-xs text-neutral-400">incl. VAT ({vatPercent}%): {fmt(estimated - estimated / (1 + (appt.vatRate ?? 0)))}</p>
           )}
           <p className="font-sans text-sm font-bold text-blue-900">
             {fmt(estimated)}
@@ -130,28 +145,66 @@ const renderAmount = (appt) => {
   )
 }
 
+// ── FIX #2: Summary format for weight (limited rows) ───────
 const renderWeight = (appt) => {
   if (!Array.isArray(appt.services) || appt.services.length === 0) return null
+
+  const totalKg = appt.services.reduce((sum, svc) => sum + Number(svc.actualKg ?? svc.kg ?? 0), 0)
+  const basketCount = appt.services.length
+  const hasAnyActual = appt.services.some(svc => svc.actualKg != null)
+
+  const MAX_VISIBLE = 3
+  const visibleServices = appt.services.slice(0, MAX_VISIBLE)
+  const hiddenCount = basketCount - visibleServices.length
+
+  return (
+    <div className="space-y-2">
+      <div className="font-sans text-xs">
+        <span className="text-blue-700 font-bold">Total: {totalKg.toFixed(1)}kg</span>
+        <span className="text-neutral-400 ml-2">({basketCount} basket{basketCount !== 1 ? 's' : ''})</span>
+        {!hasAnyActual && <span className="text-neutral-400 ml-1">(est.)</span>}
+      </div>
+      <div className="space-y-1">
+        {visibleServices.map((svc, idx) => (
+          <div key={idx} className="flex items-center gap-2 font-sans text-[11px]">
+            <span className="text-neutral-400">Basket {idx + 1}:</span>
+            {svc.actualKg != null ? (
+              <>
+                <span className="text-neutral-400 line-through">{svc.kg}kg</span>
+                <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
+                {svc.overweightCharge > 0 && (
+                  <span className="text-amber-600 text-[10px]">+OW</span>
+                )}
+              </>
+            ) : (
+              <span className="text-neutral-600">{svc.kg}kg</span>
+            )}
+          </div>
+        ))}
+        {hiddenCount > 0 && (
+          <p className="font-sans text-[11px] text-neutral-400 italic">... +{hiddenCount} more</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── FIX #3: New renderAddOns function ──────────────────────
+const renderAddOns = (appt) => {
+  if (!Array.isArray(appt.addOns) || appt.addOns.length === 0) return null
+  const total = appt.addOns.reduce((sum, a) => sum + (a.price * a.quantity), 0)
   return (
     <div className="space-y-1">
-      {appt.services.map((svc, idx) => (
-        <div key={idx} className="flex items-center gap-2 font-sans text-xs">
-          <span className="text-neutral-500">{svc.name}:</span>
-          {svc.actualKg != null ? (
-            <>
-              <span className="text-neutral-400 line-through">{svc.kg}kg</span>
-              <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
-              {svc.overweightCharge > 0 && (
-                <span className="text-amber-600 text-[10px]">+OW</span>
-              )}
-            </>
-          ) : (
-            <span className="text-neutral-600">
-              {svc.kg}kg <span className="text-neutral-400">(est.)</span>
-            </span>
-          )}
+      {appt.addOns.map((a, idx) => (
+        <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
+          <span>· {a.name} ×{a.quantity}</span>
+          <span className="font-medium">{fmt(a.price * a.quantity)}</span>
         </div>
       ))}
+      <div className="flex items-center justify-between font-sans text-xs text-blue-700 font-bold pt-1 border-t border-blue-100">
+        <span>Add-ons Total</span>
+        <span>{fmt(total)}</span>
+      </div>
     </div>
   )
 }
@@ -185,6 +238,8 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const payStatus   = resolvePaymentStatus(appt)
   const isPaid      = payStatus === 'paid_cash' || payStatus === 'paid_online'
   const vatPercent  = Math.round((appt.vatRate ?? 0) * 100)
+  const vatAmt      = finalAmt - finalAmt / (1 + (appt.vatRate ?? 0))
+  const vatableSales = finalAmt - vatAmt
   const now         = new Date()
   const receiptDate = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
   const receiptTime = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
@@ -242,11 +297,15 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
       ${hasActual
         ? `<div class="row"><span class="label">Estimated</span><span class="strike">${fmt(estimated)}</span></div>
            ${appt.overweightChargeTotal > 0 ? `<div class="row"><span class="label">Overweight total</span><span>+${fmt(appt.overweightChargeTotal)}</span></div>` : ''}`
-        : vatPercent > 0 ? `<div class="row"><span class="label">VAT (${vatPercent}%)</span><span>+${fmt(appt.vatAmount)}</span></div>` : ''
+        : ''
       }
       ${appt.discountAmount > 0 ? `<div class="row"><span class="label">Discount (${appt.promoCode || ''})</span><span>-${fmt(appt.discountAmount)}</span></div>` : ''}
       <div class="divider"></div>
       <div class="row total"><span>TOTAL</span><span>${fmt(finalAmt)}</span></div>
+      ${vatPercent > 0 ? `
+      <div class="row small"><span>VATable Sales</span><span>${fmt(vatableSales)}</span></div>
+      <div class="row small"><span>VAT (${vatPercent}%)</span><span>${fmt(vatAmt)}</span></div>
+      <div class="center small">Price is VAT inclusive</div>` : ''}
     </div>
     <div class="divider"></div>
     <div class="center mt4">
@@ -329,13 +388,18 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
                   <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
                   {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
                 </>
-              ) : vatPercent > 0 && (
-                <div className="flex justify-between text-[10px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>+{fmt(appt.vatAmount)}</span></div>
-              )}
+              ) : null}
               {appt.discountAmount > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
               <div className="border-t border-dashed border-neutral-300 pt-2 mt-1 flex justify-between font-black text-sm">
                 <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
               </div>
+              {vatPercent > 0 && (
+                <>
+                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">VATable Sales</span><span>{fmt(vatableSales)}</span></div>
+                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>{fmt(vatAmt)}</span></div>
+                  <p className="text-center text-[9px] text-neutral-400">Price is VAT inclusive</p>
+                </>
+              )}
             </div>
             <div className="border-t border-dashed border-neutral-300 my-3" />
             <div className="text-center">
@@ -915,6 +979,28 @@ const AllAppointments = () => {
                     <SectionLabel>Weight</SectionLabel>
                     {renderWeight(appt) || <p className="font-sans text-sm text-neutral-400">—</p>}
                   </div>
+                  {Array.isArray(appt.addOns) && appt.addOns.length > 0 && (
+                    <div className="col-span-2">
+                      <SectionLabel>Add-ons</SectionLabel>
+                      {renderAddOns(appt)}
+                    </div>
+                  )}
+                  {(appt.overweightResolution || appt.preferredPaymentMethod || appt.bookingSource) && (
+                    <div className="col-span-2">
+                      <SectionLabel>Other Details</SectionLabel>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-neutral-600">
+                        {appt.overweightResolution && (
+                          <span>Overweight: <span className="font-medium capitalize">{appt.overweightResolution}</span></span>
+                        )}
+                        {appt.preferredPaymentMethod && (
+                          <span>Payment: <span className="font-medium capitalize">{appt.preferredPaymentMethod}</span></span>
+                        )}
+                        {appt.bookingSource && (
+                          <span>Source: <span className="font-medium">{appt.bookingSource}</span></span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {appt.specialInstructions && (
                     <div className="col-span-2">
                       <SectionLabel>Notes</SectionLabel>
@@ -926,6 +1012,14 @@ const AllAppointments = () => {
                       <SectionLabel>Pickup Address</SectionLabel>
                       <p className="font-sans text-sm text-neutral-700">
                         {appt.pickupAddress.line1}{appt.pickupAddress.line2 ? ', ' + appt.pickupAddress.line2 : ''}
+                      </p>
+                    </div>
+                  )}
+                  {appt.deliveryAddress?.line1 && (
+                    <div className="col-span-2">
+                      <SectionLabel>Delivery Address</SectionLabel>
+                      <p className="font-sans text-sm text-neutral-700">
+                        {appt.deliveryAddress.line1}{appt.deliveryAddress.line2 ? ', ' + appt.deliveryAddress.line2 : ''}
                       </p>
                     </div>
                   )}
@@ -1044,7 +1138,7 @@ const AllAppointments = () => {
                       className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
                       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                       <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                      <span className="relative">📦 Archive</span>
+                      <span className="relative">Archive</span>
                     </button>
                   )}
                 </div>

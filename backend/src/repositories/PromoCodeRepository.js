@@ -35,21 +35,20 @@ class PromoCodeRepository {
   }
 
   async create(data) {
-  const payload = { ...data };
-  if (payload.expiresAt) {
-    payload.expiresAt = new Date(payload.expiresAt);
+    const payload = { ...data };
+    if (payload.expiresAt) {
+      payload.expiresAt = new Date(payload.expiresAt);
+    }
+    return await prisma.promoCode.create({ data: payload });
   }
-  return await prisma.promoCode.create({ data: payload });
-}
 
   async updateById(id, data) {
-  const payload = { ...data };
-  if (payload.expiresAt) {
-    payload.expiresAt = new Date(payload.expiresAt);
+    const payload = { ...data };
+    if (payload.expiresAt) {
+      payload.expiresAt = new Date(payload.expiresAt);
+    }
+    return await prisma.promoCode.update({ where: { id }, data: payload });
   }
-  return await prisma.promoCode.update({ where: { id }, data: payload });
-}
-
 
   async reserveUse(code, orderSubtotal) {
     const now = new Date();
@@ -72,13 +71,12 @@ class PromoCodeRepository {
         data: { usedCount: { increment: 1 } },
       });
 
-      if (result.count === 0) return null; // may nauna nang caller — natalo tayo sa race
+      if (result.count === 0) return null;
 
       return await tx.promoCode.findUnique({ where: { id: promo.id } });
     });
   }
 
-  // ─── UNDO a reservation if booking fails after reserveUse ─────────────────
   async releaseUse(id) {
     return await prisma.promoCode.update({
       where: { id },
@@ -90,6 +88,13 @@ class PromoCodeRepository {
     return await prisma.promoCode.update({
       where: { id },
       data: { usedCount: { increment: 1 } },
+    });
+  }
+
+  async findByMilestone(milestone) {
+    return await prisma.promoCode.findFirst({
+      where: { assignedMilestone: milestone, isActive: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

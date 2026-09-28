@@ -2,19 +2,20 @@ import AppointmentRepository from '../repositories/AppointmentRepository.js';
 import BranchRepository from '../repositories/BranchRepository.js';
 import UserRepository from '../repositories/UserRepository.js';
 import ServiceRepository from '../repositories/ServiceRepository.js';
+import LuckyWheelRepository from '../repositories/LuckyWheelRepository.js';
 import PromoCodeService from './PromoCodeService.js';
 import * as SettingService from './settingService.js';
 import inventoryService from './InventoryService.js';
 import AuditService from './AuditService.js';
 import { ApiError } from '../utils/ApiError.js';
 import EmailService from './EmailService.js';
+import NotificationService from './NotificationService.js';
+import axios from 'axios';
 
-// Added 'archived' to valid statuses
 const VALID_STATUSES = ['pending_approval', 'approved', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
 
 class AppointmentService {
 
-  // ─── BOOK APPOINTMENT ───────────────────────────────────────────
   async bookAppointment(userId, branchId, slotDate, slotTime, servicesInput, extraDetails = {}, promoCode = null, addOns = [], actor = null) {
     const branch = await BranchRepository.findById(branchId);
     if (!branch) throw new ApiError(404, 'Branch not found');
@@ -57,14 +58,41 @@ class AppointmentService {
     let discountType = null;
     let discountValue = 0;
     let discountAmount = 0;
+    let validatedPromo = null;
 
     if (promoCode) {
-      const validated = await PromoCodeService.validateAndReservePromoCode(promoCode, servicesTotal);
-      promoCodeId = validated.promoCodeId;
-      promoCodeStr = validated.code;
-      discountType = validated.discountType;
-      discountValue = validated.discountValue;
-      discountAmount = validated.discountAmount;
+      validatedPromo = await PromoCodeService.validateAndReservePromoCode(promoCode, servicesTotal, userId);
+      promoCodeId = validatedPromo.promoCodeId;
+      promoCodeStr = validatedPromo.code;
+      discountType = validatedPromo.discountType;
+      discountValue = validatedPromo.discountValue;
+      discountAmount = validatedPromo.discountAmount;
+    }
+
+    // Lucky Wheel: auto-apply FREE_DISCOUNT or FREE_BAG if the customer holds one
+    let luckySpin = null;
+    let luckyPrizeType = null;
+    let luckyPrizeLabel = null;
+    let luckyClaimed = false;
+    const heldSpins = await LuckyWheelRepository.getUserSpins(userId, true);
+    const discountSpin = heldSpins.find((s) => s.prizeType === 'FREE_DISCOUNT');
+    const bagSpin = heldSpins.find((s) => s.prizeType === 'FREE_BAG');
+
+    if (discountSpin) {
+      const wheelSetup = await LuckyWheelRepository.getSetup();
+      const wheelDiscountAmount = wheelSetup?.discountAmount ?? 50;
+      const room = Math.max(0, subtotal - discountAmount);
+      const luckyOff = Math.min(wheelDiscountAmount, room);
+      if (luckyOff > 0) {
+        luckySpin = discountSpin;
+        luckyPrizeType = 'FREE_DISCOUNT';
+        luckyPrizeLabel = `Lucky Wheel: ₱${wheelDiscountAmount} OFF`;
+        discountAmount += luckyOff;
+      }
+    } else if (bagSpin) {
+      luckySpin = bagSpin;
+      luckyPrizeType = 'FREE_BAG';
+      luckyPrizeLabel = bagSpin.bagPrizeName || 'Selfie Wash Laundry Bag';
     }
 
     let vatRate = 0;
@@ -74,23 +102,42 @@ class AppointmentService {
     try {
       const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      vatAmount = parseFloat((discountedBase * vatRate).toFixed(2));
-      finalAmount = parseFloat((discountedBase + vatAmount).toFixed(2));
+      // VAT-inclusive: presyo na may VAT, kaya hindi nagbabago ang total
+      finalAmount = parseFloat(discountedBase.toFixed(2));
+      vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
     } catch (err) {
       if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
       throw err;
     }
 
     let appointmentCreated = false;
+    let milestoneClaimed = false;
     try {
       const user = await UserRepository.findById(userId);
-      const { preferredPaymentMethod = 'cash', ...otherDetails } = extraDetails;
+      const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, address: _ignoredAddress, ...otherDetails } = extraDetails;
+
+      if (luckySpin) {
+        luckyClaimed = await LuckyWheelRepository.claimSpin(luckySpin.id);
+        if (!luckyClaimed) {
+          throw new ApiError(400, 'Your Lucky Wheel prize was already used');
+        }
+      }
+
+      if (validatedPromo?.assignedMilestone) {
+        milestoneClaimed = await UserRepository.claimMilestone(userId, validatedPromo.assignedMilestone);
+        if (!milestoneClaimed) {
+          throw new ApiError(400, 'You have already claimed this reward, or you have not unlocked it yet');
+        }
+      }
 
       const appointment = await AppointmentRepository.createWithCapacityCheck(
         branchId,
         slotDate,
         {
           userId,
+          luckyWheelSpinId: luckySpin ? luckySpin.id : null,
+          luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
+          luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
           branchData: branch,
           userData: user,
           services: enrichedServices,
@@ -103,6 +150,7 @@ class AppointmentService {
           vatAmount,
           promoCodeId,
           promoCode: promoCodeStr,
+          assignedMilestone: validatedPromo?.assignedMilestone || null,
           discountType,
           discountValue,
           discountAmount,
@@ -117,6 +165,10 @@ class AppointmentService {
       );
       appointmentCreated = true;
 
+      if (luckySpin && luckyClaimed) {
+        await LuckyWheelRepository.linkSpinToAppointment(luckySpin.id, appointment.id);
+      }
+
       const slotsBooked = branch.slotsBooked || {};
       if (!slotsBooked[slotDate]) slotsBooked[slotDate] = [];
       slotsBooked[slotDate].push(slotTime);
@@ -129,13 +181,19 @@ class AppointmentService {
 
       return appointment;
     } catch (err) {
-      if (promoCodeId && !appointmentCreated)
-        await PromoCodeService.releasePromoCode(promoCodeId);
+      if (!appointmentCreated) {
+        if (milestoneClaimed) {
+          await UserRepository.unclaimMilestone(userId, validatedPromo.assignedMilestone);
+        }
+        if (luckyClaimed) {
+          await LuckyWheelRepository.unclaimSpin(luckySpin.id);
+        }
+        if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
+      }
       throw err;
     }
   }
 
-  // ─── CONFIRM ACTUAL WEIGHT ──────────────────────────────────────
   async confirmActualWeight(appointmentId, branchId, actualServices, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -220,7 +278,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── RESOLVE OVERWEIGHT DECISION ────────────────────────────────
   async resolveOverweight(appointmentId, userId, resolution, actor = null) {
     if (!['split', 'trim'].includes(resolution))
       throw new ApiError(400, 'Resolution must be "split" or "trim"');
@@ -248,22 +305,29 @@ class AppointmentService {
       for (const svc of appointment.services) {
         if (svc.actualKg != null && svc.actualKg > 7) {
           const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
-          await AppointmentRepository.addSplitLoad(appointmentId, {
-            serviceId: svc.serviceId,
-            name: svc.name,
-            price: svc.price,
-            kg: excessKg > 7 ? 7 : excessKg,
-          });
+
+          let remainingKg = excessKg;
+          while (remainingKg > 0) {
+            const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
+            await AppointmentRepository.addSplitLoad(appointmentId, {
+              serviceId: svc.serviceId,
+              name: svc.name,
+              price: svc.price,
+              kg: basketKg,
+            });
+            addedPriceTotal += svc.price ?? 0;
+            remainingKg -= basketKg;
+          }
+
           await AppointmentRepository.updateServiceActualKg(svc.id, 7);
-          addedPriceTotal += svc.price ?? 0;
         }
       }
 
       if (addedPriceTotal > 0) {
         const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
         const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
-        const newVatAmount = parseFloat((newSubtotal * appointment.vatRate).toFixed(2));
-        const newFinalAmount = parseFloat((newSubtotal + newVatAmount).toFixed(2));
+        const newFinalAmount = parseFloat(newSubtotal.toFixed(2));
+        const newVatAmount = parseFloat((newFinalAmount - newFinalAmount / (1 + appointment.vatRate)).toFixed(2));
 
         await AppointmentRepository.updateById(appointmentId, {
           servicesTotal: newServicesTotal,
@@ -295,7 +359,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── AUTO-CANCEL EXPIRED OVERWEIGHT DECISIONS ───────────────────
   async autoCancelExpiredOverweightDecisions() {
     const expired = await AppointmentRepository.findPendingOverweightPastDeadline();
     for (const appointment of expired) {
@@ -315,7 +378,6 @@ class AppointmentService {
     return expired.length;
   }
 
-  // ─── CONFIRM PAYMENT ────────────────────────────────────────────
   async confirmPayment(appointmentId, paymentMethod, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -347,7 +409,94 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── CANCEL APPOINTMENT ─────────────────────────────────────────
+  async generateWalkInQrPayment(appointmentId) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.payment) throw new ApiError(400, 'Appointment is already paid');
+
+    const rawAmount = appointment.finalAmount ?? appointment.totalAmount ?? 0;
+    if (!rawAmount || rawAmount <= 0)
+      throw new ApiError(400, 'Appointment has no valid amount for payment');
+
+    const secretAuth = `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`;
+    const publicAuth = `Basic ${Buffer.from(process.env.PAYMONGO_PUBLIC_KEY + ':').toString('base64')}`;
+
+    try {
+      const intentRes = await axios.post(
+        'https://api.paymongo.com/v1/payment_intents',
+        {
+          data: {
+            attributes: {
+              amount: Math.round(rawAmount * 100),
+              currency: 'PHP',
+              payment_method_allowed: ['qrph'],
+              description: `Walk-in appointment ${appointmentId}`,
+              metadata: { appointmentId },
+            },
+          },
+        },
+        { headers: { Authorization: secretAuth, 'Content-Type': 'application/json' } }
+      );
+
+      const paymentIntentId = intentRes.data.data.id;
+      const clientKey = intentRes.data.data.attributes.client_key;
+
+      const methodRes = await axios.post(
+        'https://api.paymongo.com/v1/payment_methods',
+        { data: { attributes: { type: 'qrph' } } },
+        { headers: { Authorization: publicAuth, 'Content-Type': 'application/json' } }
+      );
+
+      const paymentMethodId = methodRes.data.data.id;
+
+      const attachRes = await axios.post(
+        `https://api.paymongo.com/v1/payment_intents/${paymentIntentId}/attach`,
+        { data: { attributes: { payment_method: paymentMethodId, client_key: clientKey } } },
+        { headers: { Authorization: publicAuth, 'Content-Type': 'application/json' } }
+      );
+
+      const qrImageUrl = attachRes.data.data.attributes.next_action?.code?.image_url;
+      if (!qrImageUrl) throw new ApiError(500, 'QR code was not returned by PayMongo');
+
+      await AppointmentRepository.saveQrPaymentIntentId(appointmentId, paymentIntentId);
+
+      return { qrImageUrl, paymentIntentId };
+    } catch (err) {
+      console.error('PayMongo QRPH error:', JSON.stringify(err.response?.data, null, 2) || err.message);
+      throw new ApiError(500, err.response?.data?.errors?.[0]?.detail ?? 'QR code generation failed');
+    }
+  }
+
+  async checkQrPaymentStatus(appointmentId) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.payment) return { paid: true };
+
+    const paymentIntentId = appointment.qrPaymentIntentId;
+    if (!paymentIntentId) throw new ApiError(400, 'No QR payment session found for this appointment');
+
+    const secretAuth = `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY + ':').toString('base64')}`;
+
+    const response = await axios.get(
+      `https://api.paymongo.com/v1/payment_intents/${paymentIntentId}`,
+      { headers: { Authorization: secretAuth } }
+    );
+
+    const status = response.data.data.attributes.status;
+
+    if (status === 'succeeded') {
+      await AppointmentRepository.updateById(appointmentId, {
+        payment: true,
+        paymentStatus: 'paid_online',
+        paymentMethod: 'online',
+        paymentPaidAt: new Date(),
+      });
+      return { paid: true };
+    }
+
+    return { paid: false, status };
+  }
+
   async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -359,6 +508,31 @@ class AppointmentService {
 
     if (cancelledBy === 'user' && appointment.deliveryStatus !== 'pending_approval')
       throw new ApiError(400, 'Cancellation is no longer allowed once your appointment has been approved by the branch');
+
+    // Rollback: release reserved resources before cancelling
+    if (appointment.assignedMilestone) {
+      try {
+        await UserRepository.unclaimMilestone(appointment.userId, appointment.assignedMilestone);
+      } catch (err) {
+        console.warn(`[Cancel] Failed to unclaim milestone: ${err.message}`);
+      }
+    }
+
+    if (appointment.promoCodeId) {
+      try {
+        await PromoCodeService.releasePromoCode(appointment.promoCodeId);
+      } catch (err) {
+        console.warn(`[Cancel] Failed to release promo code: ${err.message}`);
+      }
+    }
+
+    if (appointment.luckyWheelSpinId) {
+      try {
+        await LuckyWheelRepository.unclaimSpin(appointment.luckyWheelSpinId);
+      } catch (err) {
+        console.warn(`[Cancel] Failed to unclaim lucky wheel spin: ${err.message}`);
+      }
+    }
 
     await AppointmentRepository.cancelById(appointmentId);
 
@@ -381,7 +555,6 @@ class AppointmentService {
     return true;
   }
 
-  // ─── COMPLETE APPOINTMENT ───────────────────────────────────────
   async completeAppointment(appointmentId, branchId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -390,7 +563,6 @@ class AppointmentService {
     return await AppointmentRepository.markCompleted(appointmentId);
   }
 
-  // ─── UPDATE DELIVERY STATUS ─────────────────────────────────────
   async updateDeliveryStatus(appointmentId, branchId, newStatus, actor = null) {
     if (!VALID_STATUSES.includes(newStatus)) throw new ApiError(400, 'Invalid status');
 
@@ -413,6 +585,22 @@ class AppointmentService {
       } catch (err) {
         console.warn(`[Email] Pickup email failed: ${err.message}`);
       }
+
+      await NotificationService.create(
+        appointment.userId,
+        'picked_up',
+        'Order Picked Up',
+        'Your laundry has been picked up and is on its way to the branch.'
+      );
+    }
+
+    if (newStatus === 'in_progress') {
+      await NotificationService.create(
+        appointment.userId,
+        'in_progress',
+        'Laundry in Progress',
+        'Your laundry is currently being processed.'
+      );
     }
 
     if (newStatus === 'picked_up' && Array.isArray(appointment.addOns) && appointment.addOns.length > 0) {
@@ -434,6 +622,48 @@ class AppointmentService {
       } catch (err) {
         console.warn(`[Email] Delivery email failed: ${err.message}`);
       }
+
+      await NotificationService.create(
+        appointment.userId,
+        'delivered',
+        'Order Delivered',
+        'Your laundry has been delivered. Thank you for choosing Selfie Wash!'
+      );
+
+      try {
+        const updatedUser = await UserRepository.incrementLoyaltyStamps(appointment.userId);
+        const newStampCount = updatedUser.stampAdded ? updatedUser.loyaltyStamps : null;
+
+        if (newStampCount === 4) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_5',
+            'Reward Unlocked!',
+            'You now have 4 stamps — your 5th order gets 10% OFF!'
+          );
+        } else if (newStampCount === 9) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_10',
+            'Reward Unlocked!',
+            'You now have 9 stamps — your 10th order gets 50% OFF!'
+          );
+          } else if (newStampCount === 20) {
+          await NotificationService.create(
+            appointment.userId,
+            'stamp_milestone_20',
+            'LUCKY WHEEL READY!',
+            'You\'ve earned your 20th stamp! Spin the Lucky Wheel for amazing prizes!'
+          );
+
+          const heldSpins = await LuckyWheelRepository.getUserSpins(appointment.userId, true);
+          if (heldSpins.length === 0) {
+            await UserRepository.resetLoyaltyCycle(appointment.userId);
+          }
+        }
+      } catch (err) {
+        console.warn(`[Loyalty] Stamp increment failed: ${err.message}`);
+      }
     }
 
     const updated = await AppointmentRepository.updateById(appointmentId, updates);
@@ -448,7 +678,6 @@ class AppointmentService {
     return updated;
   }
 
-  // ─── CREATE WALK-IN APPOINTMENT ──────────────────────────────────
   async createWalkInAppointment(phone, guestName, branchId, slotTime, servicesInput, overweightResolution = null, extraDetails = {}, addOns = [], actor = null, fulfillmentMethod = 'SELF_PICKUP') {
     let user = await UserRepository.findByPhone(phone);
     if (!user) {
@@ -505,25 +734,83 @@ class AppointmentService {
     const addOnsTotal = addOns.reduce((sum, a) => sum + a.price * a.quantity, 0);
     const subtotal = servicesTotal + addOnsTotal;
 
+    let promoCodeId = null;
+    let promoCodeStr = null;
+    let discountType = null;
+    let discountValue = 0;
+    let discountAmount = 0;
+    let validatedPromo = null;
+
+    if (extraDetails.promoCode) {
+      validatedPromo = await PromoCodeService.validateAndReservePromoCode(extraDetails.promoCode, servicesTotal, user.id);
+      promoCodeId = validatedPromo.promoCodeId;
+      promoCodeStr = validatedPromo.code;
+      discountType = validatedPromo.discountType;
+      discountValue = validatedPromo.discountValue;
+      discountAmount = validatedPromo.discountAmount;
+    }
+
+    // Lucky Wheel: auto-apply FREE_DISCOUNT or FREE_BAG if the customer holds one
+    let luckySpin = null;
+    let luckyPrizeType = null;
+    let luckyPrizeLabel = null;
+    let luckyClaimed = false;
+    const heldSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
+    const discountSpin = heldSpins.find((s) => s.prizeType === 'FREE_DISCOUNT');
+    const bagSpin = heldSpins.find((s) => s.prizeType === 'FREE_BAG');
+
+    if (discountSpin) {
+      const wheelSetup = await LuckyWheelRepository.getSetup();
+      const wheelDiscountAmount = wheelSetup?.discountAmount ?? 50;
+      const room = Math.max(0, subtotal - discountAmount);
+      const luckyOff = Math.min(wheelDiscountAmount, room);
+      if (luckyOff > 0) {
+        luckySpin = discountSpin;
+        luckyPrizeType = 'FREE_DISCOUNT';
+        luckyPrizeLabel = `Lucky Wheel: ₱${wheelDiscountAmount} OFF`;
+        discountAmount += luckyOff;
+      }
+    } else if (bagSpin) {
+      luckySpin = bagSpin;
+      luckyPrizeType = 'FREE_BAG';
+      luckyPrizeLabel = bagSpin.bagPrizeName || 'Selfie Wash Laundry Bag';
+    }
+
     let vatRate = 0;
     let vatAmount = 0;
     let finalAmount;
 
     try {
+      const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      vatAmount = parseFloat((subtotal * vatRate).toFixed(2));
-      finalAmount = parseFloat((subtotal + vatAmount).toFixed(2));
+      // VAT-inclusive: presyo na may VAT, kaya hindi nagbabago ang total
+      finalAmount = parseFloat(discountedBase.toFixed(2));
+      vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
     } catch (err) {
+      if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
       throw err;
     }
 
     let appointmentCreated = false;
+    let milestoneClaimed = false;
     try {
-      // ✅ Extract preferredPaymentMethod and email from extraDetails
-      const { preferredPaymentMethod = 'cash', email, ...otherDetails } = extraDetails;
-      
-      // ✅ Save email for email-sending logic later
+      const { preferredPaymentMethod = 'cash', email, promoCode: _ignoredPromoCode, address: _ignoredAddress, ...otherDetails } = extraDetails;
+
       const userEmail = email || user.email;
+
+      if (luckySpin) {
+        luckyClaimed = await LuckyWheelRepository.claimSpin(luckySpin.id);
+        if (!luckyClaimed) {
+          throw new ApiError(400, 'Your Lucky Wheel prize was already used');
+        }
+      }
+
+      if (validatedPromo?.assignedMilestone) {
+        milestoneClaimed = await UserRepository.claimMilestone(user.id, validatedPromo.assignedMilestone);
+        if (!milestoneClaimed) {
+          throw new ApiError(400, 'You have already claimed this reward, or you have not unlocked it yet');
+        }
+      }
 
       const appointment = await AppointmentRepository.createWithCapacityCheck(
         branchId,
@@ -534,6 +821,10 @@ class AppointmentService {
           guestName: guestName || null,
           guestContact: phone,
           fulfillmentMethod,
+          deliveryAddress: fulfillmentMethod === 'DELIVERY' ? _ignoredAddress : null,
+          luckyWheelSpinId: luckySpin ? luckySpin.id : null,
+          luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
+          luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
           branchData: branch,
           userData: user,
           services: enrichedServices,
@@ -541,14 +832,15 @@ class AppointmentService {
           addOns,
           servicesTotal,
           addOnsTotal,
-          totalAmount: subtotal,
+          totalAmount: subtotal - discountAmount,
           vatRate,
           vatAmount,
-          promoCodeId: null,
-          promoCode: null,
-          discountType: null,
-          discountValue: 0,
-          discountAmount: 0,
+          promoCodeId,
+          promoCode: promoCodeStr,
+          assignedMilestone: validatedPromo?.assignedMilestone || null,
+          discountType,
+          discountValue,
+          discountAmount,
           finalAmount,
           slotTime: slotTime || 'walk_in',
           date: BigInt(Date.now()),
@@ -557,17 +849,30 @@ class AppointmentService {
           deliveryStatus: 'approved',
           paymentStatus: 'pending_payment',
           preferredPaymentMethod,
-          // ✅ Don't include email here to avoid Prisma error
           ...otherDetails,
         }
       );
       appointmentCreated = true;
 
-      // ✅ If ONLINE payment and has email, send payment link
+      if (luckySpin && luckyClaimed) {
+        await LuckyWheelRepository.linkSpinToAppointment(luckySpin.id, appointment.id);
+
+        // Walk-in never increments loyalty stamps, so it can never reach the
+        // online-side "newStampCount === 20" reset trigger. Reset here instead,
+        // right when the spin's prize gets used, if no other spin is still held.
+        const remainingSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
+        if (remainingSpins.length === 0) {
+          await UserRepository.resetLoyaltyCycle(user.id);
+        }
+      }
+
+      // NOTE: walk-in delivery address is intentionally NOT saved back to
+      // User.address — it's a one-time delivery address for this order only,
+      // stored on Appointment.deliveryAddress. The customer's profile address
+      // stays untouched unless they update it themselves (e.g. via My Profile).
+
       if (preferredPaymentMethod === 'online' && userEmail) {
         try {
-          // TODO: Implement PayMongo email link logic here
-          // await EmailService.sendOnlinePaymentLink(userEmail, appointment);
           console.log(`[PayMongo] Would send payment link to ${userEmail} for appointment ${appointment.id}`);
         } catch (err) {
           console.warn(`[PayMongo] Failed to send payment link: ${err.message}`);
@@ -583,22 +888,29 @@ class AppointmentService {
           for (const svc of appointment.services) {
             if (svc.actualKg != null && svc.actualKg > 7) {
               const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
-              await AppointmentRepository.addSplitLoad(appointment.id, {
-                serviceId: svc.serviceId,
-                name: svc.name,
-                price: svc.price,
-                kg: excessKg > 7 ? 7 : excessKg,
-              });
+
+              let remainingKg = excessKg;
+              while (remainingKg > 0) {
+                const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
+                await AppointmentRepository.addSplitLoad(appointment.id, {
+                  serviceId: svc.serviceId,
+                  name: svc.name,
+                  price: svc.price,
+                  kg: basketKg,
+                });
+                addedPriceTotal += svc.price ?? 0;
+                remainingKg -= basketKg;
+              }
+
               await AppointmentRepository.updateServiceActualKg(svc.id, 7);
-              addedPriceTotal += svc.price ?? 0;
             }
           }
 
           if (addedPriceTotal > 0) {
             const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
-            const newSubtotal = newServicesTotal + appointment.addOnsTotal;
-            const newVatAmount = parseFloat((newSubtotal * appointment.vatRate).toFixed(2));
-            const newFinalAmount = parseFloat((newSubtotal + newVatAmount).toFixed(2));
+            const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
+            const newFinalAmount = parseFloat(newSubtotal.toFixed(2));
+            const newVatAmount = parseFloat((newFinalAmount - newFinalAmount / (1 + appointment.vatRate)).toFixed(2));
 
             await AppointmentRepository.updateById(appointment.id, {
               servicesTotal: newServicesTotal,
@@ -643,22 +955,61 @@ class AppointmentService {
 
       return await AppointmentRepository.findById(appointment.id);
     } catch (err) {
+      if (!appointmentCreated) {
+        if (milestoneClaimed) {
+          await UserRepository.unclaimMilestone(user.id, validatedPromo.assignedMilestone);
+        }
+        if (luckyClaimed) {
+          await LuckyWheelRepository.unclaimSpin(luckySpin.id);
+        }
+        if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
+      }
       throw err;
     }
   }
 
-  // ─── WALK-IN PHONE LOOKUP ────────────────────────────────────────
   async lookupUserByPhone(phone) {
     const user = await UserRepository.findByPhone(phone);
     if (!user) return null;
-    return { 
-      name: user.name, 
-      phone: user.phone, 
-      email: user.email 
+
+    const { fifthStampReward, tenthStampReward, fifteenthStampReward } =
+      await PromoCodeService.getLoyaltyStatus(user);
+
+    let addressString = null;
+    if (user.address) {
+      if (typeof user.address === 'string') {
+        addressString = user.address;
+      } else if (typeof user.address === 'object') {
+        addressString = [user.address.line1, user.address.line2]
+          .filter(Boolean)
+          .join(', ');
+      }
+    }
+
+    let unredeemedSpins = [];
+    try {
+      unredeemedSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
+    } catch (err) {
+      console.warn(`[LuckyWheel] Failed to fetch unredeemed spins: ${err.message}`);
+    }
+
+    return {
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      address: addressString,
+      loyaltyStamps: user.loyaltyStamps,
+      fifthStampRedeemedAt: user.fifthStampRedeemedAt,
+      tenthStampRedeemedAt: user.tenthStampRedeemedAt,
+      fifteenthStampRedeemedAt: user.fifteenthStampRedeemedAt,
+      fifthStampReward,
+      tenthStampReward,
+      fifteenthStampReward,
+      unredeemedSpins,
     };
   }
 
-  // ─── GETTERS ────────────────────────────────────────────────────
   async getAppointmentsByUser(userId) {
     return await AppointmentRepository.findByUserId(userId);
   }
@@ -671,7 +1022,12 @@ class AppointmentService {
     return await AppointmentRepository.findAll();
   }
 
-  // ─── DASHBOARD ──────────────────────────────────────────────────
+  async deleteAllAppointments(actor = null) {
+    const result = await AppointmentRepository.deleteAllAppointments();
+    console.log(`[Maintenance] Deleted ${result.count} appointment(s) and their related records.`);
+    return { deletedCount: result.count };
+  }
+
   async getDashboardData() {
     const [appointments, totalBranches, totalCustomers] = await Promise.all([
       AppointmentRepository.findAll(),
@@ -740,19 +1096,15 @@ class AppointmentService {
     };
   }
 
-  // ⭐ SIMPLE ARCHIVE - USING EXISTING updateDeliveryStatus
   async archiveAppointment(appointmentId, branchId, actor) {
-    // First, update deliveryStatus to 'archived'
     const result = await this.updateDeliveryStatus(appointmentId, branchId, 'archived', actor);
-    
-    // Second, set the archived field to true
+
     await AppointmentRepository.updateById(appointmentId, {
       archived: true,
       archivedAt: new Date(),
       archivedBy: actor?.userId || branchId,
     });
-    
-    // Return the updated appointment
+
     return await AppointmentRepository.findById(appointmentId);
   }
 }

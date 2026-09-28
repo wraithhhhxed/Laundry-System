@@ -2,7 +2,7 @@ import express from 'express'
 import upload from '../middlewares/multer.js'
 import { protect } from '../middlewares/auth.middleware.js'
 import {
-  loginBranch, logoutBranch,
+  logoutBranch,
   getBranchProfile,
   updateBranchProfile,
   getBranchAppointments,
@@ -16,18 +16,26 @@ import {
   createWalkInAppointment,
   lookupPhone,
   archiveAppointment,
+  addStaff,
+  getBranchStaff,
+  deleteStaff,
+  generateQrPayment,
+  getQrPaymentStatus,
 } from '../controllers/BranchController.js'
 import {
   getAllPromoCodes,
   getPromoCodeById,
 } from '../controllers/promoCodeController.js'
+import {
+  spinWheelForCustomer,
+  getWheelSetup,
+} from '../controllers/LuckyWheelController.js'
 
 const branchRouter = express.Router()
 
-// ─── Public ───────────────────────────────────────────────────────
-branchRouter.post('/login', loginBranch)
+// Public
 
-// ─── Protected ────────────────────────────────────────────────────
+// Protected
 branchRouter.get('/profile',                 protect('branch'), getBranchProfile)
 branchRouter.post('/update-profile',         protect('branch'), upload.single('image'), updateBranchProfile)
 branchRouter.get('/appointments',            protect('branch'), getBranchAppointments)
@@ -39,17 +47,30 @@ branchRouter.post('/change-availability',    protect('branch'), changeBranchAvai
 branchRouter.post('/logout',                 protect('branch'), logoutBranch)
 branchRouter.post('/create-walk-in',         protect('branch'), createWalkInAppointment)
 
-// ─── Actual weight + payment ──────────────────────────────────────
+// Staff Management
+branchRouter.post('/staff',    protect('branch'), addStaff)
+branchRouter.get('/staff',     protect('branch'), getBranchStaff)
+branchRouter.delete('/staff/:id', protect('branch'), deleteStaff)
+
+// Actual weight + payment
 branchRouter.post('/confirm-actual-weight',  protect('branch'), confirmActualWeight)
 branchRouter.post('/confirm-payment',        protect('branch'), confirmPayment)
 
-// ─── Walk-in Phone Lookup ─────────────────────────────────────────
+// QR PAYMENT (WALK-IN)
+branchRouter.post('/appointments/:appointmentId/qr-payment',        protect('branch'), generateQrPayment)
+branchRouter.get('/appointments/:appointmentId/qr-payment/status',  protect('branch'), getQrPaymentStatus)
+
+// Walk-in Phone Lookup
 branchRouter.get('/lookup-phone/:phone',     protect('branch'), lookupPhone)
 
-// ⭐ ARCHIVE APPOINTMENT ROUTE
+// ARCHIVE APPOINTMENT ROUTE
 branchRouter.post('/archive-appointment',    protect('branch'), archiveAppointment)
 
-// ─── Promo Codes (read-only) ──────────────────────────────────────
+// Lucky Wheel (walk-in staff spin)
+branchRouter.get('/lucky-wheel/setup', protect('branch'), getWheelSetup)
+branchRouter.post('/lucky-wheel/spin', protect('branch'), spinWheelForCustomer)
+
+// Promo Codes (read-only)
 branchRouter.get('/promo-codes',     protect('branch'), getAllPromoCodes)
 branchRouter.get('/promo-codes/:id', protect('branch'), getPromoCodeById)
 

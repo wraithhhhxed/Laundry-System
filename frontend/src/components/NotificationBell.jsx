@@ -7,7 +7,6 @@ const NotificationBell = () => {
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef(null)
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -24,13 +23,11 @@ const NotificationBell = () => {
 
   return (
     <div ref={dropdownRef} className="relative flex items-center">
-      {/* BELL ICON WITH BADGE */}
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className="relative p-2 hover:bg-blue-50 transition-colors duration-200"
         aria-label="Notifications"
       >
-        {/* BELL ICON */}
         <svg
           className="w-5 h-5 text-neutral-600 hover:text-blue-600 transition-colors"
           fill="none"
@@ -45,7 +42,6 @@ const NotificationBell = () => {
           />
         </svg>
 
-        {/* BADGE */}
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full min-w-[16px] h-[16px]">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -53,7 +49,6 @@ const NotificationBell = () => {
         )}
       </button>
 
-      {/* DROPDOWN MODAL */}
       {showDropdown && (
         <div
           className="absolute right-0 mt-2 w-80 bg-white border border-blue-100 shadow-2xl z-50 overflow-hidden"
@@ -62,7 +57,6 @@ const NotificationBell = () => {
             marginTop: '8px',
           }}
         >
-          {/* HEADER */}
           <div className="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
             <h3 className="font-sans font-bold text-sm uppercase tracking-wider">Notifications</h3>
             {notifications.length > 0 && (
@@ -75,7 +69,6 @@ const NotificationBell = () => {
             )}
           </div>
 
-          {/* NOTIFICATIONS LIST */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center text-neutral-500">
@@ -96,14 +89,12 @@ const NotificationBell = () => {
                   } last:border-0`}
                 >
                   <div className="flex items-start gap-3">
-                    {/* ICON - no emojis, using simple circle indicator */}
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                       <span className="text-xs font-bold text-blue-600 uppercase">
                         {notif.title?.charAt(0) || 'N'}
                       </span>
                     </div>
 
-                    {/* CONTENT */}
                     <div className="flex-1 min-w-0">
                       <p className={`font-sans text-sm font-bold ${
                         notif.read
@@ -116,11 +107,10 @@ const NotificationBell = () => {
                         {notif.message}
                       </p>
                       <p className="text-xs text-neutral-400 mt-2">
-                        {formatTime(notif.timestamp)}
+                        {formatTime(notif.createdAt)}
                       </p>
                     </div>
 
-                    {/* UNREAD INDICATOR & CLOSE */}
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {!notif.read && (
                         <span className="w-2 h-2 bg-blue-600" />
@@ -148,9 +138,15 @@ const NotificationBell = () => {
 }
 
 // ── HELPER: Format timestamp ──────────────────────────────────────
-const formatTime = (timestamp) => {
+// Accepts ISO string (from backend createdAt) OR numeric timestamp.
+const formatTime = (input) => {
+  if (!input) return ''
+
+  const ms = typeof input === 'number' ? input : new Date(input).getTime()
+  if (isNaN(ms)) return ''
+
   const now = Date.now()
-  const diff = now - timestamp
+  const diff = now - ms
   const seconds = Math.floor(diff / 1000)
   const minutes = Math.floor(seconds / 60)
   const hours = Math.floor(minutes / 60)
@@ -161,7 +157,7 @@ const formatTime = (timestamp) => {
   if (hours < 24) return `${hours}h ago`
   if (days < 7) return `${days}d ago`
 
-  const date = new Date(timestamp)
+  const date = new Date(ms)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 

@@ -6,6 +6,8 @@ export const AdminContext = createContext()
 
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
+const USE_MOCK_QR = true
+
 const AdminContextProvider = (props) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
@@ -18,12 +20,14 @@ const AdminContextProvider = (props) => {
   const [kgRates, setKgRates]             = useState([])
   const [promoCodes, setPromoCodes]       = useState([])
   const [extraServices, setExtraServices] = useState([])
-  const [walkInServices, setWalkInServices] = useState([])  // ← ADDED
+  const [walkInServices, setWalkInServices] = useState([])
+  const [wheelDiscountAmount, setWheelDiscountAmount] = useState(50)
 
-  // ─── Debounced appointments refresh ──────────────────────────
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
   const MIN_INTERVAL = 3000
+
+  const mockPollAttempts = useRef({})
 
   const getAllAppointments = useCallback(async () => {
     try {
@@ -43,7 +47,6 @@ const AdminContextProvider = (props) => {
     }, delay)
   }, [getAllAppointments])
 
-  // ─── BRANCHES ────────────────────────────────────────────────
   const getAllBranches = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/all-branches', { headers: authHeader(aToken) })
@@ -60,7 +63,6 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── APPOINTMENTS ─────────────────────────────────────────────
   const cancelAppointment = async (appointmentId) => {
     try {
       const { data } = await axios.post(backendUrl + '/api/admin/cancel-appointment', { appointmentId }, { headers: authHeader(aToken) })
@@ -173,7 +175,26 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── SERVICES ─────────────────────────────────────────────────
+  const deleteAllAppointments = async () => {
+    try {
+      const { data } = await axios.delete(
+        backendUrl + '/api/admin/appointments/delete-all',
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        toast.success(data.message)
+        await getAllAppointments()
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
   const getAllServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/services', { headers: authHeader(aToken) })
@@ -182,37 +203,37 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.message) }
   }
 
-const addService = async (serviceData, imageFile) => {
-  try {
-    const formData = new FormData()
-    formData.append('name',        serviceData.name)
-    formData.append('price',       serviceData.price)
-    formData.append('description', serviceData.description ?? '')
-    formData.append('isActive',    serviceData.isActive ?? true)
-    if (imageFile instanceof File) formData.append('image', imageFile)
-    const { data } = await axios.post(backendUrl + '/api/admin/services', formData, { headers: authHeader(aToken) })
-    if (data.success) { toast.success(data.message); getAllServices() }
-    else toast.error(data.message)
-  } catch (error) { toast.error(error.message) }
-}
+  const addService = async (serviceData, imageFile) => {
+    try {
+      const formData = new FormData()
+      formData.append('name',        serviceData.name)
+      formData.append('price',       serviceData.price)
+      formData.append('description', serviceData.description ?? '')
+      formData.append('isActive',    serviceData.isActive ?? true)
+      if (imageFile instanceof File) formData.append('image', imageFile)
+      const { data } = await axios.post(backendUrl + '/api/admin/services', formData, { headers: authHeader(aToken) })
+      if (data.success) { toast.success(data.message); getAllServices() }
+      else toast.error(data.message)
+    } catch (error) { toast.error(error.message) }
+  }
 
-const updateService = async (id, serviceData, imageFile) => {
-  try {
-    const formData = new FormData()
-    if (serviceData.name        !== undefined) formData.append('name',        serviceData.name)
-    if (serviceData.price       !== undefined) formData.append('price',       serviceData.price)
-    if (serviceData.description !== undefined) formData.append('description', serviceData.description)
-    if (serviceData.isActive    !== undefined) formData.append('isActive',    serviceData.isActive)
-    if (imageFile instanceof File)             formData.append('image',      imageFile)
-    const { data } = await axios.put(
-      backendUrl + `/api/admin/services/${id}`,
-      formData,
-      { headers: authHeader(aToken) }
-    )
-    if (data.success) { toast.success(data.message); getAllServices() }
-    else toast.error(data.message)
-  } catch (error) { toast.error(error.message) }
-}
+  const updateService = async (id, serviceData, imageFile) => {
+    try {
+      const formData = new FormData()
+      if (serviceData.name        !== undefined) formData.append('name',        serviceData.name)
+      if (serviceData.price       !== undefined) formData.append('price',       serviceData.price)
+      if (serviceData.description !== undefined) formData.append('description', serviceData.description)
+      if (serviceData.isActive    !== undefined) formData.append('isActive',    serviceData.isActive)
+      if (imageFile instanceof File)             formData.append('image',      imageFile)
+      const { data } = await axios.put(
+        backendUrl + `/api/admin/services/${id}`,
+        formData,
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) { toast.success(data.message); getAllServices() }
+      else toast.error(data.message)
+    } catch (error) { toast.error(error.message) }
+  }
 
   const deleteService = async (id) => {
     try {
@@ -222,7 +243,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── CLOTHING TYPES ───────────────────────────────────────────
   const getAllClothingTypes = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/clothing-types', { headers: authHeader(aToken) })
@@ -255,7 +275,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── KG RATES ─────────────────────────────────────────────────
   const getAllKgRates = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/kg-rates', { headers: authHeader(aToken) })
@@ -288,7 +307,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── PROMO CODES ──────────────────────────────────────────────
   const getAllPromoCodes = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/promo-codes', { headers: authHeader(aToken) })
@@ -329,7 +347,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── EXTRA SERVICES ───────────────────────────────────────────
   const getAllExtraServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/admin/extra-services', { headers: authHeader(aToken) })
@@ -370,7 +387,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.message) }
   }
 
-  // ─── WALK-IN ──────────────────────────────────────────────────
   const getWalkInServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/user/services')
@@ -378,6 +394,15 @@ const updateService = async (id, serviceData, imageFile) => {
       else toast.error(data.message)
     } catch (error) {
       toast.error(error.message)
+    }
+  }
+
+  const getWheelDiscountAmount = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + '/api/admin/lucky-wheel/setup', { headers: authHeader(aToken) })
+      if (data.success) setWheelDiscountAmount(data.data?.discountAmount ?? 50)
+    } catch (error) {
+      // silent fallback to default 50
     }
   }
 
@@ -404,18 +429,93 @@ const updateService = async (id, serviceData, imageFile) => {
       if (data.success) {
         toast.success('Walk-in appointment created successfully.')
         debouncedRefresh()
-        return true
+        return (
+          data.data?.appointment ||
+          data.appointment ||
+          data.data ||
+          null
+        )
       } else {
         toast.error(data.message)
-        return false
+        return null
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message)
-      return false
+      return null
     }
   }
 
-  // ─── VAT SETTINGS ─────────────────────────────────────────────
+  const spinWheelForCustomer = async (userId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/admin/lucky-wheel/spin',
+        { userId },
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        return data.data
+      } else {
+        toast.error(data.message)
+        return null
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
+  const generateQrPayment = async (appointmentId) => {
+    if (USE_MOCK_QR) {
+      mockPollAttempts.current[appointmentId] = 0
+      return {
+        qrImageUrl: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="white" width="200" height="200"/%3E%3Crect fill="black" x="20" y="20" width="160" height="160"/%3E%3Ctext x="100" y="105" font-size="14" text-anchor="middle" fill="white"%3EMOCK QR%3C/text%3E%3C/svg%3E',
+        paymentIntentId: 'mock_' + appointmentId,
+      }
+    }
+
+    try {
+      const { data } = await axios.post(
+        backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment`,
+        {},
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        return {
+          qrImageUrl:      data.data?.qrImageUrl      || data.qrImageUrl,
+          paymentIntentId: data.data?.paymentIntentId || data.paymentIntentId,
+        }
+      }
+      toast.error(data.message || 'Failed to generate QR code')
+      return null
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
+  const getQrPaymentStatus = async (appointmentId) => {
+    if (USE_MOCK_QR) {
+      const attempts = (mockPollAttempts.current[appointmentId] || 0) + 1
+      mockPollAttempts.current[appointmentId] = attempts
+
+      if (attempts >= 3) {
+        return { paid: true, status: 'succeeded' }
+      }
+      return { paid: false, status: 'pending' }
+    }
+
+    try {
+      const { data } = await axios.get(
+        backendUrl + `/api/admin/appointments/${appointmentId}/qr-payment/status`,
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) return data.data || data
+      return null
+    } catch (error) {
+      return null
+    }
+  }
+
   const getVatRate = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/settings/vat')
@@ -432,7 +532,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  // ─── REFUND REASONS ───────────────────────────────────────────
   const getRefundReasons = async (status) => {
     try {
       const url = status
@@ -456,7 +555,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  // ─── FAQS ─────────────────────────────────────────────────────
   const getFaqs = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/settings/faqs')
@@ -477,7 +575,6 @@ const updateService = async (id, serviceData, imageFile) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  // ─── AUDIT LOGS ───────────────────────────────────────────────
   const getAuditLogs = async (filters = {}) => {
     try {
       const params = Object.fromEntries(
@@ -494,9 +591,9 @@ const updateService = async (id, serviceData, imageFile) => {
     }
   }
 
-  // ─── LOGOUT ───────────────────────────────────────────────────
   const logoutAdmin = () => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current)
+    mockPollAttempts.current = {}
     localStorage.removeItem('aToken')
     setAToken('')
     setBranches([])
@@ -507,7 +604,7 @@ const updateService = async (id, serviceData, imageFile) => {
     setKgRates([])
     setPromoCodes([])
     setExtraServices([])
-    setWalkInServices([])  // ← ADDED
+    setWalkInServices([])
   }
 
   const value = {
@@ -522,18 +619,24 @@ const updateService = async (id, serviceData, imageFile) => {
     confirmActualWeight,
     confirmPayment,
     dashData, getDashboardData,
+    deleteAllAppointments,
     services, getAllServices, addService, updateService, deleteService,
     clothingTypes, getAllClothingTypes, addClothingType, updateClothingType, deleteClothingType,
     kgRates, getAllKgRates, addKgRate, updateKgRate, deleteKgRate,
     promoCodes, getAllPromoCodes, addPromoCode, updatePromoCode, deletePromoCode, togglePromoCode,
     extraServices, getAllExtraServices, addExtraService, updateExtraService, toggleExtraService, deleteExtraService,
-    walkInServices, getWalkInServices,  // ← ADDED
-    lookupPhone,  // ← ADDED
-    createWalkInAppointment,  // ← ADDED
+    walkInServices, getWalkInServices,
+    wheelDiscountAmount, getWheelDiscountAmount,
+    lookupPhone,
+    createWalkInAppointment,
+    spinWheelForCustomer,
+    generateQrPayment,
+    getQrPaymentStatus,
     getVatRate, updateVatRate,
     getRefundReasons, updateRefundReasons,
     getFaqs, updateFaqs,
     getAuditLogs,
+    USE_MOCK_QR,
   }
 
   return (

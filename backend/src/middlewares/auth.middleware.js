@@ -1,21 +1,9 @@
 import jwt from 'jsonwebtoken'
 import { ApiError } from '../utils/ApiError.js'
 import { asyncHandler } from '../utils/asyncHandler.js'
-
-// Lazy-load the right model based on role
-const getModel = async (role) => {
-  if (role === 'branch') {
-    const { default: m } = await import('../../models/branchModel.js')
-    return m
-  }
-  if (role === 'admin') {
-    const { default: m } = await import('../../models/adminModel.js')
-    return m
-  }
-  // client lives in userModel
-  const { default: m } = await import('../../models/userModel.js')
-  return m
-}
+import UserRepository from '../repositories/UserRepository.js'
+import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
+import AdminRepository from '../repositories/AdminRepository.js'
 
 // Usage:
 //   protect()                  — any authenticated role
@@ -36,7 +24,7 @@ const protect = (...allowedRoles) => asyncHandler(async (req, res, next) => {
   }
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET)
-  // decoded = { id, role, iat, exp }
+  // decoded = { id, role, staffRole?, branchId?, iat, exp }
 
   if (allowedRoles.length && !allowedRoles.includes(decoded.role)) {
     throw new ApiError(403, 'Forbidden, insufficient permissions')
@@ -46,11 +34,24 @@ const protect = (...allowedRoles) => asyncHandler(async (req, res, next) => {
   let name  = 'Unknown'
   let email = null
   try {
-    const Model = await getModel(decoded.role)
-    const user  = await Model.findById(decoded.id).select('name email').lean()
-    if (user) {
-      name  = user.name  ?? name
-      email = user.email ?? null
+    if (decoded.role === 'branch') {
+      const staff = await BranchStaffRepository.findById(decoded.id)
+      if (staff) {
+        name  = `${staff.firstName} ${staff.lastName}`
+        email = staff.email ?? null
+      }
+    } else if (decoded.role === 'admin') {
+      const admin = await AdminRepository.findById(decoded.id)
+      if (admin) {
+        name  = admin.name  ?? name
+        email = admin.email ?? null
+      }
+    } else {
+      const user = await UserRepository.findById(decoded.id)
+      if (user) {
+        name  = user.name  ?? name
+        email = user.email ?? null
+      }
     }
   } catch {
     // Non-fatal — audit log will just show 'Unknown'
@@ -58,8 +59,10 @@ const protect = (...allowedRoles) => asyncHandler(async (req, res, next) => {
   // ─────────────────────────────────────────────────────────────
 
   req.user = {
-    id:    decoded.id,
-    role:  decoded.role,
+    id:        decoded.id,
+    role:      decoded.role,
+    staffRole: decoded.staffRole ?? null,
+    branchId:  decoded.branchId ?? null,
     name,
     email,
   }

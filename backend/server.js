@@ -1,6 +1,6 @@
 import express from 'express'
 
-// Global fix: turuan si JSON.stringify kung paano i-convert ang BigInt
+
 BigInt.prototype.toJSON = function () {
   return Number(this)
 }

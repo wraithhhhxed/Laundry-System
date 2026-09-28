@@ -4,6 +4,7 @@ import BranchRepository from '../repositories/BranchRepository.js'
 import ServiceRepository from '../repositories/ServiceRepository.js'
 import { ApiError } from '../utils/ApiError.js'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary.js'
+import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
 
 
 const computeFeesFromServices = async (specialityNames = []) => {
@@ -17,20 +18,6 @@ const computeFeesFromServices = async (specialityNames = []) => {
 }
 
 class BranchService {
-  async login(email, password) {
-    const branch = await BranchRepository.findByEmail(email)
-    if (!branch) throw new ApiError(401, 'Invalid credentials')
-
-    const isMatch = await bcrypt.compare(password, branch.password)
-    if (!isMatch) throw new ApiError(401, 'Invalid credentials')
-
-    const token = jwt.sign(
-      { id: branch.id, role: 'branch' },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-    return token
-  }
 
   async getProfileByEmail(email) {
     return await BranchRepository.findByEmail(email)
@@ -62,43 +49,57 @@ class BranchService {
   }
 
   async addBranch(branchData, imageFile) {
-    const { name, email, password, speciality, about, address, phone } = branchData
+  const { name, email, password, speciality, about, address, phone } = branchData
 
-    if (!name || !email || !password) throw new ApiError(400, 'Missing required fields')
+  if (!name || !email || !password) throw new ApiError(400, 'Missing required fields')
 
-    const exists = await BranchRepository.findByEmail(email)
-    if (exists) throw new ApiError(409, 'Branch already exists')
+  // ── Check kung existing na ang email sa BranchStaff (hindi na sa Branch) ──
+  const existingStaff = await BranchStaffRepository.findByEmail(email)
+  if (existingStaff) throw new ApiError(409, 'Email already in use')
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+  const hashedPassword = await bcrypt.hash(password, 10)
 
-    const parsedSpeciality = speciality
-      ? (typeof speciality === 'string' ? JSON.parse(speciality) : speciality)
-      : []
+  const parsedSpeciality = speciality
+    ? (typeof speciality === 'string' ? JSON.parse(speciality) : speciality)
+    : []
 
-    const parsedAddress = address
-      ? (typeof address === 'string' ? JSON.parse(address) : address)
-      : {}
+  const parsedAddress = address
+    ? (typeof address === 'string' ? JSON.parse(address) : address)
+    : {}
 
-    // ── Auto-compute fees from selected service prices ────────────
-    const computedFees = await computeFeesFromServices(parsedSpeciality)
+  // ── Auto-compute fees from selected service prices ────────────
+  const computedFees = await computeFeesFromServices(parsedSpeciality)
 
-    let imageUrl = ''
-    if (imageFile) {
-      imageUrl = await uploadToCloudinary(imageFile.buffer, 'laundry-app/branches')
-    }
-
-    return await BranchRepository.create({
-      name, email,
-      password: hashedPassword,
-      speciality: parsedSpeciality,
-      about,
-      fees: computedFees,
-      address: parsedAddress,
-      phone,
-      image: imageUrl,
-      date: BigInt(Date.now())
-    })
+  let imageUrl = ''
+  if (imageFile) {
+    imageUrl = await uploadToCloudinary(imageFile.buffer, 'laundry-app/branches')
   }
+
+  // ── Gumawa ng Branch record (WALANG email/password na field) ──
+  const branch = await BranchRepository.create({
+    name,
+    speciality: parsedSpeciality,
+    about,
+    fees: computedFees,
+    address: parsedAddress,
+    phone,
+    image: imageUrl,
+    date: BigInt(Date.now())
+  })
+
+  // ── Awtomatikong gumawa ng unang BRANCH_ADMIN para sa bagong branch ──
+  await BranchStaffRepository.create({
+    firstName: 'Branch',
+    lastName: 'Admin',
+    email,
+    password: hashedPassword,
+    role: 'BRANCH_ADMIN',
+    branchId: branch.id,
+    isActive: true,
+  })
+
+  return branch
+}
 
   async updateBranch(branchId, branchData) {
     const { name, email, phone, speciality, about, address } = branchData
@@ -109,7 +110,7 @@ class BranchService {
     const computedFees = await computeFeesFromServices(parsedSpeciality)
 
     return await BranchRepository.updateById(branchId, {
-      name, email, phone,
+      name, phone,
       speciality: parsedSpeciality,
       about,
       fees: computedFees,

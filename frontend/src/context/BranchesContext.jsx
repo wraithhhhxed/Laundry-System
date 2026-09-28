@@ -6,24 +6,47 @@ export const BranchesContext = createContext()
 
 const authHeader = (token) => ({ Authorization: `Bearer ${token}` })
 
+const decodeToken = (token) => {
+  try {
+    const payload = token.split('.')[1]
+    return JSON.parse(atob(payload))
+  } catch {
+    return null
+  }
+}
+
 const BranchesContextProvider = (props) => {
+  const USE_MOCK_QR = true
+  const mockPollAttempts = useRef({})
+
   const backendUrl = import.meta.env.VITE_BACKEND_URL
 
-  const [bToken, setBToken]               = useState(localStorage.getItem('bToken') || '')
+  const [bToken, setBToken] = useState(localStorage.getItem('bToken') || '')
+
+  const staffRole = bToken ? decodeToken(bToken)?.staffRole : null
+
   const [branchProfile, setBranchProfile] = useState(null)
   const [appointments, setAppointments]   = useState([])
   const [dashData, setDashData]           = useState(null)
-
-  // ─── WALK-IN ──────────────────────────────────────────────────
   const [walkInServices, setWalkInServices] = useState([])
+  const [wheelDiscountAmount, setWheelDiscountAmount] = useState(50)
 
   const getWalkInServices = async () => {
     try {
       const { data } = await axios.get(backendUrl + '/api/user/services')
       if (data.success) setWalkInServices(data.data.services)
       else toast.error(data.message)
-    } catch (error) { 
-      toast.error(error.message) 
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
+  const getWheelDiscountAmount = async () => {
+    try {
+      const { data } = await axios.get(backendUrl + '/api/branch/lucky-wheel/setup', { headers: authHeader(bToken) })
+      if (data.success) setWheelDiscountAmount(data.data?.discountAmount ?? 50)
+    } catch (error) {
+      // silent fallback to default 50
     }
   }
 
@@ -50,18 +73,41 @@ const BranchesContextProvider = (props) => {
       if (data.success) {
         toast.success('Walk-in appointment created successfully.')
         debouncedRefresh()
-        return true
+        return (
+          data.data?.appointment ||
+          data.appointment ||
+          data.data ||
+          true
+        )
       } else {
         toast.error(data.message)
-        return false
+        return null
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message)
-      return false
+      return null
     }
   }
 
-  // ─── Debounced refresh ────────────────────────────────────────
+  const spinWheelForCustomer = async (userId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/branch/lucky-wheel/spin',
+        { userId },
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        return data.data
+      } else {
+        toast.error(data.message)
+        return null
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
   const refreshTimer = useRef(null)
   const lastFetch    = useRef(0)
   const MIN_INTERVAL = 3000
@@ -110,6 +156,7 @@ const BranchesContextProvider = (props) => {
       console.error('Logout audit failed:', error)
     } finally {
       if (refreshTimer.current) clearTimeout(refreshTimer.current)
+      mockPollAttempts.current = {}
       localStorage.removeItem('bToken')
       setBToken('')
       setBranchProfile(null)
@@ -240,7 +287,63 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // ⭐ ARCHIVE APPOINTMENT - SIMPLE
+  const generateQrPayment = async (appointmentId) => {
+    try {
+      if (USE_MOCK_QR) {
+        mockPollAttempts.current[appointmentId] = 0
+
+        return {
+          qrImageUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjMzMzIj5Nb2NrIFFSIENvZGU8L3RleHQ+PC9zdmc+',
+          paymentIntentId: 'mock_' + appointmentId
+        }
+      } else {
+        const { data } = await axios.post(
+          backendUrl + `/api/branch/appointments/${appointmentId}/qr-payment`,
+          {},
+          { headers: authHeader(bToken) }
+        )
+        if (data.success) {
+          return data.data
+        } else {
+          toast.error(data.message)
+          throw new Error(data.message)
+        }
+      }
+    } catch (error) {
+      console.error('Generate QR error:', error)
+      toast.error(error.response?.data?.message || error.message)
+      throw error
+    }
+  }
+
+  const getQrPaymentStatus = async (appointmentId) => {
+    try {
+      if (USE_MOCK_QR) {
+        const attempts = (mockPollAttempts.current[appointmentId] || 0) + 1
+        mockPollAttempts.current[appointmentId] = attempts
+
+        if (attempts >= 3) {
+          return { paid: true, status: 'succeeded' }
+        }
+        return { paid: false, status: 'pending' }
+      } else {
+        const { data } = await axios.get(
+          backendUrl + `/api/branch/appointments/${appointmentId}/qr-payment/status`,
+          { headers: authHeader(bToken) }
+        )
+        if (data.success) {
+          return data.data
+        } else {
+          console.error('QR status check failed:', data.message)
+          throw new Error(data.message)
+        }
+      }
+    } catch (error) {
+      console.error('Check QR status error:', error)
+      throw error
+    }
+  }
+
   const archiveAppointment = async (appointmentId) => {
     try {
       const { data } = await axios.post(
@@ -248,10 +351,10 @@ const BranchesContextProvider = (props) => {
         { appointmentId },
         { headers: authHeader(bToken) }
       )
-      
+
       if (data.success) {
         toast.success('Appointment archived successfully')
-        await getBranchAppointments()  // Immediate refresh, not debounced
+        await getBranchAppointments()
         return true
       } else {
         toast.error(data.message)
@@ -264,7 +367,25 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  // Tab visibility refresh
+  const deleteStaff = async (staffId) => {
+    try {
+      const { data } = await axios.delete(
+        backendUrl + `/api/branch/staff/${staffId}`,
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        toast.success(data.message || 'Staff removed successfully')
+        return true
+      } else {
+        toast.error(data.message)
+        return false
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return false
+    }
+  }
+
   useEffect(() => {
     if (!bToken) return
     const handleVisibilityChange = () => {
@@ -277,6 +398,7 @@ const BranchesContextProvider = (props) => {
   const value = {
     backendUrl,
     bToken, setBToken,
+    staffRole,
     loginBranch, logoutBranch,
     branchProfile, getBranchProfile, updateBranchProfile,
     appointments, getBranchAppointments,
@@ -286,10 +408,14 @@ const BranchesContextProvider = (props) => {
     confirmActualWeight,
     archiveAppointment,
     confirmPayment,
-    // ── WALK-IN ──────────────────────────────────────────────────
     walkInServices, getWalkInServices,
+    wheelDiscountAmount, getWheelDiscountAmount,
     lookupPhone,
     createWalkInAppointment,
+    spinWheelForCustomer,
+    generateQrPayment,
+    getQrPaymentStatus,
+    deleteStaff,
   }
 
   return (

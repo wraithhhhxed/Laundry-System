@@ -1,8 +1,6 @@
 import { useEffect, useContext, useState, useMemo, useCallback } from 'react'
 import { AdminContext } from '../../context/AdminContext'
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-
 const DELIVERY_STEPS = [
   { status: 'pending_approval',  label: 'Pending Approval' },
   { status: 'approved',          label: 'Approved' },
@@ -12,14 +10,12 @@ const DELIVERY_STEPS = [
   { status: 'delivered',         label: 'Delivered' },
 ]
 
-// Self-Pickup — 3 lang, walang rider steps
 const SELF_PICKUP_STEPS = [
   { status: 'approved',    label: 'Approved' },
   { status: 'in_progress', label: 'On Process' },
   { status: 'delivered',   label: 'Completed' },
 ]
 
-// Walk-in na "Deliver to client" — walang "Picked Up" (nasa branch na mismo ang client)
 const WALKIN_DELIVERY_STEPS = [
   { status: 'approved',          label: 'Approved' },
   { status: 'in_progress',       label: 'On Process' },
@@ -73,8 +69,8 @@ const PAYMENT_STATUS_LABEL = {
 
 const PAGE_SIZE             = 10
 const AUTO_REFRESH_INTERVAL = 30
+const SHOW_DELETE_ALL_BUTTON = true
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 const fmt = (n) =>
   `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
@@ -91,9 +87,14 @@ const getNextStatus = (current, steps) => {
   return steps[idx + 1]
 }
 
+// ── FIX #1: Summary format for services ────────────────────
 const renderServices = (appt) => {
-  if (Array.isArray(appt.services) && appt.services.length > 0)
-    return appt.services.map(s => s.name ?? s).join(', ')
+  if (Array.isArray(appt.services) && appt.services.length > 0) {
+    const count = appt.services.length
+    const firstName = appt.services[0]?.name ?? appt.services[0]
+    if (count === 1) return firstName
+    return `${firstName} (×${count} baskets)`
+  }
   if (appt.service) return appt.service
   return '—'
 }
@@ -105,6 +106,16 @@ const renderAmount = (appt) => {
   const vatPercent = Math.round((appt.vatRate ?? 0) * 100)
   return (
     <div className="space-y-1">
+      {appt.promoCode && appt.discountAmount > 0 && (
+        <p className="font-sans text-xs text-green-600 font-semibold">
+          {appt.promoCode} — −{fmt(appt.discountAmount)}
+        </p>
+      )}
+      {appt.luckyWheelSpinId && (
+        <p className="font-sans text-xs text-purple-600 font-semibold">
+           {appt.luckyWheelPrizeLabel || 'Lucky Wheel Prize'}
+        </p>
+      )}
       {hasActual ? (
         <>
           <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">Estimated</p>
@@ -130,33 +141,69 @@ const renderAmount = (appt) => {
   )
 }
 
+// ── FIX #2: Summary format for weight (limited rows) ───────
 const renderWeight = (appt) => {
   if (!Array.isArray(appt.services) || appt.services.length === 0) return null
+
+  const totalKg = appt.services.reduce((sum, svc) => sum + Number(svc.actualKg ?? svc.kg ?? 0), 0)
+  const basketCount = appt.services.length
+  const hasAnyActual = appt.services.some(svc => svc.actualKg != null)
+
+  const MAX_VISIBLE = 3
+  const visibleServices = appt.services.slice(0, MAX_VISIBLE)
+  const hiddenCount = basketCount - visibleServices.length
+
   return (
-    <div className="space-y-1">
-      {appt.services.map((svc, idx) => (
-        <div key={idx} className="flex items-center gap-2 font-sans text-xs">
-          <span className="text-neutral-500">{svc.name}:</span>
-          {svc.actualKg != null ? (
-            <>
-              <span className="text-neutral-400 line-through">{svc.kg}kg</span>
-              <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
-              {svc.overweightCharge > 0 && (
-                <span className="text-amber-600 text-[10px]">+OW</span>
-              )}
-            </>
-          ) : (
-            <span className="text-neutral-600">
-              {svc.kg}kg <span className="text-neutral-400">(est.)</span>
-            </span>
-          )}
-        </div>
-      ))}
+    <div className="space-y-2">
+      <div className="font-sans text-xs">
+        <span className="text-blue-700 font-bold">Total: {totalKg.toFixed(1)}kg</span>
+        <span className="text-neutral-400 ml-2">({basketCount} basket{basketCount !== 1 ? 's' : ''})</span>
+        {!hasAnyActual && <span className="text-neutral-400 ml-1">(est.)</span>}
+      </div>
+      <div className="space-y-1">
+        {visibleServices.map((svc, idx) => (
+          <div key={idx} className="flex items-center gap-2 font-sans text-[11px]">
+            <span className="text-neutral-400">Basket {idx + 1}:</span>
+            {svc.actualKg != null ? (
+              <>
+                <span className="text-neutral-400 line-through">{svc.kg}kg</span>
+                <span className="text-blue-700 font-bold">{svc.actualKg}kg</span>
+                {svc.overweightCharge > 0 && (
+                  <span className="text-amber-600 text-[10px]">+OW</span>
+                )}
+              </>
+            ) : (
+              <span className="text-neutral-600">{svc.kg}kg</span>
+            )}
+          </div>
+        ))}
+        {hiddenCount > 0 && (
+          <p className="font-sans text-[11px] text-neutral-400 italic">... +{hiddenCount} more</p>
+        )}
+      </div>
     </div>
   )
 }
 
-// ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
+// ── FIX #3: New renderAddOns function ──────────────────────
+const renderAddOns = (appt) => {
+  if (!Array.isArray(appt.addOns) || appt.addOns.length === 0) return null
+  const total = appt.addOns.reduce((sum, a) => sum + (a.price * a.quantity), 0)
+  return (
+    <div className="space-y-1">
+      {appt.addOns.map((a, idx) => (
+        <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
+          <span>· {a.name} ×{a.quantity}</span>
+          <span className="font-medium">{fmt(a.price * a.quantity)}</span>
+        </div>
+      ))}
+      <div className="flex items-center justify-between font-sans text-xs text-blue-700 font-bold pt-1 border-t border-blue-100">
+        <span>Add-ons Total</span>
+        <span>{fmt(total)}</span>
+      </div>
+    </div>
+  )
+}
 
 const SectionLabel = ({ children }) => (
   <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">{children}</p>
@@ -173,8 +220,6 @@ const StatusChip = ({ status, steps = DELIVERY_STEPS }) => {
   )
 }
 
-// ─── RECEIPT MODAL ────────────────────────────────────────────────────────────
-
 const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const isSelfPickupTarget = appt.__targetStatus === 'delivered' && appt.fulfillmentMethod === 'SELF_PICKUP'
   const [printed, setPrinted] = useState(false)
@@ -186,6 +231,8 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const payStatus   = resolvePaymentStatus(appt)
   const isPaid      = payStatus === 'paid_cash' || payStatus === 'paid_online'
   const vatPercent  = Math.round((appt.vatRate ?? 0) * 100)
+  const vatAmt      = finalAmt - finalAmt / (1 + (appt.vatRate ?? 0))
+  const vatableSales = finalAmt - vatAmt
   const now         = new Date()
   const receiptDate = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
   const receiptTime = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
@@ -283,12 +330,16 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="mb4 mt4">
       ${hasActual
         ? `<div class="row"><span class="label">Estimated</span><span class="strike">${fmt(estimated)}</span></div>
-           ${appt.overweightChargeTotal > 0 ? `<div class="row"><span class="label">Overweight total</span><span class="bold">+${fmt(appt.overweightChargeTotal)}</span></div>` : ''}`
-        : vatPercent > 0 ? `<div class="row"><span class="label">VAT (${vatPercent}%)</span><span class="bold">+${fmt(appt.vatAmount)}</span></div>` : ''
+          ${appt.overweightChargeTotal > 0 ? `<div class="row"><span class="label">Overweight total</span><span class="bold">+${fmt(appt.overweightChargeTotal)}</span></div>` : ''}`
+        : ''
       }
       ${appt.discountAmount > 0 ? `<div class="row"><span class="label">Discount (${appt.promoCode || ''})</span><span class="bold">-${fmt(appt.discountAmount)}</span></div>` : ''}
       <div class="divider"></div>
       <div class="row total"><span>TOTAL</span><span>${fmt(finalAmt)}</span></div>
+      ${vatPercent > 0 ? `
+      <div class="row small"><span>VATable Sales</span><span>${fmt(vatableSales)}</span></div>
+      <div class="row small"><span>VAT (${vatPercent}%)</span><span>${fmt(vatAmt)}</span></div>
+      <div class="center small">Price is VAT inclusive</div>` : ''}
     </div>
     <div class="divider"></div>
     <div class="center mt4">
@@ -323,7 +374,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
                 console.log('Print dialog may have been cancelled');
               }
             }, 500);
-          }
+          };
         <\/script>
       </head>
       <body>
@@ -391,13 +442,18 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
             <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
             {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
           </>
-        ) : vatPercent > 0 && (
-          <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>+{fmt(appt.vatAmount)}</span></div>
-        )}
+        ) : null}
         {appt.discountAmount > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
         <div className="border-t border-dashed border-neutral-300 pt-1 mt-1 flex justify-between font-black text-[9px]">
           <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
         </div>
+        {vatPercent > 0 && (
+          <>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VATable Sales</span><span>{fmt(vatableSales)}</span></div>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>{fmt(vatAmt)}</span></div>
+            <p className="text-center text-[6px] text-neutral-400">Price is VAT inclusive</p>
+          </>
+        )}
       </div>
       <div className="border-t border-dashed border-neutral-300 my-1.5" />
       <div className="text-center">
@@ -466,8 +522,6 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   )
 }
 
-// ─── ACTUAL WEIGHT MODAL ──────────────────────────────────────────────────────
-
 const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
   const isEditing = appt.services.some(s => s.actualKg != null)
   const [actualKgs, setActualKgs] = useState(
@@ -530,7 +584,6 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
                 />
                 <span className="font-sans text-xs text-neutral-400 flex-shrink-0">kg</span>
               </div>
-              {/* FIX #3: Updated overweight warning text */}
               {Number(actualKgs[idx]?.actualKg) > 7 && (
                 <p className="font-sans text-xs text-amber-600 mt-1.5">
                   Over 7kg by {(Number(actualKgs[idx].actualKg) - 7).toFixed(1)}kg — client will be asked to choose: split into a second load, or set the excess aside unwashed.
@@ -553,8 +606,6 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
     </div>
   )
 }
-
-// ─── CASH PAYMENT MODAL ───────────────────────────────────────────────────────
 
 const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
   const finalAmt = appt.actualFinalAmount ?? appt.finalAmount ?? appt.totalAmount ?? 0
@@ -602,8 +653,6 @@ const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
   )
 }
 
-// ─── ARCHIVE MODAL ────────────────────────────────────────────────────────────
-
 const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -647,7 +696,49 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
   )
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+const DeleteAllModal = ({ onClose, onConfirm, loading, count }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white w-full max-w-md" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #dc2626' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-red-200 font-sans mb-0.5">Super Admin</p>
+              <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Delete All Appointments</h2>
+            </div>
+            <button onClick={onClose} className="text-red-200 hover:text-white transition-colors text-xl leading-none">×</button>
+          </div>
+        </div>
+        <div className="px-6 py-6 space-y-5">
+          <div className="bg-red-50 border border-red-200 px-4 py-3">
+            <p className="font-sans text-sm text-red-700 font-bold">⚠️ This action cannot be undone.</p>
+            <p className="font-sans text-xs text-red-600 mt-1">
+              Permanently delete <span className="font-bold">ALL {count} appointment{count !== 1 ? 's' : ''}</span> from the database. This includes active, cancelled, and archived records.
+            </p>
+          </div>
+          <div className="border border-red-100 px-4 py-3 bg-neutral-50">
+            <p className="font-sans text-xs text-neutral-500">What will happen:</p>
+            <ul className="font-sans text-xs text-neutral-600 mt-1.5 list-disc pl-4 space-y-0.5">
+              <li>All appointment records will be permanently removed</li>
+              <li>This affects all branches and all statuses</li>
+              <li>Audit logs will still retain a record of this action</li>
+            </ul>
+          </div>
+        </div>
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose} disabled={loading}
+            className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            className="flex-1 bg-red-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-red-700 transition-colors disabled:opacity-50">
+            {loading ? 'Deleting...' : '🗑 Delete All'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const AllAppointments = () => {
   const {
@@ -660,19 +751,20 @@ const AllAppointments = () => {
     confirmActualWeight,
     confirmPayment,
     archiveAppointment,
+    deleteAllAppointments,
   } = useContext(AdminContext)
 
-  // FIX #1A: Added sourceFilter state
   const [selectedBranch, setSelectedBranch] = useState('all')
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState('all')
   const [paymentFilter,  setPaymentFilter]  = useState('all')
-  const [sourceFilter,   setSourceFilter]   = useState('all') // all | ONLINE | WALK_IN
+  const [sourceFilter,   setSourceFilter]   = useState('all')
   const [currentPage,    setCurrentPage]    = useState(1)
   const [weightModal,    setWeightModal]    = useState(null)
   const [paymentModal,   setPaymentModal]   = useState(null)
   const [receiptModal,   setReceiptModal]   = useState(null)
   const [archiveModal,   setArchiveModal]   = useState(null)
+  const [deleteAllModal, setDeleteAllModal] = useState(false)
   const [modalLoading,   setModalLoading]   = useState(false)
   const [lastUpdated,    setLastUpdated]    = useState(null)
   const [secondsAgo,     setSecondsAgo]     = useState(0)
@@ -697,8 +789,7 @@ const AllAppointments = () => {
     const tick = setInterval(() => setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000)), 1000)
     return () => clearInterval(tick)
   }, [lastUpdated])
-  
-  // FIX #1B: Added sourceFilter to useEffect dependency
+
   useEffect(() => { setCurrentPage(1) }, [search, selectedBranch, statusFilter, paymentFilter, sourceFilter])
 
   const handleConfirmWeight = async (actualServices) => {
@@ -729,7 +820,13 @@ const AllAppointments = () => {
     if (ok) setArchiveModal(null)
   }
 
-  // FIX #1C: Added sourceFilter to filtered logic
+  const handleDeleteAllConfirm = async () => {
+    setModalLoading(true)
+    const ok = await deleteAllAppointments()
+    setModalLoading(false)
+    if (ok) setDeleteAllModal(false)
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return appointments.filter(appt => {
@@ -787,7 +884,6 @@ const AllAppointments = () => {
     const range = []; for (let i = left; i <= right; i++) range.push(i); return range
   }
 
-  // FIX #1E: Updated hasFilters and clearFilters
   const hasFilters   = search || selectedBranch !== 'all' || statusFilter !== 'all' || paymentFilter !== 'all' || sourceFilter !== 'all'
   const clearFilters = () => { setSearch(''); setSelectedBranch('all'); setStatusFilter('all'); setPaymentFilter('all'); setSourceFilter('all') }
   const selectClass  = 'px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white appearance-none cursor-pointer'
@@ -799,12 +895,12 @@ const AllAppointments = () => {
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
 
-      {weightModal  && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
-      {paymentModal && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
-      {receiptModal && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} />}
-      {archiveModal && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
+      {weightModal    && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
+      {paymentModal   && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
+      {receiptModal   && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} />}
+      {archiveModal   && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
+      {deleteAllModal && <DeleteAllModal    onClose={() => setDeleteAllModal(false)} onConfirm={handleDeleteAllConfirm} loading={modalLoading} count={appointments.length} />}
 
-      {/* ── Header ── */}
       <div className="px-10 pt-10 pb-12"
         style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
         <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3">Operations</p>
@@ -834,7 +930,6 @@ const AllAppointments = () => {
 
       <div className="px-10 py-10 max-w-7xl mx-auto">
 
-        {/* FIX #1F: Added source filter toggle buttons */}
         <div className="flex gap-2 mb-6">
           {[
             { value: 'all',     label: 'All Sources' },
@@ -892,7 +987,7 @@ const AllAppointments = () => {
           </select>
         </div>
 
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 gap-3 flex-wrap">
           <p className="font-sans text-xs text-neutral-400">
             Showing{' '}
             <span className="text-blue-600 font-semibold">
@@ -900,12 +995,24 @@ const AllAppointments = () => {
             </span>{' '}
             of <span className="text-blue-600 font-semibold">{filtered.length}</span> appointment{filtered.length !== 1 ? 's' : ''}
           </p>
-          {hasFilters && (
-            <button onClick={clearFilters}
-              className="font-sans text-xs uppercase tracking-[0.2em] text-blue-400 hover:text-blue-600 transition-colors">
-              Clear Filters ×
-            </button>
-          )}
+          <div className="flex items-center gap-4">
+            {hasFilters && (
+              <button onClick={clearFilters}
+                className="font-sans text-xs uppercase tracking-[0.2em] text-blue-400 hover:text-blue-600 transition-colors">
+                Clear Filters ×
+              </button>
+            )}
+            {SHOW_DELETE_ALL_BUTTON && (
+              <button
+                onClick={() => setDeleteAllModal(true)}
+                disabled={appointments.length === 0}
+                className="group relative overflow-hidden border border-red-300 text-red-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed hover:border-red-500 hover:text-red-700 transition-colors"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-red-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">🗑 Delete All</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {filtered.length === 0 && (
@@ -922,7 +1029,6 @@ const AllAppointments = () => {
           </div>
         )}
 
-        {/* ── Cards ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-blue-100">
           {paginated.map((appt) => {
             const isCancelled    = appt.cancelled
@@ -967,7 +1073,6 @@ const AllAppointments = () => {
             return (
               <div key={appt.id} className="bg-white px-7 py-8 flex flex-col gap-5">
 
-                {/* ── Header row ── */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     {appt.userData?.image
@@ -1008,7 +1113,6 @@ const AllAppointments = () => {
 
                 <div className="h-px bg-blue-100" />
 
-                {/* ── Detail grid ── */}
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   <div>
                     <SectionLabel>Service</SectionLabel>
@@ -1027,6 +1131,28 @@ const AllAppointments = () => {
                     <SectionLabel>Weight</SectionLabel>
                     {renderWeight(appt) || <p className="font-sans text-sm text-neutral-400">—</p>}
                   </div>
+                  {Array.isArray(appt.addOns) && appt.addOns.length > 0 && (
+                    <div className="col-span-2">
+                      <SectionLabel>Add-ons</SectionLabel>
+                      {renderAddOns(appt)}
+                    </div>
+                  )}
+                  {(appt.overweightResolution || appt.preferredPaymentMethod || appt.bookingSource) && (
+                    <div className="col-span-2">
+                      <SectionLabel>Other Details</SectionLabel>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-neutral-600">
+                        {appt.overweightResolution && (
+                          <span>Overweight: <span className="font-medium capitalize">{appt.overweightResolution}</span></span>
+                        )}
+                        {appt.preferredPaymentMethod && (
+                          <span>Payment: <span className="font-medium capitalize">{appt.preferredPaymentMethod}</span></span>
+                        )}
+                        {appt.bookingSource && (
+                          <span>Source: <span className="font-medium">{appt.bookingSource}</span></span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {appt.specialInstructions && (
                     <div className="col-span-2">
                       <SectionLabel>Notes</SectionLabel>
@@ -1038,6 +1164,14 @@ const AllAppointments = () => {
                       <SectionLabel>Pickup Address</SectionLabel>
                       <p className="font-sans text-sm text-neutral-700">
                         {appt.pickupAddress.line1}{appt.pickupAddress.line2 ? ', ' + appt.pickupAddress.line2 : ''}
+                      </p>
+                    </div>
+                  )}
+                  {appt.deliveryAddress?.line1 && (
+                    <div className="col-span-2">
+                      <SectionLabel>Delivery Address</SectionLabel>
+                      <p className="font-sans text-sm text-neutral-700">
+                        {appt.deliveryAddress.line1}{appt.deliveryAddress.line2 ? ', ' + appt.deliveryAddress.line2 : ''}
                       </p>
                     </div>
                   )}
@@ -1071,7 +1205,6 @@ const AllAppointments = () => {
 
                 <div className="h-px bg-blue-100" />
 
-                {/* ── Status + buttons ── */}
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex flex-wrap gap-1.5">
                     {isCancelled
@@ -1156,7 +1289,7 @@ const AllAppointments = () => {
                       className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
                       style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                       <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                      <span className="relative">📦 Archive</span>
+                      <span className="relative"> Archive</span>
                     </button>
                   )}
                 </div>
@@ -1166,7 +1299,6 @@ const AllAppointments = () => {
           })}
         </div>
 
-        {/* ── Pagination ── */}
         {totalPages > 1 && (
           <div className="mt-8 flex items-center justify-between flex-wrap gap-4">
             <p className="font-sans text-xs text-neutral-400 uppercase tracking-[0.2em]">

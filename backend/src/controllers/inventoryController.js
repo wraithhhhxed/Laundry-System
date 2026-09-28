@@ -3,14 +3,18 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import inventoryService from "../services/InventoryService.js";
 import AuditService from "../services/AuditService.js";
-import { Types } from "mongoose";
 
-// ── helper: build actor from req.user ────────────────────────────────────────
+// ── helper: build actor from req.user (Prisma-style, hindi na Mongoose) ────
 const toActor = (user) => ({
-  userId: user?._id ?? user?.id ?? null,
+  userId: user?.id ?? null,
   name:   user?.name ?? user?.email ?? 'Unknown',
-  role:   user?.role ?? 'unknown',
+  role:   user?.staffRole === 'BRANCH_ADMIN' ? 'branchadmin'
+        : user?.staffRole === 'STAFF'        ? 'branchstaff'
+        : user?.role ?? 'unknown',
 })
+
+// ── helper: super admin ba ang gumagawa nito? ──────────────────────────────
+const isSuperAdmin = (user) => user?.role === 'admin'
 
 // ─── Super Admin: Get all inventory across all branches ───────────────────
 const getAllInventory = asyncHandler(async (req, res) => {
@@ -18,9 +22,9 @@ const getAllInventory = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, inventory, "Inventory fetched successfully"));
 });
 
-// ─── Branch Admin: Get inventory for their branch ─────────────────────────
+// ─── Branch Admin/Staff: Get inventory for their branch ───────────────────
 const getBranchInventory = asyncHandler(async (req, res) => {
-  const branchId = req.user.id;
+  const branchId = req.user.branchId;
   const inventory = await inventoryService.getBranchInventory(branchId);
   return res.status(200).json(new ApiResponse(200, inventory, "Branch inventory fetched successfully"));
 });
@@ -44,26 +48,29 @@ const getInStockProductIds = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, { inStockIds }, 'OK'))
 })
 
-// ─── Branch Admin / Super Admin: Set stock for a product ─────────────────
+// ─── Branch Admin/Staff / Super Admin: Set stock for a product ────────────
 const setStock = asyncHandler(async (req, res) => {
   const { productId, quantity, lowStockThreshold } = req.body;
-  const branchId = req.user.role === "admin" ? req.body.branchId : req.user.id;
+  const branchId = isSuperAdmin(req.user) ? req.body.branchId : req.user.branchId;
   if (!branchId)  throw new ApiError(400, "branchId is required");
   if (!productId) throw new ApiError(400, "productId is required");
   if (quantity === undefined || quantity === null) throw new ApiError(400, "quantity is required");
 
   // ── snapshot before ──────────────────────────────────────────
   const existing = await inventoryService.getBranchInventory(branchId)
-  const before   = existing.find(i => (i.productId?._id || i.productId)?.toString() === productId)
+  const before   = existing.find(i => (i.productId ?? i.product?.id)?.toString() === productId)
   const beforeSnapshot = before ? { quantity: before.quantity, lowStockThreshold: before.lowStockThreshold } : null
   // ────────────────────────────────────────────────────────────
 
-  const inventory = await inventoryService.setStock(branchId, productId, quantity, lowStockThreshold);
+  // Super Admin override hindi naka-link sa BranchStaff, kaya null lang ang lastUpdatedBy
+  const lastUpdatedBy = isSuperAdmin(req.user) ? null : req.user.id
+
+  const inventory = await inventoryService.setStock(branchId, productId, quantity, lowStockThreshold, lastUpdatedBy);
 
   // ── AUDIT ────────────────────────────────────────────────────
   await AuditService.logInventoryUpdated(
     toActor(req.user),
-    { _id: productId, name: inventory?.productId?.name ?? productId },
+    { _id: productId, name: inventory?.product?.name ?? productId },
     beforeSnapshot,
     { quantity, lowStockThreshold },
     branchId
@@ -73,26 +80,29 @@ const setStock = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, inventory, "Inventory updated successfully"));
 });
 
-// ─── Branch Admin: Restock (add to existing quantity) ─────────────────────
+// ─── Branch Admin/Staff: Restock (add to existing quantity) ───────────────
 const restock = asyncHandler(async (req, res) => {
   const { productId, addQuantity } = req.body;
-  const branchId = req.user.id;
+  const branchId = isSuperAdmin(req.user) ? req.body.branchId : req.user.branchId;
+  if (!branchId) throw new ApiError(400, "branchId is required");
   if (!productId || addQuantity === undefined) throw new ApiError(400, "productId and addQuantity are required");
   if (addQuantity <= 0) throw new ApiError(400, "addQuantity must be greater than 0");
 
   // ── snapshot before ──────────────────────────────────────────
   const existing = await inventoryService.getBranchInventory(branchId)
-  const before   = existing.find(i => (i.productId?._id || i.productId)?.toString() === productId)
+  const before   = existing.find(i => (i.productId ?? i.product?.id)?.toString() === productId)
   const beforeQty = before?.quantity ?? null
   // ────────────────────────────────────────────────────────────
 
-  const inventory = await inventoryService.restock(branchId, productId, addQuantity);
+  const lastUpdatedBy = isSuperAdmin(req.user) ? null : req.user.id
+
+  const inventory = await inventoryService.restock(branchId, productId, addQuantity, lastUpdatedBy);
   if (!inventory) throw new ApiError(404, "Inventory record not found — use set stock to create it first");
 
   // ── AUDIT ────────────────────────────────────────────────────
   await AuditService.logInventoryUpdated(
     toActor(req.user),
-    { _id: productId, name: inventory?.productId?.name ?? productId },
+    { _id: productId, name: inventory?.product?.name ?? productId },
     { quantity: beforeQty },
     { quantity: inventory.quantity, addQuantity },
     branchId
@@ -113,18 +123,18 @@ const deduct = asyncHandler(async (req, res) => {
 
 // ─── Get low stock items for a branch ─────────────────────────────────────
 const getLowStock = asyncHandler(async (req, res) => {
-  const branchId = req.user.role === "admin" ? req.params.branchId || null : req.user.id;
+  const branchId = isSuperAdmin(req.user) ? (req.params.branchId || null) : req.user.branchId;
   const items = await inventoryService.getLowStock(branchId);
   return res.status(200).json(new ApiResponse(200, items, "Low stock items fetched successfully"));
 });
 
 // ─── Remove product from branch inventory ─────────────────────────────────
 const removeFromBranch = asyncHandler(async (req, res) => {
-  const branchId = req.user.role === "admin" ? req.query.branchId || req.user.id : req.user.id;
+  const branchId = isSuperAdmin(req.user) ? (req.query.branchId || req.user.branchId) : req.user.branchId;
 
   // ── snapshot before ──────────────────────────────────────────
   const existing = await inventoryService.getBranchInventory(branchId)
-  const item = existing.find(i => (i.productId?._id || i.productId)?.toString() === req.params.productId)
+  const item = existing.find(i => (i.productId ?? i.product?.id)?.toString() === req.params.productId)
   // ────────────────────────────────────────────────────────────
 
   const inventory = await inventoryService.removeFromBranch(branchId, req.params.productId);
@@ -133,7 +143,7 @@ const removeFromBranch = asyncHandler(async (req, res) => {
   if (item) {
     await AuditService.logInventoryDeleted(
       toActor(req.user),
-      { _id: req.params.productId, name: item?.productId?.name ?? req.params.productId },
+      { _id: req.params.productId, name: item?.product?.name ?? req.params.productId },
       branchId
     )
   }
