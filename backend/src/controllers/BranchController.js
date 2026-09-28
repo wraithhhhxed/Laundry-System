@@ -180,7 +180,7 @@ const createWalkInAppointment = asyncHandler(async (req, res) => {
     {
       specialInstructions,
       pickupAddress,
-      deliveryAddress,
+      deliveryAddress: address || deliveryAddress || null,
       address: address || null,
       preferredPaymentMethod: paymentMethod === 'ONLINE' ? 'online' : 'cash',
       promoCode: promoCode || null,

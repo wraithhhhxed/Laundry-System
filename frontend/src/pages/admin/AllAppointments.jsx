@@ -231,6 +231,8 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const payStatus   = resolvePaymentStatus(appt)
   const isPaid      = payStatus === 'paid_cash' || payStatus === 'paid_online'
   const vatPercent  = Math.round((appt.vatRate ?? 0) * 100)
+  const vatAmt      = finalAmt - finalAmt / (1 + (appt.vatRate ?? 0))
+  const vatableSales = finalAmt - vatAmt
   const now         = new Date()
   const receiptDate = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
   const receiptTime = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
@@ -329,11 +331,15 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
       ${hasActual
         ? `<div class="row"><span class="label">Estimated</span><span class="strike">${fmt(estimated)}</span></div>
           ${appt.overweightChargeTotal > 0 ? `<div class="row"><span class="label">Overweight total</span><span class="bold">+${fmt(appt.overweightChargeTotal)}</span></div>` : ''}`
-        : vatPercent > 0 ? `<div class="row"><span class="label">VAT (${vatPercent}%)</span><span class="bold">+${fmt(appt.vatAmount)}</span></div>` : ''
+        : ''
       }
       ${appt.discountAmount > 0 ? `<div class="row"><span class="label">Discount (${appt.promoCode || ''})</span><span class="bold">-${fmt(appt.discountAmount)}</span></div>` : ''}
       <div class="divider"></div>
       <div class="row total"><span>TOTAL</span><span>${fmt(finalAmt)}</span></div>
+      ${vatPercent > 0 ? `
+      <div class="row small"><span>VATable Sales</span><span>${fmt(vatableSales)}</span></div>
+      <div class="row small"><span>VAT (${vatPercent}%)</span><span>${fmt(vatAmt)}</span></div>
+      <div class="center small">Price is VAT inclusive</div>` : ''}
     </div>
     <div class="divider"></div>
     <div class="center mt4">
@@ -436,13 +442,18 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
             <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
             {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
           </>
-        ) : vatPercent > 0 && (
-          <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>+{fmt(appt.vatAmount)}</span></div>
-        )}
+        ) : null}
         {appt.discountAmount > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
         <div className="border-t border-dashed border-neutral-300 pt-1 mt-1 flex justify-between font-black text-[9px]">
           <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
         </div>
+        {vatPercent > 0 && (
+          <>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VATable Sales</span><span>{fmt(vatableSales)}</span></div>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>{fmt(vatAmt)}</span></div>
+            <p className="text-center text-[6px] text-neutral-400">Price is VAT inclusive</p>
+          </>
+        )}
       </div>
       <div className="border-t border-dashed border-neutral-300 my-1.5" />
       <div className="text-center">
@@ -1153,6 +1164,14 @@ const AllAppointments = () => {
                       <SectionLabel>Pickup Address</SectionLabel>
                       <p className="font-sans text-sm text-neutral-700">
                         {appt.pickupAddress.line1}{appt.pickupAddress.line2 ? ', ' + appt.pickupAddress.line2 : ''}
+                      </p>
+                    </div>
+                  )}
+                  {appt.deliveryAddress?.line1 && (
+                    <div className="col-span-2">
+                      <SectionLabel>Delivery Address</SectionLabel>
+                      <p className="font-sans text-sm text-neutral-700">
+                        {appt.deliveryAddress.line1}{appt.deliveryAddress.line2 ? ', ' + appt.deliveryAddress.line2 : ''}
                       </p>
                     </div>
                   )}

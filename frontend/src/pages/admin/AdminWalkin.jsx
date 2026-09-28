@@ -1,6 +1,7 @@
 import { useEffect, useContext, useState, useRef } from 'react'
 import { AdminContext } from '../../context/AdminContext'
 import axios from 'axios'
+import { toast } from 'react-toastify'
 
 const SectionLabel = ({ children }) => (
   <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">{children}</p>
@@ -49,6 +50,149 @@ const describeArc = (cx, cy, r, startAngle, endAngle) => {
     `A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
     'Z',
   ].join(' ')
+}
+
+// ── Google Maps address picker ─────────────────────────────────────────
+let mapsPromise = null
+const loadGoogleMaps = () => {
+  if (window.google?.maps?.importLibrary) return Promise.resolve()
+  if (mapsPromise) return mapsPromise
+  mapsPromise = new Promise((resolve, reject) => {
+    (function (g) {
+      let h, a, k
+      const p = 'The Google Maps JavaScript API'
+      const c = 'google', l = 'importLibrary', q = '__ib__'
+      const m = document
+      let b = window
+      b = b[c] || (b[c] = {})
+      const d = b.maps || (b.maps = {})
+      const r = new Set()
+      const e = new URLSearchParams()
+      const u = () => h || (h = new Promise(async (f, n) => {
+        await (a = m.createElement('script'))
+        e.set('libraries', [...r] + '')
+        for (k in g) e.set(k.replace(/[A-Z]/g, (t) => '_' + t[0].toLowerCase()), g[k])
+        e.set('callback', c + '.maps.' + q)
+        a.src = `https://maps.${c}apis.com/maps/api/js?` + e
+        d[q] = f
+        a.onerror = () => { h = null; reject(new Error(p + ' could not load.')) }
+        a.nonce = m.querySelector('script[nonce]')?.nonce || ''
+        m.head.append(a)
+      }))
+      d[l] ? console.warn(p + ' only loads once. Ignoring:', g) : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)))
+    })({ key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, v: 'weekly' })
+    resolve()
+  })
+  return mapsPromise
+}
+
+const AddressPicker = ({ value, onSelect }) => {
+  const boxRef = useRef(null)
+  const mapDivRef = useRef(null)
+  const onSelectRef = useRef(onSelect)
+  const valueRef = useRef(value)
+  onSelectRef.current = onSelect
+  valueRef.current = value
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let acEl = null
+
+    const init = async () => {
+      try {
+        await loadGoogleMaps()
+        const { PlaceAutocompleteElement } = await google.maps.importLibrary('places')
+        const { Map } = await google.maps.importLibrary('maps')
+        const { AdvancedMarkerElement } = await google.maps.importLibrary('marker')
+        if (cancelled || !boxRef.current || !mapDivRef.current) return
+
+        const start = valueRef.current?.lat
+          ? { lat: valueRef.current.lat, lng: valueRef.current.lng }
+          : { lat: 14.5176, lng: 121.0509 }
+
+        const map = new Map(mapDivRef.current, {
+          center: start,
+          zoom: valueRef.current?.lat ? 17 : 13,
+          mapId: 'DEMO_MAP_ID',
+          disableDefaultUI: true,
+          zoomControl: true,
+        })
+
+        const marker = new AdvancedMarkerElement({
+          map: valueRef.current?.lat ? map : null,
+          position: start,
+          gmpDraggable: true,
+        })
+
+        const showPin = (lat, lng) => {
+          const pos = { lat, lng }
+          marker.position = pos
+          marker.map = map
+          map.setCenter(pos)
+          map.setZoom(17)
+        }
+
+        marker.addListener('dragend', () => {
+          const p = marker.position
+          const lat = typeof p.lat === 'function' ? p.lat() : p.lat
+          const lng = typeof p.lng === 'function' ? p.lng() : p.lng
+          onSelectRef.current({ lat, lng })
+        })
+
+        acEl = new PlaceAutocompleteElement({ includedRegionCodes: ['ph'] })
+        acEl.style.colorScheme = 'light'
+        acEl.style.width = '100%'
+        boxRef.current.appendChild(acEl)
+
+        const handleSelect = async (e) => {
+          try {
+            const place = e.placePrediction ? e.placePrediction.toPlace() : e.place
+            await place.fetchFields({ fields: ['formattedAddress', 'location', 'id'] })
+            const lat = place.location.lat()
+            const lng = place.location.lng()
+            showPin(lat, lng)
+            onSelectRef.current({
+              line1: place.formattedAddress,
+              lat, lng,
+              placeId: place.id,
+            })
+          } catch {
+            toast.error('Could not load that address. Please try another.')
+          }
+        }
+        acEl.addEventListener('gmp-select', handleSelect)
+        acEl.addEventListener('gmp-placeselect', handleSelect)
+      } catch (err) {
+        console.error('[AddressPicker] failed:', err)
+        if (!cancelled) setFailed(true)
+      }
+    }
+
+    init()
+    return () => {
+      cancelled = true
+      if (acEl && acEl.parentNode) acEl.parentNode.removeChild(acEl)
+    }
+  }, [])
+
+  if (failed) {
+    return <p className='font-sans text-xs text-red-400'>Map failed to load. Please refresh the page.</p>
+  }
+
+  return (
+    <div className='space-y-3'>
+      <div ref={boxRef} />
+      <div
+        ref={mapDivRef}
+        className='w-full max-w-md border border-blue-100'
+        style={{ height: '240px', aspectRatio: '16 / 9' }}
+      />
+      <p className='font-sans text-[10px] text-neutral-400'>
+        Search your address and pick it from the suggestions. You can drag the pin to fine-tune the exact spot.
+      </p>
+    </div>
+  )
 }
 
 const AdminWalkIn = () => {
@@ -192,7 +336,7 @@ const AdminWalkIn = () => {
 
   const [overweightResolution, setOverweightResolution] = useState('')
   const [fulfillmentMethod, setFulfillmentMethod] = useState('SELF_PICKUP')
-  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState({ line1: '', line2: '' })
 
   const [paymentMethod, setPaymentMethod] = useState('CASH')
 
@@ -251,7 +395,7 @@ const AdminWalkIn = () => {
     setBaskets([{ serviceId: '', actualKg: '' }])
     setOverweightResolution('')
     setFulfillmentMethod('SELF_PICKUP')
-    setDeliveryAddress('')
+    setDeliveryAddress({ line1: '', line2: '' })
     setPaymentMethod('CASH')
     setAddOnQty({})
     setSpinResult(null)
@@ -273,7 +417,8 @@ const AdminWalkIn = () => {
     !hasIncompleteBasket &&
     !hasServiceNoWeight &&
     !hasInvalidWeight &&
-    (!anyOverweight || overweightResolution)
+    (!anyOverweight || overweightResolution) &&
+    (fulfillmentMethod !== 'DELIVERY' || !!deliveryAddress.placeId || !!deliveryAddress.line1)
 
   const handleSplitLoad = () => {
     const newBaskets = []
@@ -398,9 +543,9 @@ const AdminWalkIn = () => {
 
   useEffect(() => {
     if (fulfillmentMethod === 'DELIVERY' && foundUser?.address) {
-      setDeliveryAddress(foundUser.address)
+      setDeliveryAddress({ line1: foundUser.address, line2: '' })
     } else if (fulfillmentMethod === 'SELF_PICKUP') {
-      setDeliveryAddress('')
+      setDeliveryAddress({ line1: '', line2: '' })
     }
   }, [fulfillmentMethod, foundUser])
 
@@ -427,7 +572,15 @@ const AdminWalkIn = () => {
       fulfillmentMethod,
       paymentMethod,
       promoCode: promoCodeToApply,
-      address: deliveryAddress.trim() || null,
+      address: deliveryAddress.line1
+        ? {
+            line1: deliveryAddress.line1,
+            line2: deliveryAddress.line2 || '',
+            lat: deliveryAddress.lat,
+            lng: deliveryAddress.lng,
+            placeId: deliveryAddress.placeId,
+          }
+        : null,
       addOns: selectedAddOns,
     }
 
@@ -610,7 +763,7 @@ const AdminWalkIn = () => {
                 }
 
                 const claimed = tiers.find(t => t.redeemedAt)
-                const stamps = foundUser.loyaltyStamps || 0
+                const stamps = foundUser.loyaltyStamps || 0               
                 const next = stamps < 4 ? 4 : stamps < 9 ? 9 : stamps < 14 ? 14 : null
 
                 return (
@@ -856,18 +1009,38 @@ const AdminWalkIn = () => {
           </button>
         </div>
 
-        {fulfillmentMethod === 'DELIVERY' && (
+                {fulfillmentMethod === 'DELIVERY' && (
           <div className="mb-10">
             <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
-              Delivery Address {foundUser?.address && <span className="text-neutral-300 normal-case">(from record)</span>}
+              Delivery Address
             </label>
+
+            {deliveryAddress.line1 && !deliveryAddress.placeId ? (
+              <div className="flex items-center justify-between gap-3 border border-blue-100 px-4 py-2.5 bg-blue-50/40">
+                <div className="min-w-0">
+                  <p className="font-sans text-sm text-neutral-700 truncate">{deliveryAddress.line1}</p>
+                  <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">From record</p>
+                </div>
+                <button
+                  onClick={() => setDeliveryAddress({ line1: '', line2: deliveryAddress.line2 })}
+                  className="font-sans text-xs text-blue-500 hover:text-blue-700 uppercase tracking-widest font-bold flex-shrink-0">
+                  Change
+                </button>
+              </div>
+            ) : (
+              <AddressPicker
+                value={deliveryAddress}
+                onSelect={loc => setDeliveryAddress(d => ({ ...d, ...loc }))}
+              />
+            )}
+
             <input
               type="text"
-              value={deliveryAddress}
-              onChange={e => setDeliveryAddress(e.target.value)}
+              value={deliveryAddress.line2 || ''}
+              onChange={e => setDeliveryAddress(d => ({ ...d, line2: e.target.value }))}
               disabled={locked}
-              placeholder="e.g. 123 Main St, City."
-              className={inputClass}
+              placeholder="Unit / floor / landmark (optional)"
+              className={inputClass + ' mt-2'}
             />
           </div>
         )}
@@ -1109,9 +1282,7 @@ const AdminWalkIn = () => {
             <h2 className="text-neutral-800 mb-1" style={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: '1.5rem' }}>
               Scan to Pay
             </h2>
-            <p className="font-sans text-xs text-neutral-500 mb-6">
-              Ask the client to scan this QR code using GCash, Maya, or any supported e-wallet.
-            </p>
+        
 
             <div className="flex items-center justify-center mb-6 min-h-[220px]">
               {qrError ? (

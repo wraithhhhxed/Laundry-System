@@ -102,8 +102,9 @@ class AppointmentService {
     try {
       const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      vatAmount = parseFloat((discountedBase * vatRate).toFixed(2));
-      finalAmount = parseFloat((discountedBase + vatAmount).toFixed(2));
+      // VAT-inclusive: presyo na may VAT, kaya hindi nagbabago ang total
+      finalAmount = parseFloat(discountedBase.toFixed(2));
+      vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
     } catch (err) {
       if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
       throw err;
@@ -325,8 +326,8 @@ class AppointmentService {
       if (addedPriceTotal > 0) {
         const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
         const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
-        const newVatAmount = parseFloat((newSubtotal * appointment.vatRate).toFixed(2));
-        const newFinalAmount = parseFloat((newSubtotal + newVatAmount).toFixed(2));
+        const newFinalAmount = parseFloat(newSubtotal.toFixed(2));
+        const newVatAmount = parseFloat((newFinalAmount - newFinalAmount / (1 + appointment.vatRate)).toFixed(2));
 
         await AppointmentRepository.updateById(appointmentId, {
           servicesTotal: newServicesTotal,
@@ -496,7 +497,7 @@ class AppointmentService {
     return { paid: false, status };
   }
 
-    async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
+  async cancelAppointment(appointmentId, cancelledBy, actorId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
 
@@ -782,8 +783,9 @@ class AppointmentService {
     try {
       const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      vatAmount = parseFloat((discountedBase * vatRate).toFixed(2));
-      finalAmount = parseFloat((discountedBase + vatAmount).toFixed(2));
+      // VAT-inclusive: presyo na may VAT, kaya hindi nagbabago ang total
+      finalAmount = parseFloat(discountedBase.toFixed(2));
+      vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
     } catch (err) {
       if (promoCodeId) await PromoCodeService.releasePromoCode(promoCodeId);
       throw err;
@@ -819,6 +821,7 @@ class AppointmentService {
           guestName: guestName || null,
           guestContact: phone,
           fulfillmentMethod,
+          deliveryAddress: fulfillmentMethod === 'DELIVERY' ? _ignoredAddress : null,
           luckyWheelSpinId: luckySpin ? luckySpin.id : null,
           luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
           luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
@@ -863,13 +866,10 @@ class AppointmentService {
         }
       }
 
-      if (fulfillmentMethod === 'DELIVERY' && extraDetails.address && extraDetails.address.trim()) {
-        try {
-          await UserRepository.updateById(user.id, { address: extraDetails.address.trim() });
-        } catch (err) {
-          console.warn(`[Address] Failed to save address: ${err.message}`);
-        }
-      }
+      // NOTE: walk-in delivery address is intentionally NOT saved back to
+      // User.address — it's a one-time delivery address for this order only,
+      // stored on Appointment.deliveryAddress. The customer's profile address
+      // stays untouched unless they update it themselves (e.g. via My Profile).
 
       if (preferredPaymentMethod === 'online' && userEmail) {
         try {
@@ -909,8 +909,8 @@ class AppointmentService {
           if (addedPriceTotal > 0) {
             const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
             const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
-            const newVatAmount = parseFloat((newSubtotal * appointment.vatRate).toFixed(2));
-            const newFinalAmount = parseFloat((newSubtotal + newVatAmount).toFixed(2));
+            const newFinalAmount = parseFloat(newSubtotal.toFixed(2));
+            const newVatAmount = parseFloat((newFinalAmount - newFinalAmount / (1 + appointment.vatRate)).toFixed(2));
 
             await AppointmentRepository.updateById(appointment.id, {
               servicesTotal: newServicesTotal,

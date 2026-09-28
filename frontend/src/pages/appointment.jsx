@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react'
+import React, { useEffect, useRef, useState, useContext } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import RelatedBranches from '../components/RelatedBranches'
@@ -7,7 +7,7 @@ import { toast } from 'react-toastify'
 
 const STEPS = ['Service', 'Weight & Details', 'Add-ons', 'Schedule & Confirm']
 
-const KG_OPTIONS = [1, 2, 3, 4, 5, 6, 7] // hard capacity cap per load — NOT a price driver
+const KG_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
 
 const PAYMENT_METHODS = [
   { value: 'cash',   label: 'Cash on Delivery', desc: 'Pay in cash when your laundry is delivered.' },
@@ -52,9 +52,6 @@ const isPastDate = (dateStr) => {
   return date < today
 }
 
-// One basket = one load = one receipt = one machine.
-// A basket only carries: which fixed-price service it is, and a declared
-// weight (1–7kg) used ONLY as a capacity checkpoint — it never changes price.
 let basketSeq = 0
 const makeBasket = (service) => ({
   basketKey: `b-${Date.now()}-${basketSeq++}`,
@@ -63,10 +60,152 @@ const makeBasket = (service) => ({
   kg: null,
 })
 
+let mapsPromise = null
+const loadGoogleMaps = () => {
+  if (window.google?.maps?.importLibrary) return Promise.resolve()
+  if (mapsPromise) return mapsPromise
+  mapsPromise = new Promise((resolve, reject) => {
+    (function (g) {
+      let h, a, k
+      const p = 'The Google Maps JavaScript API'
+      const c = 'google', l = 'importLibrary', q = '__ib__'
+      const m = document
+      let b = window
+      b = b[c] || (b[c] = {})
+      const d = b.maps || (b.maps = {})
+      const r = new Set()
+      const e = new URLSearchParams()
+      const u = () => h || (h = new Promise(async (f, n) => {
+        await (a = m.createElement('script'))
+        e.set('libraries', [...r] + '')
+        for (k in g) e.set(k.replace(/[A-Z]/g, (t) => '_' + t[0].toLowerCase()), g[k])
+        e.set('callback', c + '.maps.' + q)
+        a.src = `https://maps.${c}apis.com/maps/api/js?` + e
+        d[q] = f
+        a.onerror = () => { h = null; reject(new Error(p + ' could not load.')) }
+        a.nonce = m.querySelector('script[nonce]')?.nonce || ''
+        m.head.append(a)
+      }))
+      d[l] ? console.warn(p + ' only loads once. Ignoring:', g) : (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)))
+    })({ key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, v: 'weekly' })
+    resolve()
+  })
+  return mapsPromise
+}
+
+const AddressPicker = ({ value, onSelect }) => {
+  const boxRef = useRef(null)
+  const mapDivRef = useRef(null)
+  const onSelectRef = useRef(onSelect)
+  const valueRef = useRef(value)
+  onSelectRef.current = onSelect
+  valueRef.current = value
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    let acEl = null
+
+    const init = async () => {
+      try {
+        await loadGoogleMaps()
+        const { PlaceAutocompleteElement } = await google.maps.importLibrary('places')
+        const { Map } = await google.maps.importLibrary('maps')
+        const { AdvancedMarkerElement } = await google.maps.importLibrary('marker')
+        if (cancelled || !boxRef.current || !mapDivRef.current) return
+
+        const start = valueRef.current?.lat
+          ? { lat: valueRef.current.lat, lng: valueRef.current.lng }
+          : { lat: 14.5176, lng: 121.0509 }
+
+        const map = new Map(mapDivRef.current, {
+          center: start,
+          zoom: valueRef.current?.lat ? 17 : 13,
+          mapId: 'DEMO_MAP_ID',
+          disableDefaultUI: true,
+          zoomControl: true,
+        })
+
+        const marker = new AdvancedMarkerElement({
+          map: valueRef.current?.lat ? map : null,
+          position: start,
+          gmpDraggable: true,
+        })
+
+        const showPin = (lat, lng) => {
+          const pos = { lat, lng }
+          marker.position = pos
+          marker.map = map
+          map.setCenter(pos)
+          map.setZoom(17)
+        }
+
+        marker.addListener('dragend', () => {
+          const p = marker.position
+          const lat = typeof p.lat === 'function' ? p.lat() : p.lat
+          const lng = typeof p.lng === 'function' ? p.lng() : p.lng
+          onSelectRef.current({ lat, lng })
+        })
+
+        acEl = new PlaceAutocompleteElement({ includedRegionCodes: ['ph'] })
+        acEl.style.colorScheme = 'light'
+        acEl.style.width = '100%'
+        boxRef.current.appendChild(acEl)
+
+        const handleSelect = async (e) => {
+          try {
+            const place = e.placePrediction ? e.placePrediction.toPlace() : e.place
+            await place.fetchFields({ fields: ['formattedAddress', 'location', 'id'] })
+            const lat = place.location.lat()
+            const lng = place.location.lng()
+            showPin(lat, lng)
+            onSelectRef.current({
+              line1: place.formattedAddress,
+              lat, lng,
+              placeId: place.id,
+            })
+          } catch {
+            toast.error('Could not load that address. Please try another.')
+          }
+        }
+        acEl.addEventListener('gmp-select', handleSelect)
+        acEl.addEventListener('gmp-placeselect', handleSelect)
+      } catch (err) {
+        console.error('[AddressPicker] failed:', err)
+        if (!cancelled) setFailed(true)
+      }
+    }
+
+    init()
+    return () => {
+      cancelled = true
+      if (acEl && acEl.parentNode) acEl.parentNode.removeChild(acEl)
+    }
+  }, [])
+
+  if (failed) {
+    return <p className='font-sans text-xs text-red-400'>Map failed to load. Please refresh the page.</p>
+  }
+
+  return (
+    <div className='space-y-3'>
+      <div ref={boxRef} />
+      <div
+        ref={mapDivRef}
+        className='w-full max-w-md border border-blue-100'
+        style={{ height: '240px', aspectRatio: '16 / 9' }}
+      />
+      <p className='font-sans text-[10px] text-neutral-400'>
+        Search your address and pick it from the suggestions. You can drag the pin to fine-tune the exact spot.
+      </p>
+    </div>
+  )
+}
+
 const Appointment = () => {
   const { branchid } = useParams()
   const navigate = useNavigate()
-  const { branches, currencySymbol, token, backendUrl, validatePromo } = useContext(AppContext)
+  const { branches, currencySymbol, token, backendUrl, validatePromo, userData } = useContext(AppContext)
 
   const [branchInfo, setBranchInfo] = useState(null)
   const [step, setStep]             = useState(1)
@@ -75,15 +214,21 @@ const Appointment = () => {
   const [productsList, setProductsList] = useState([])
   const [allProducts,  setAllProducts]  = useState([])
 
-  // ── Baskets (Step 1 & 2) ────────────────────────────────────────────────
-  // Each fixed service can have multiple baskets (multiple loads of the
-  // same package). Quantity per service drives how many baskets exist.
   const [baskets, setBaskets] = useState([])
 
   const [sameAddress,         setSameAddress]         = useState(true)
   const [specialInstructions, setSpecialInstructions] = useState('')
   const [pickupAddress,       setPickupAddress]       = useState({ line1: '', line2: '' })
   const [deliveryAddress,     setDeliveryAddress]     = useState({ line1: '', line2: '' })
+  const [pickupFromRecord,    setPickupFromRecord]    = useState(false)
+
+  const savedAddress = formatAddress(userData?.address)
+  useEffect(() => {
+    if (savedAddress && !pickupAddress.line1 && !pickupAddress.placeId) {
+      setPickupAddress(p => ({ ...p, line1: savedAddress }))
+      setPickupFromRecord(true)
+    }
+  }, [savedAddress])
 
   const [addOnQty, setAddOnQty] = useState({})
 
@@ -108,8 +253,6 @@ const Appointment = () => {
 
   useEffect(() => { window.scrollTo(0, 0) }, [branchid])
 
-  // ── Initial data fetch ──────────────────────────────────────────────────
-  // No more kg-rates, no more extra-services — fixed 5-package pricing only.
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -137,7 +280,6 @@ const Appointment = () => {
     fetchData()
   }, [backendUrl, branchid])
 
-  // ── Loyalty status (for auto-apply promo preview) ────────────────────
   useEffect(() => {
     const fetchLoyalty = async () => {
       try {
@@ -149,7 +291,7 @@ const Appointment = () => {
         console.error('Failed to load loyalty status:', error.message)
       }
 
-            try {
+      try {
         const { data } = await axios.get(backendUrl + '/api/user/lucky-wheel/unredeemed', {
           headers: { token }
         })
@@ -203,7 +345,6 @@ const Appointment = () => {
     }
   }, [step])
 
-  // ── Basket helpers (Step 1) ─────────────────────────────────────────────
   const getQtyForService = (serviceId) => baskets.filter(b => b.serviceId === serviceId).length
 
   const addBasket = (service) => {
@@ -224,9 +365,6 @@ const Appointment = () => {
     setBaskets(prev => prev.map(b => b.basketKey === basketKey ? { ...b, kg } : b))
   }
 
-  // ── Totals ──────────────────────────────────────────────────────────────
-  // Fixed per-load pricing: each basket contributes its service's fixed
-  // price, full stop. No kg-price, no per-basket extra fees.
   const selectedAddOns = productsList
     .filter(p => addOnQty[p.id] > 0)
     .map(p => ({ productId: p.id, name: p.name, price: p.price, quantity: addOnQty[p.id] }))
@@ -235,20 +373,17 @@ const Appointment = () => {
   const addOnsTotal   = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
   const totalAmount   = basketsTotal + addOnsTotal
 
-  // ── Loyalty auto-promo (10th priority > 5th) ──────────────────────────
-  // getLoyaltyStatus() sa backend na ang nag-aalis ng redeemed/ineligible
-  // rewards — kung meron dito, eligible na siya, walang dagdag na check.
   const autoPromo = (() => {
     if (!loyaltyStatus) return null
     if (loyaltyStatus.fifteenthStampReward?.code) {
-  return { ...loyaltyStatus.fifteenthStampReward, tier: '15th' }
-}
-if (loyaltyStatus.tenthStampReward?.code) {
-  return { ...loyaltyStatus.tenthStampReward, tier: '10th' }
-}
-if (loyaltyStatus.fifthStampReward?.code) {
-  return { ...loyaltyStatus.fifthStampReward, tier: '5th' }
-}
+      return { ...loyaltyStatus.fifteenthStampReward, tier: '15th' }
+    }
+    if (loyaltyStatus.tenthStampReward?.code) {
+      return { ...loyaltyStatus.tenthStampReward, tier: '10th' }
+    }
+    if (loyaltyStatus.fifthStampReward?.code) {
+      return { ...loyaltyStatus.fifthStampReward, tier: '5th' }
+    }
     return null
   })()
 
@@ -261,9 +396,10 @@ if (loyaltyStatus.fifthStampReward?.code) {
   const luckyDiscount = luckySpin ? Math.min(50, Math.max(0, totalAmount - (autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)))) : 0
   const discountAmount = (autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)) + luckyDiscount
   const discountedBase = totalAmount - discountAmount
-  const vatAmount      = parseFloat((discountedBase * vatRate).toFixed(2))
+
+  const finalAmount    = parseFloat(discountedBase.toFixed(2))
+  const vatAmount      = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2))
   const vatPercent     = Math.round(vatRate * 100)
-  const finalAmount    = parseFloat((discountedBase + vatAmount).toFixed(2))
 
   useEffect(() => {
     if (promoResult) { setPromoResult(null); setPromoInput(''); setPromoError('') }
@@ -297,7 +433,8 @@ if (loyaltyStatus.fifthStampReward?.code) {
     if (step === 1 && baskets.length === 0)
       return toast.error('Please select at least one service')
     if (step === 2) {
-      if (!pickupAddress.line1) return toast.error('Please enter your pickup address')
+      if (!pickupAddress.placeId && !(pickupFromRecord && pickupAddress.line1)) return toast.error('Please search and select your pickup address from the suggestions')
+      if (!sameAddress && !deliveryAddress.placeId) return toast.error('Please search and select your delivery address from the suggestions')
       for (const b of baskets) {
         if (!b.kg) return toast.error(`Please declare weight for "${b.service.name}" (Basket)`)
       }
@@ -336,8 +473,6 @@ if (loyaltyStatus.fifthStampReward?.code) {
       return toast.warning('This time slot is already full. Please choose another time.')
 
     try {
-      // Matches AppointmentService.bookAppointment contract exactly:
-      // servicesInput = [{ serviceId, kg }], kg = capacity check only (1-7).
       const servicesPayload = baskets.map(b => ({
         serviceId: b.serviceId,
         kg: b.kg,
@@ -426,15 +561,15 @@ if (loyaltyStatus.fifthStampReward?.code) {
             <span>−₱{luckyDiscount.toFixed(2)}</span>
           </div>
         )}
-        {vatAmount > 0 && (
-          <div className='flex justify-between text-neutral-600'>
-            <span>VAT ({vatPercent}%)</span><span>₱{vatAmount.toFixed(2)}</span>
-          </div>
-        )}
         <div className='h-px bg-blue-200 my-1' />
         <div className='flex justify-between text-blue-700 font-bold text-base'>
           <span>Estimated Total</span><span>₱{finalAmount.toFixed(2)}</span>
         </div>
+        {vatAmount > 0 && (
+          <p className='font-sans text-[10px] text-neutral-400 text-right'>
+            Price is VAT inclusive (includes ₱{vatAmount.toFixed(2)} VAT, {vatPercent}%)
+          </p>
+        )}
         <p className='font-sans text-[10px] text-neutral-400 mt-1'>
           Price is fixed per load/package — weight is only checked for the 7kg-per-load capacity limit and does not change your total.
         </p>
@@ -468,7 +603,6 @@ if (loyaltyStatus.fifthStampReward?.code) {
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white'>
 
-      {/* ── BRANCH HERO ── */}
       <div className='font-bold px-6 md:px-16 pt-14 pb-0'>
         <SectionLabel>Book an Appointment</SectionLabel>
         <Divider />
@@ -506,7 +640,6 @@ if (loyaltyStatus.fifthStampReward?.code) {
         </div>
       </div>
 
-      {/* ── STEP INDICATOR ── */}
       <div className='px-6 md:px-16 mb-12'>
         <div className='flex items-center gap-0'>
           {STEPS.map((label, i) => {
@@ -540,10 +673,8 @@ if (loyaltyStatus.fifthStampReward?.code) {
         </div>
       </div>
 
-      {/* ── STEP CONTENT ── */}
       <div className='px-6 md:px-16 pb-20'>
 
-        {/* ── STEP 1 ── */}
         {step === 1 && (
           <div>
             <SectionLabel>Step 01 — Choose Your Service</SectionLabel>
@@ -610,7 +741,6 @@ if (loyaltyStatus.fifthStampReward?.code) {
           </div>
         )}
 
-        {/* ── STEP 2 ── */}
         {step === 2 && (
           <div className='space-y-10'>
             <div>
@@ -663,12 +793,27 @@ if (loyaltyStatus.fifthStampReward?.code) {
                 <SectionLabel>Pickup Address <span className='text-red-400'>*</span></SectionLabel>
                 <p className='font-sans text-xs text-neutral-400 mb-3'>One pickup address for all your baskets.</p>
                 <div className='space-y-2'>
-                  <input type='text' value={pickupAddress.line1}
-                    onChange={e => setPickupAddress(p => ({ ...p, line1: e.target.value }))}
-                    placeholder='House no., Street, Barangay' className={inputCls} />
+                  {pickupFromRecord && pickupAddress.line1 ? (
+                    <div className='flex items-center justify-between gap-3 border border-blue-200 bg-blue-50/60 px-4 py-3'>
+                      <div>
+                        <p className='font-sans text-[10px] uppercase tracking-widest text-blue-400'>From your record</p>
+                        <p className='font-sans text-sm text-neutral-700'>{pickupAddress.line1}</p>
+                      </div>
+                      <button type='button'
+                        onClick={() => { setPickupFromRecord(false); setPickupAddress(p => ({ line1: '', line2: p.line2 })) }}
+                        className='font-sans text-xs uppercase tracking-widest font-bold text-blue-600 hover:text-blue-800'>
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <AddressPicker
+                      value={pickupAddress}
+                      onSelect={loc => setPickupAddress(p => ({ ...p, ...loc }))}
+                    />
+                  )}
                   <input type='text' value={pickupAddress.line2}
                     onChange={e => setPickupAddress(p => ({ ...p, line2: e.target.value }))}
-                    placeholder='City, Province (optional)' className={inputCls} />
+                    placeholder='Unit / floor / landmark (optional)' className={inputCls} />
                 </div>
               </div>
               <div className='flex items-center gap-3'>
@@ -682,12 +827,13 @@ if (loyaltyStatus.fifthStampReward?.code) {
                 <div>
                   <SectionLabel>Delivery Address</SectionLabel>
                   <div className='space-y-2'>
-                    <input type='text' value={deliveryAddress.line1}
-                      onChange={e => setDeliveryAddress(d => ({ ...d, line1: e.target.value }))}
-                      placeholder='House no., Street, Barangay' className={inputCls} />
+                    <AddressPicker
+                      value={deliveryAddress}
+                      onSelect={loc => setDeliveryAddress(d => ({ ...d, ...loc }))}
+                    />
                     <input type='text' value={deliveryAddress.line2}
                       onChange={e => setDeliveryAddress(d => ({ ...d, line2: e.target.value }))}
-                      placeholder='City, Province (optional)' className={inputCls} />
+                      placeholder='Unit / floor / landmark (optional)' className={inputCls} />
                   </div>
                 </div>
               )}
@@ -704,24 +850,23 @@ if (loyaltyStatus.fifthStampReward?.code) {
           </div>
         )}
 
-        {/* ── STEP 3 ── */}
         {step === 3 && (
-  <div className='space-y-8'>
-    <div>
-      <SectionLabel>Step 03 — Optional Add-ons</SectionLabel>
-      <Divider />
-      <h2 className='leading-none text-blue-900 mb-2'
-        style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
-        Add-ons.
-      </h2>
-      <p className='font-sans text-sm text-neutral-400 mb-6'>
-        {baskets.some(b => b.service.name.toLowerCase().includes('diy')) 
-          ? 'Forgot to bring your own supplies? Buy them here.' 
-          : 'Add extra detergents, conditioners, or other products.'}
-        {' '}
-        <span className='text-neutral-300'>Skip if you don't need any.</span>
-      </p>
-    </div>
+          <div className='space-y-8'>
+            <div>
+              <SectionLabel>Step 03 — Optional Add-ons</SectionLabel>
+              <Divider />
+              <h2 className='leading-none text-blue-900 mb-2'
+                style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
+                Add-ons.
+              </h2>
+              <p className='font-sans text-sm text-neutral-400 mb-6'>
+                {baskets.some(b => b.service.name.toLowerCase().includes('diy')) 
+                  ? 'Forgot to bring your own supplies? Buy them here.' 
+                  : 'Add extra detergents, conditioners, or other products.'}
+                {' '}
+                <span className='text-neutral-300'>Skip if you don't need any.</span>
+              </p>
+            </div>
 
             {productsList.length === 0 ? (
               <p className='font-sans text-sm text-neutral-400 py-6'>No add-on products available at this time.</p>
@@ -730,12 +875,12 @@ if (loyaltyStatus.fifthStampReward?.code) {
                 <div key={cat}>
                   <SectionLabel>{CATEGORY_LABELS[cat] || cat}</SectionLabel>
                   <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-  {products.map(product => {
-    const qty     = addOnQty[product.id] || 0
-    const isAdded = qty > 0
-    return (
-      <div key={product.id}
-        className={`flex items-center gap-4 p-4 border transition-colors duration-200 ${isAdded ? 'bg-blue-50 border-blue-400' : 'bg-white border-blue-100 hover:bg-blue-50/40'}`}>
+                    {products.map(product => {
+                      const qty     = addOnQty[product.id] || 0
+                      const isAdded = qty > 0
+                      return (
+                        <div key={product.id}
+                          className={`flex items-center gap-4 p-4 border transition-colors duration-200 ${isAdded ? 'bg-blue-50 border-blue-400' : 'bg-white border-blue-100 hover:bg-blue-50/40'}`}>
                           {product.image
                             ? <img src={product.image} alt={product.name} className='w-12 h-12 object-cover flex-shrink-0' />
                             : <div className='w-12 h-12 bg-blue-100 flex items-center justify-center flex-shrink-0'>
@@ -788,7 +933,6 @@ if (loyaltyStatus.fifthStampReward?.code) {
           </div>
         )}
 
-        {/* ── STEP 4 ── */}
         {step === 4 && (
           <div className='space-y-8'>
             <div>
