@@ -103,6 +103,9 @@ const FaqSettings = () => {
     )
   }
 
+  // ─── Grid template — pareho para sa header at data ──────────────
+  const GRID = 'grid grid-cols-[50px_1fr_0.8fr_0.5fr_1fr]'
+
   return (
     <div className='bg-neutral-50 min-h-screen w-full' style={{ fontFamily: "'Georgia', serif" }}>
       
@@ -131,15 +134,15 @@ const FaqSettings = () => {
 
       <div className='px-7 pb-10'>
         {/* Table/Grid Container */}
-        <div className='bg-white border border-blue-100 overflow-hidden mb-4 shadow-sm'>
+        <div className='bg-white border border-neutral-200 overflow-hidden mb-4 shadow-sm'>
           
           {/* Header Row */}
-          <div className='grid grid-cols-[3rem_1fr_0.8fr_0.5fr_auto] bg-blue-50 px-7 py-3 border-b border-blue-100'>
-            {['#', 'Content', 'Status', 'Order', 'Actions'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
-                {h}
-              </span>
-            ))}
+          <div className={`${GRID} bg-blue-50 border-b border-neutral-200`}>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 py-3 border-r border-neutral-200 text-center'>No.</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-left'>Content</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Status</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Order</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 text-center'>Actions</span>
           </div>
 
           {faqs.length === 0 ? (
@@ -147,38 +150,47 @@ const FaqSettings = () => {
               No frequently asked questions available.
             </div>
           ) : (
-            <div className='divide-y divide-blue-50 max-h-[60vh] overflow-y-auto custom-scrollbar'>
+            <div className='divide-y divide-neutral-200 max-h-[60vh] overflow-y-auto custom-scrollbar'>
               {faqs.map((faq, i) => (
                 <div 
                   key={i} 
-                  className={`grid grid-cols-[3rem_1fr_0.8fr_0.5fr_auto] items-center px-7 py-5 hover:bg-blue-50 transition-colors ${!faq.active ? 'opacity-50' : ''}`}
+                  className={`${GRID} items-stretch hover:bg-blue-50 transition-colors ${!faq.active ? 'opacity-50' : ''}`}
                 >
-                  <span className='font-sans text-xs text-neutral-400'>{(i + 1).toString().padStart(2, '0')}</span>
+                  {/* Number */}
+                  <div className='flex items-center justify-center py-5 border-r border-neutral-200'>
+                    <span className='font-sans font-bold text-sm text-neutral-500'>{(i + 1).toString().padStart(2, '0')}</span>
+                  </div>
                   
-                  <div className='pr-8'>
+                  {/* Content */}
+                  <div className='px-4 py-5 border-r border-neutral-200'>
                     <p className='font-sans font-black text-sm text-neutral-700 leading-tight mb-1'>{faq.question}</p>
                     <p className='font-sans text-[11px] text-neutral-400 line-clamp-1 italic'>{faq.answer}</p>
                   </div>
 
-                  <button 
-                    onClick={() => toggleActive(i)}
-                    className={`uppercase tracking-[0.2em] text-[10px] font-sans font-bold border px-2 py-1 w-fit transition-colors ${
-                      faq.active 
-                        ? 'border-green-200 text-green-600 hover:bg-green-50' 
-                        : 'border-neutral-200 text-neutral-400 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {faq.active ? 'Visible' : 'Hidden'}
-                  </button>
-
-                  <div className='flex items-center gap-1'>
-                    <button onClick={() => moveOrder(i, -1)} disabled={i === 0} className='text-blue-300 hover:text-blue-600 disabled:opacity-10'><MoveUp size={14}/></button>
-                    <button onClick={() => moveOrder(i, 1)} disabled={i === faqs.length - 1} className='text-blue-300 hover:text-blue-600 disabled:opacity-10'><MoveDown size={14}/></button>
+                  {/* Status */}
+                  <div className='flex items-center justify-center px-4 py-5 border-r border-neutral-200'>
+                    <button 
+                      onClick={() => toggleActive(i)}
+                      className={`uppercase tracking-[0.2em] text-[10px] font-sans font-bold border px-2 py-1 whitespace-nowrap transition-colors ${
+                        faq.active 
+                          ? 'border-green-200 text-green-600 hover:bg-green-50' 
+                          : 'border-neutral-200 text-neutral-400 hover:bg-neutral-50'
+                      }`}
+                    >
+                      {faq.active ? 'Visible' : 'Hidden'}
+                    </button>
                   </div>
 
-                  <div className='flex items-center gap-4'>
-                    <button onClick={() => openEdit(i)} className='font-sans text-[10px] font-bold uppercase tracking-widest text-blue-500 hover:text-blue-700'>Edit</button>
-                    <button onClick={() => handleDelete(i)} className='text-red-300 hover:text-red-500'><Trash2 size={16}/></button>
+                  {/* Order */}
+                  <div className='flex items-center justify-center gap-1 px-4 py-5 border-r border-neutral-200'>
+                    <button onClick={() => moveOrder(i, -1)} disabled={i === 0} className='text-blue-300 hover:text-blue-600 disabled:opacity-10 transition-colors'><MoveUp size={14}/></button>
+                    <button onClick={() => moveOrder(i, 1)} disabled={i === faqs.length - 1} className='text-blue-300 hover:text-blue-600 disabled:opacity-10 transition-colors'><MoveDown size={14}/></button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className='flex items-center justify-center gap-4 px-4 py-5'>
+                    <button onClick={() => openEdit(i)} className='font-sans text-[10px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap'>Edit</button>
+                    <button onClick={() => handleDelete(i)} className='p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors'><Trash2 size={16}/></button>
                   </div>
                 </div>
               ))}

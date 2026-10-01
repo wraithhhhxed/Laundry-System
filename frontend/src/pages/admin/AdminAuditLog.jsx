@@ -103,7 +103,6 @@ const formatDate = (iso) => {
     + ' · ' + d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
 }
 
-// ─── Detail Modal ─────────────────────────────────────────────────────────────
 const DetailModal = ({ log, onClose }) => {
   if (!log) return null
   const meta = ACTION_META[log.action] ?? { label: log.action, Icon: ClipboardList, border: 'border-neutral-200 text-neutral-500' }
@@ -185,7 +184,6 @@ const DetailModal = ({ log, onClose }) => {
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 const AdminAuditLog = () => {
   const { getAuditLogs } = useContext(AdminContext)
   const location = useLocation()
@@ -204,7 +202,6 @@ const AdminAuditLog = () => {
   const [lastUpdated, setLastUpdated]   = useState(null)
   const [secondsAgo, setSecondsAgo]     = useState(0)
 
-  // Reset filters whenever route switches between audit-log ↔ login-history
   useEffect(() => {
     setFilters(makePreset(isLoginHistory))
     setSearchInput('')
@@ -224,9 +221,6 @@ const AdminAuditLog = () => {
     if (showRefresh) setIsRefreshing(true)
     else setLoading(true)
 
-    // For login history: if no specific action selected, send all 3 login action
-    // types as a comma-separated list so the backend filters correctly.
-    // This means pagination + total count are accurate (no more frontend slicing).
     const query = { ...filters }
     if (isLoginHistory && !query.action) {
       query.action = LOGIN_ACTIONS.join(',')
@@ -234,7 +228,6 @@ const AdminAuditLog = () => {
 
     const result = await getAuditLogs(query)
     if (result) {
-      // Safety net: strip ghost records (old logs with no real actor name)
       const cleanLogs = result.logs.filter(l => l.actor?.name && l.actor.name !== 'System')
       setLogs(cleanLogs)
       setTotal(result.total)
@@ -270,10 +263,13 @@ const AdminAuditLog = () => {
 
   const actionOptions = isLoginHistory ? LOGIN_ACTION_OPTIONS : ALL_ACTION_OPTIONS
 
+  const GRID_LOGIN  = 'grid grid-cols-[50px_2fr_0.7fr_0.7fr_1.2fr]'
+  const GRID_AUDIT  = 'grid grid-cols-[50px_2fr_1fr_0.8fr_1fr_1.2fr]'
+  const GRID = isLoginHistory ? GRID_LOGIN : GRID_AUDIT
+
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
 
-      {/* ── Header ── */}
       <div className="px-10 pt-10 pb-12"
         style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
         <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3">Settings</p>
@@ -305,20 +301,17 @@ const AdminAuditLog = () => {
 
       <div className="px-10 py-10 max-w-7xl mx-auto">
 
-        {/* ── Section label ── */}
         <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">
           {isLoginHistory ? 'Filter Login Events' : 'Filter Audit Logs'}
         </p>
         <div className="h-px bg-blue-100 mb-6" />
 
-        {/* ── Filters ── */}
         <div className="bg-white border border-blue-100 mb-8">
           <div className="bg-blue-50 px-7 py-3 border-b border-blue-100">
             <span className="uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400">Filters</span>
           </div>
           <div className="px-7 py-4 flex flex-wrap gap-3 items-end">
 
-            {/* Search */}
             <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 min-w-[220px]">
               <div className="relative flex-1">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300" />
@@ -334,7 +327,6 @@ const AdminAuditLog = () => {
               </button>
             </form>
 
-            {/* Action */}
             <div className="flex flex-col gap-1">
               <span className="uppercase tracking-[0.2em] text-[9px] font-sans font-semibold text-blue-400">
                 {isLoginHistory ? 'Event' : 'Action'}
@@ -345,7 +337,6 @@ const AdminAuditLog = () => {
               </select>
             </div>
 
-            {/* Role — audit log only */}
             {!isLoginHistory && (
               <div className="flex flex-col gap-1">
                 <span className="uppercase tracking-[0.2em] text-[9px] font-sans font-semibold text-blue-400">Role</span>
@@ -359,7 +350,6 @@ const AdminAuditLog = () => {
               </div>
             )}
 
-            {/* Target — audit log only */}
             {!isLoginHistory && (
               <div className="flex flex-col gap-1">
                 <span className="uppercase tracking-[0.2em] text-[9px] font-sans font-semibold text-blue-400">Target</span>
@@ -375,14 +365,12 @@ const AdminAuditLog = () => {
               </div>
             )}
 
-            {/* Date From */}
             <div className="flex flex-col gap-1">
               <span className="uppercase tracking-[0.2em] text-[9px] font-sans font-semibold text-blue-400">Date From</span>
               <input type="date" value={filters.dateFrom} onChange={e => setFilter('dateFrom', e.target.value)}
                 className="border border-blue-100 px-3 py-2.5 font-sans text-sm text-neutral-600 focus:outline-none focus:border-blue-400 transition-colors bg-white" />
             </div>
 
-            {/* Date To */}
             <div className="flex flex-col gap-1">
               <span className="uppercase tracking-[0.2em] text-[9px] font-sans font-semibold text-blue-400">Date To</span>
               <input type="date" value={filters.dateTo} onChange={e => setFilter('dateTo', e.target.value)}
@@ -398,37 +386,31 @@ const AdminAuditLog = () => {
           </div>
         </div>
 
-        {/* ── Results count ── */}
         <div className="flex items-center justify-between mb-6">
           <p className="font-sans text-xs text-neutral-400">
             Showing <span className="text-blue-600 font-semibold">{total}</span> {total === 1 ? 'entry' : 'entries'}
           </p>
         </div>
 
-        {/* ── Table ── */}
-        <div className="bg-white border border-blue-100 overflow-hidden">
+        <div className="bg-white border border-neutral-200 overflow-hidden">
 
-          {/* Header row */}
-          <div className={`grid bg-blue-50 px-7 py-3 border-b border-blue-100 ${
-            isLoginHistory
-              ? 'grid-cols-[2fr_0.7fr_0.7fr_1.2fr]'
-              : 'grid-cols-[2fr_1fr_0.8fr_1fr_1.2fr]'
-          }`}>
+          <div className={`${GRID} bg-blue-50 border-b border-neutral-200`}>
+            <span className="uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 py-3 border-r border-neutral-200 text-center">No.</span>
             {(isLoginHistory
               ? ['Account', 'Role', 'Action', 'Date & Time']
               : ['Description', 'Actor', 'Action', 'Target', 'Date & Time']
             ).map(h => (
-              <span key={h} className="uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400">{h}</span>
+              <span key={h} className="uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 last:border-r-0 text-left">{h}</span>
             ))}
           </div>
 
           {loading ? (
-            <div className="py-16 text-center font-sans text-sm text-neutral-300 uppercase tracking-[0.2em]">Loading…</div>
+            <div className="py-16 text-center font-sans text-sm text-neutral-400 uppercase tracking-[0.2em]">Loading…</div>
           ) : logs.length === 0 ? (
-            <div className="py-16 text-center font-sans text-sm text-neutral-300 uppercase tracking-[0.2em]">No logs found</div>
+            <div className="py-16 text-center font-sans text-sm text-neutral-400 uppercase tracking-[0.2em]">No logs found</div>
           ) : (
-            <div className="divide-y divide-blue-50">
-              {logs.map(log => {
+            <div className="divide-y divide-neutral-200">
+              {logs.map((log, index) => {
                 const actionMeta = ACTION_META[log.action] ?? { label: log.action, Icon: ClipboardList, border: 'border-neutral-200 text-neutral-400' }
                 const roleMeta   = ROLE_META[log.actor?.role] ?? { label: log.actor?.role ?? '—', Icon: User, border: 'border-neutral-200 text-neutral-400' }
                 const { Icon: ActionIcon } = actionMeta
@@ -436,54 +418,58 @@ const AdminAuditLog = () => {
 
                 return (
                   <div key={log.id} onClick={() => setSelectedLog(log)}
-                    className={`grid items-center px-7 py-4 hover:bg-blue-50 transition-colors cursor-pointer ${
-                      isLoginHistory
-                        ? 'grid-cols-[2fr_0.7fr_0.7fr_1.2fr]'
-                        : 'grid-cols-[2fr_1fr_0.8fr_1fr_1.2fr]'
-                    }`}>
+                    className={`${GRID} items-stretch hover:bg-blue-50 transition-colors cursor-pointer`}>
+
+                    {/* Number — reverse order, pinakamalaki sa taas */}
+                    <div className="flex items-center justify-center py-4 border-r border-neutral-200">
+                      <span className="font-sans font-bold text-sm text-neutral-500">
+                        {(total - ((filters.page - 1) * filters.limit + index)).toString().padStart(2, '0')}
+                      </span>
+                    </div>
 
                     {isLoginHistory ? (
                       <>
-                        {/* Account */}
-                        <div>
-                          <p className="font-sans font-black text-sm text-neutral-700">{log.actor?.name ?? '—'}</p>
-                          <p className="font-sans text-xs text-neutral-400 mt-0.5">{log.actor?.email ?? ''}</p>
+                        <div className="px-4 py-4 border-r border-neutral-200">
+                          <p className="font-sans font-black text-sm text-neutral-700 truncate">{log.actor?.name ?? '—'}</p>
+                          <p className="font-sans text-xs text-neutral-400 mt-0.5 truncate">{log.actor?.email ?? ''}</p>
                         </div>
-                        {/* Role */}
-                        <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 w-fit inline-flex items-center gap-1 ${roleMeta.border}`}>
-                          <RoleIcon size={9} />{roleMeta.label}
-                        </span>
-                        {/* Action */}
-                        <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 w-fit inline-flex items-center gap-1 ${actionMeta.border}`}>
-                          <ActionIcon size={9} />{actionMeta.label}
-                        </span>
-                        {/* Date */}
-                        <span className="font-sans text-xs text-neutral-500">{formatDate(log.createdAt)}</span>
-                      </>
-                    ) : (
-                      <>
-                        {/* Description */}
-                        <div className="pr-4 min-w-0">
-                          <p className="font-sans text-sm text-neutral-700 leading-snug line-clamp-2">{describeLog(log)}</p>
-                        </div>
-                        {/* Actor */}
-                        <div>
-                          <p className="font-sans font-black text-sm text-neutral-700">{log.actor?.name ?? '—'}</p>
-                          <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 inline-flex items-center gap-1 mt-1 ${roleMeta.border}`}>
+                        <div className="flex items-center justify-center px-4 py-4 border-r border-neutral-200">
+                          <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap ${roleMeta.border}`}>
                             <RoleIcon size={9} />{roleMeta.label}
                           </span>
                         </div>
-                        {/* Action */}
-                        <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 w-fit inline-flex items-center gap-1 ${actionMeta.border}`}>
-                          <ActionIcon size={9} />{actionMeta.label}
-                        </span>
-                        {/* Target */}
-                        <div className="min-w-0">
-                          <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider">{log.target?.type ?? '—'}</p>
+                        <div className="flex items-center justify-center px-4 py-4 border-r border-neutral-200">
+                          <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap ${actionMeta.border}`}>
+                            <ActionIcon size={9} />{actionMeta.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center px-4 py-4">
+                          <span className="font-sans text-xs text-neutral-500 text-center">{formatDate(log.createdAt)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="px-4 py-4 border-r border-neutral-200 min-w-0">
+                          <p className="font-sans text-sm text-neutral-700 leading-snug line-clamp-2">{describeLog(log)}</p>
+                        </div>
+                        <div className="px-4 py-4 border-r border-neutral-200">
+                          <p className="font-sans font-black text-sm text-neutral-700 truncate">{log.actor?.name ?? '—'}</p>
+                          <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 inline-flex items-center gap-1 mt-1 whitespace-nowrap ${roleMeta.border}`}>
+                            <RoleIcon size={9} />{roleMeta.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-center px-4 py-4 border-r border-neutral-200">
+                          <span className={`uppercase tracking-[0.15em] text-[9px] font-sans font-bold border px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap ${actionMeta.border}`}>
+                            <ActionIcon size={9} />{actionMeta.label}
+                          </span>
+                        </div>
+                        <div className="px-4 py-4 border-r border-neutral-200 min-w-0">
+                          <p className="font-sans text-[10px] text-neutral-400 uppercase tracking-wider truncate">{log.target?.type ?? '—'}</p>
                           <p className="font-sans text-xs text-neutral-700 font-semibold truncate mt-0.5">{log.target?.label ?? '—'}</p>
                         </div>
-                        {/* Date */}
-                        <span className="font-sans text-xs text-neutral-500">{formatDate(log.createdAt)}</span>
+                        <div className="flex items-center justify-center px-4 py-4">
+                          <span className="font-sans text-xs text-neutral-500 text-center">{formatDate(log.createdAt)}</span>
+                        </div>
                       </>
                     )}
                   </div>
@@ -492,9 +478,8 @@ const AdminAuditLog = () => {
             </div>
           )}
 
-          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-7 py-3 border-t border-blue-100 bg-blue-50">
+            <div className="flex items-center justify-between px-7 py-3 border-t border-neutral-200 bg-blue-50">
               <span className="font-sans text-[10px] uppercase tracking-[0.2em] text-blue-400">
                 Page {filters.page} of {totalPages} · {total} records
               </span>

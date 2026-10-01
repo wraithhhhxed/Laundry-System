@@ -60,13 +60,73 @@ const AddBranch = () => {
     service.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // ── Input handlers that BLOCK invalid characters at keystroke level ──
+  // Branch name: letters and spaces only — NO numbers, NO special chars
+  const handleNameChange = (e) => {
+    const v = e.target.value
+    if (/^[a-zA-Z ]*$/.test(v)) setName(v)
+  }
+
+  // Email: letters, numbers, and common email characters (., _, -, @, +) — no spaces, no special symbols
+  const handleEmailChange = (e) => {
+    const v = e.target.value
+    if (/^[a-zA-Z0-9._@+\-]*$/.test(v)) setEmail(v)
+  }
+
+  // Address: letters, numbers, spaces, and basic address punctuation
+  const handleAddress1Change = (e) => {
+    const v = e.target.value
+    if (/^[a-zA-Z0-9\s.,'#\-()\/]*$/.test(v)) setAddress1(v)
+  }
+  const handleAddress2Change = (e) => {
+    const v = e.target.value
+    if (/^[a-zA-Z0-9\s.,'#\-()\/]*$/.test(v)) setAddress2(v)
+  }
+
+  // Phone: digits only, max 11
+  const handlePhoneChange = (e) => {
+    const v = e.target.value
+    if (/^[0-9]*$/.test(v) && v.length <= 11) setPhone(v)
+  }
+
+  // ── Validation helpers (for display + final submit) ─────────
+  const emailInvalid    = email.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const phoneInvalid    = phone.length > 0 && !/^09\d{9}$/.test(phone)
+  const address1Invalid = address1.length > 0 && address1.trim().length < 3
+  const address2Invalid = address2.length > 0 && address2.trim().length < 2
+  const aboutInvalid    = about.length > 0 && about.trim().length < 10
+
+  // Password rules
+  const passRules = {
+    length:    password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number:    /[0-9]/.test(password),
+    special:   /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(password),
+  }
+  const passAllValid = Object.values(passRules).every(Boolean)
+  const passHasAnyInput = password.length > 0
+  const passShort = passHasAnyInput && !passRules.length
+
   const onSubmitHandler = async (event) => {
     event.preventDefault()
-    if (!branchImg)             return toast.error('Image not selected')
-    if (!/^[a-zA-Z0-9\s\-&.,()]+$/.test(name.trim())) return toast.error('Branch name contains invalid characters.')
-    if (!/^09\d{9}$/.test(phone))  return toast.error('Phone must be 11 digits and start with 09.')
-    if (password.length < 8)        return toast.error('Password must be at least 8 characters.')
-    if (speciality.length === 0)    return toast.error('Select at least one service.')
+    if (!branchImg)               return toast.error('Image not selected')
+    if (!name.trim())             return toast.error('Branch name is required')
+    if (!email.trim())            return toast.error('Email is required')
+    if (emailInvalid)             return toast.error('Please enter a valid email address.')
+    if (!/^09\d{9}$/.test(phone)) return toast.error('Phone must be 11 digits and start with 09.')
+    if (!passRules.length)        return toast.error('Password must be at least 8 characters.')
+    if (!passRules.uppercase)     return toast.error('Password must contain at least one uppercase letter.')
+    if (!passRules.lowercase)     return toast.error('Password must contain at least one lowercase letter.')
+    if (!passRules.number)        return toast.error('Password must contain at least one number.')
+    if (!passRules.special)       return toast.error('Password must contain at least one special character.')
+    if (!address1.trim())         return toast.error('Address line 1 is required')
+    if (address1.trim().length < 3) return toast.error('Address line 1 must be at least 3 characters.')
+    if (!address2.trim())         return toast.error('Address line 2 is required')
+    if (address2.trim().length < 2) return toast.error('Address line 2 must be at least 2 characters.')
+    if (speciality.length === 0)  return toast.error('Select at least one service.')
+    if (!about.trim() || about.trim().length < 10)
+                                  return toast.error('About section must be at least 10 characters.')
 
     try {
       const formData = new FormData()
@@ -91,10 +151,13 @@ const AddBranch = () => {
     }
   }
 
-  const phoneInvalid = phone.length > 0 && !/^09\d{9}$/.test(phone)
-  const passShort    = password.length > 0 && password.length < 8
   const inputCls     = 'px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
   const errorCls     = 'font-sans text-[10px] text-red-400 uppercase tracking-widest mt-1'
+  const ruleItemCls  = (ok) =>
+    `flex items-center gap-1.5 font-sans text-[10px] tracking-wide transition-colors ${ok ? 'text-green-600' : 'text-neutral-400'}`
+  const ruleIcon     = (ok) => ok
+    ? <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+    : <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3" /></svg>
 
   return (
     <div className='bg-neutral-50 min-h-screen' style={{ fontFamily: "'Georgia', serif" }}>
@@ -105,7 +168,7 @@ const AddBranch = () => {
       </div>
 
       <div className='px-7 pb-10'>
-        <form onSubmit={onSubmitHandler} className='bg-white border border-blue-100'>
+        <form onSubmit={onSubmitHandler} className='bg-white border border-blue-100' noValidate>
           <div className='px-7 py-8'>
 
             {/* Image */}
@@ -131,25 +194,33 @@ const AddBranch = () => {
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8'>
               <div className='flex flex-col gap-1'>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500'>Branch Name</label>
-                <input type='text' placeholder='Branch name' value={name} onChange={(e) => setName(e.target.value)} required className={inputCls + ' w-full'} />
+                <input type='text' placeholder='Branch name' value={name}
+                  onChange={handleNameChange} required
+                  className={inputCls + ' w-full'} />
+                <p className='font-sans text-[10px] text-neutral-300 mt-1'>Letters and spaces only — no numbers or special characters</p>
               </div>
               <div className='flex flex-col gap-1'>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500'>Phone</label>
                 <input type='text' placeholder='09123456789' value={phone}
-                  onChange={(e) => { const v = e.target.value; if (/^[0-9]*$/.test(v) && v.length <= 11) setPhone(v) }}
+                  onChange={handlePhoneChange}
                   required className={inputCls + ' w-full' + (phoneInvalid ? ' border-red-300 focus:border-red-400' : '')} />
                 {phoneInvalid && <p className={errorCls}>Must be 11 digits starting with 09</p>}
               </div>
               <div className='flex flex-col gap-1'>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500'>Email</label>
-                <input type='email' placeholder='branch@email.com' value={email} onChange={(e) => setEmail(e.target.value)} required className={inputCls + ' w-full'} />
+                <input type='email' placeholder='branch@email.com' value={email}
+                  onChange={handleEmailChange} required
+                  className={inputCls + ' w-full' + (emailInvalid ? ' border-red-300 focus:border-red-400' : '')} />
+                {emailInvalid
+                  ? <p className={errorCls}>Please enter a valid email address</p>
+                  : <p className='font-sans text-[10px] text-neutral-300 mt-1'>Letters, numbers, and . _ - @ + only</p>}
               </div>
               <div className='flex flex-col gap-1'>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500'>Password</label>
                 <div className='relative'>
                   <input type={showPassword ? 'text' : 'password'} placeholder='Min. 8 characters' value={password}
                     onChange={(e) => setPassword(e.target.value)} required
-                    className={inputCls + ' w-full pr-10' + (passShort ? ' border-red-300 focus:border-red-400' : '')} />
+                    className={inputCls + ' w-full pr-10' + (passShort ? ' border-red-300 focus:border-red-400' : (passAllValid && passHasAnyInput ? ' border-green-300' : ''))} />
                   <button type='button' onClick={() => setShowPassword(!showPassword)}
                     className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
                     {showPassword ? (
@@ -164,7 +235,15 @@ const AddBranch = () => {
                     )}
                   </button>
                 </div>
-                {passShort && <p className={errorCls}>Minimum 8 characters</p>}
+                {passHasAnyInput && (
+                  <div className='mt-2 space-y-1'>
+                    <p className={ruleItemCls(passRules.length)}>{ruleIcon(passRules.length)} At least 8 characters</p>
+                    <p className={ruleItemCls(passRules.uppercase)}>{ruleIcon(passRules.uppercase)} One uppercase letter (A–Z)</p>
+                    <p className={ruleItemCls(passRules.lowercase)}>{ruleIcon(passRules.lowercase)} One lowercase letter (a–z)</p>
+                    <p className={ruleItemCls(passRules.number)}>{ruleIcon(passRules.number)} One number (0–9)</p>
+                    <p className={ruleItemCls(passRules.special)}>{ruleIcon(passRules.special)} One special character (!@#$%^&*...)</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -174,11 +253,21 @@ const AddBranch = () => {
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8'>
               <div className='flex flex-col gap-1'>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500'>Address Line 1</label>
-                <input type='text' placeholder='Street / Barangay' value={address1} onChange={(e) => setAddress1(e.target.value)} required className={inputCls + ' w-full'} />
+                <input type='text' placeholder='Street / Barangay' value={address1}
+                  onChange={handleAddress1Change} required
+                  className={inputCls + ' w-full' + (address1Invalid ? ' border-red-300 focus:border-red-400' : '')} />
+                {address1Invalid
+                  ? <p className={errorCls}>At least 3 characters</p>
+                  : <p className='font-sans text-[10px] text-neutral-300 mt-1'>Letters, numbers, and basic punctuation only</p>}
               </div>
               <div className='flex flex-col gap-1'>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500'>Address Line 2</label>
-                <input type='text' placeholder='City / Province' value={address2} onChange={(e) => setAddress2(e.target.value)} required className={inputCls + ' w-full'} />
+                <input type='text' placeholder='City / Province' value={address2}
+                  onChange={handleAddress2Change} required
+                  className={inputCls + ' w-full' + (address2Invalid ? ' border-red-300 focus:border-red-400' : '')} />
+                {address2Invalid
+                  ? <p className={errorCls}>At least 2 characters</p>
+                  : <p className='font-sans text-[10px] text-neutral-300 mt-1'>Letters, numbers, and basic punctuation only</p>}
               </div>
             </div>
 
@@ -301,7 +390,9 @@ const AddBranch = () => {
             <p className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans font-semibold mb-2'>About</p>
             <div className='h-px bg-blue-100 mb-6' />
             <textarea placeholder='About the branch' value={about} onChange={(e) => setAbout(e.target.value)}
-              required rows={4} className={inputCls + ' w-full resize-none'} />
+              required rows={4}
+              className={inputCls + ' w-full resize-none' + (aboutInvalid ? ' border-red-300 focus:border-red-400' : '')} />
+            {aboutInvalid && <p className={errorCls}>At least 10 characters</p>}
 
           </div>
 

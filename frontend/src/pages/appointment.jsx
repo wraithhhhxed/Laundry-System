@@ -155,7 +155,15 @@ const AddressPicker = ({ value, onSelect }) => {
         const handleSelect = async (e) => {
           try {
             const place = e.placePrediction ? e.placePrediction.toPlace() : e.place
-            await place.fetchFields({ fields: ['formattedAddress', 'location', 'id'] })
+            await place.fetchFields({ fields: ['formattedAddress', 'location', 'id', 'addressComponents'] })
+            const inTaguig =
+              /taguig/i.test(place.formattedAddress || '') ||
+              (place.addressComponents || []).some(c => /taguig/i.test(c.longText || ''))
+            if (!inTaguig) {
+              onSelectRef.current({ line1: '', lat: null, lng: null, placeId: null })
+              toast.error('Sorry, we only serve addresses within Taguig City.')
+              return
+            }
             const lat = place.location.lat()
             const lng = place.location.lng()
             showPin(lat, lng)
@@ -224,7 +232,7 @@ const Appointment = () => {
 
   const savedAddress = formatAddress(userData?.address)
   useEffect(() => {
-    if (savedAddress && !pickupAddress.line1 && !pickupAddress.placeId) {
+    if (savedAddress && /taguig/i.test(savedAddress) && !pickupAddress.line1 && !pickupAddress.placeId) {
       setPickupAddress(p => ({ ...p, line1: savedAddress }))
       setPickupFromRecord(true)
     }
@@ -1025,7 +1033,7 @@ const Appointment = () => {
             )}
 
             <div>
-              <SectionLabel>Promo Code — optional</SectionLabel>
+              {(autoPromo || promoResult) && <SectionLabel>Promo Code — optional</SectionLabel>}
               {autoPromo ? (
                 <div className='flex items-center gap-4 border border-green-200 bg-green-50/60 px-5 py-4'>
                   <div className='flex-1 font-sans text-sm'>
@@ -1050,21 +1058,25 @@ const Appointment = () => {
                     Remove
                   </button>
                 </div>
-              ) : (
-                <div className='flex gap-0'>
-                  <input value={promoInput}
-                    onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError('') }}
-                    onKeyDown={e => e.key === 'Enter' && applyPromo()}
-                    placeholder='ENTER CODE'
-                    className={`flex-1 px-4 py-3 border font-sans text-sm uppercase tracking-widest text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors ${promoError ? 'border-red-300 bg-red-50' : 'border-blue-100'}`}
-                  />
-                  <button onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
-                    className='bg-blue-600 text-white px-6 font-sans text-xs tracking-widest uppercase font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'>
-                    {promoLoading ? '...' : 'Apply'}
-                  </button>
-                </div>
-              )}
+              ) : null}
+
+              {/* DISABLED (re-enable next sem): manual promo code input.
+                  To re-enable: change the `: null` above to `: ( ...block below... )`
+                  and put back the "Promo Code — optional" label for all cases.
+              <div className='flex gap-0'>
+                <input value={promoInput}
+                  onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError('') }}
+                  onKeyDown={e => e.key === 'Enter' && applyPromo()}
+                  placeholder='ENTER CODE'
+                  className={`flex-1 px-4 py-3 border font-sans text-sm uppercase tracking-widest text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors ${promoError ? 'border-red-300 bg-red-50' : 'border-blue-100'}`}
+                />
+                <button onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
+                  className='bg-blue-600 text-white px-6 font-sans text-xs tracking-widest uppercase font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'>
+                  {promoLoading ? '...' : 'Apply'}
+                </button>
+              </div>
               {promoError && <p className='font-sans text-xs text-red-400 mt-1.5'>{promoError}</p>}
+              */}
             </div>
 
             {selectedDate && selectedTime && !isSlotFull(selectedDate, selectedTime) && (

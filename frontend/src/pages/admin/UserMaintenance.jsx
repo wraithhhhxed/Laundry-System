@@ -12,7 +12,65 @@ const DEFAULT_IMG = 'https://ui-avatars.com/api/?background=2563eb&color=fff&nam
 const inputCls    = 'w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
 const errorCls    = 'font-sans text-[10px] text-red-400 uppercase tracking-widest mt-1'
 
-const ModalField = ({ label, value, onChange, type = 'text', placeholder = '' }) => (
+// ─── Sanitizers ──────────────────────────────────────────────────────
+const sanitizeName = (v) =>
+  String(v || '').replace(/[^A-Za-z\s]/g, '').replace(/\s+/g, ' ')
+
+const sanitizeEmail = (v) =>
+  String(v || '').replace(/[^A-Za-z0-9@._+-]/g, '').toLowerCase()
+
+const sanitizePhone = (v) =>
+  String(v || '').replace(/[^0-9]/g, '').slice(0, 11)
+
+const sanitizeAddress = (v) =>
+  String(v || '').replace(/[^A-Za-z0-9\s,.#\-]/g, '').replace(/\s+/g, ' ')
+
+// ─── Password validators ─────────────────────────────────────────────
+const pwHasUpper   = (pw) => /[A-Z]/.test(pw)
+const pwHasLower   = (pw) => /[a-z]/.test(pw)
+const pwHasNumber  = (pw) => /[0-9]/.test(pw)
+const pwHasSpecial = (pw) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/.test(pw)
+const pwIsValid    = (pw) =>
+  pw.length >= 8 && pwHasUpper(pw) && pwHasLower(pw) && pwHasNumber(pw) && pwHasSpecial(pw)
+
+// ─── Keydown factories ───────────────────────────────────────────────
+const makeNameKeyDown = (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[A-Za-z\s]/.test(e.key)) e.preventDefault()
+}
+
+const makeEmailKeyDown = (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[A-Za-z0-9@._+-]/.test(e.key)) e.preventDefault()
+}
+
+const makePhoneKeyDown = (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[0-9]/.test(e.key)) e.preventDefault()
+}
+
+const makeAddressKeyDown = (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[A-Za-z0-9\s,.#\-]/.test(e.key)) e.preventDefault()
+}
+
+// ─── Reusable paste handler ──────────────────────────────────────────
+const makePasteHandler = (sanitize, setter) => (e) => {
+  e.preventDefault()
+  const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+  setter(sanitize(pasted))
+}
+
+// ─── ModalField component with validation props ──────────────────────
+const ModalField = ({ label, value, onChange, onKeyDown, onPaste, type = 'text', placeholder = '', error, hint }) => (
   <div>
     <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
       {label}
@@ -21,16 +79,21 @@ const ModalField = ({ label, value, onChange, type = 'text', placeholder = '' })
       type={type}
       value={value || ''}
       onChange={onChange}
+      onKeyDown={onKeyDown}
+      onPaste={onPaste}
+      onDrop={e => e.preventDefault()}
       placeholder={placeholder}
-      className={inputCls}
+      autoComplete='off'
+      className={inputCls + (error ? ' border-red-300 focus:border-red-400' : '')}
     />
+    {error && <p className={errorCls}>{error}</p>}
+    {!error && hint && <p className='font-sans text-[10px] text-neutral-400 mt-1'>{hint}</p>}
   </div>
 )
 
 const UserMaintenance = () => {
   const { backendUrl, aToken } = useContext(AdminContext)
 
-  // ── List states ───────────────────────────────────────────────
   const [users,         setUsers]         = useState([])
   const [total,         setTotal]         = useState(0)
   const [pages,         setPages]         = useState(1)
@@ -39,39 +102,39 @@ const UserMaintenance = () => {
   const [filterActive,  setFilterActive]  = useState('')
   const [loading,       setLoading]       = useState(false)
 
-  // ── Add User states ───────────────────────────────────────────
   const [showAddModal,  setShowAddModal]  = useState(false)
   const [addForm,       setAddForm]       = useState({ name: '', email: '', phone: '', password: '', address: '' })
   const [addImg,        setAddImg]        = useState(null)
   const [showAddPass,   setShowAddPass]   = useState(false)
   const [addLoading,    setAddLoading]    = useState(false)
 
-  // ── Edit states ───────────────────────────────────────────────
   const [editUser,      setEditUser]      = useState(null)
   const [editForm,      setEditForm]      = useState({})
   const [editLoading,   setEditLoading]   = useState(false)
 
-  // ── Delete states ─────────────────────────────────────────────
   const [deleteTarget,  setDeleteTarget]  = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // ── Reset Password states ─────────────────────────────────────
   const [resetTarget,   setResetTarget]   = useState(null)
   const [newPassword,   setNewPassword]   = useState('')
   const [confirmPass,   setConfirmPass]   = useState('')
   const [showPass,      setShowPass]      = useState(false)
   const [resetLoading,  setResetLoading]  = useState(false)
 
-  // ── Computed validations ──────────────────────────────────────
-  const addPassShort    = addForm.password.length > 0 && addForm.password.length < 8
-  const addPhoneInvalid = addForm.phone.length > 0 && !/^09\d{9}$/.test(addForm.phone)
-  const passShort       = newPassword.length > 0 && newPassword.length < 8
+  const addNameInvalid   = addForm.name.length > 0 && !/^[A-Za-z\s]{2,}$/.test(addForm.name.trim())
+  const addEmailInvalid  = addForm.email.length > 0 && !/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(addForm.email)
+  const addPhoneInvalid  = addForm.phone.length > 0 && !/^09\d{9}$/.test(addForm.phone)
+  const addPassShort     = addForm.password.length > 0 && !pwIsValid(addForm.password)
+
+  const editNameInvalid  = editForm.name && !/^[A-Za-z\s]{2,}$/.test(editForm.name.trim())
+  const editEmailInvalid = editForm.email && !/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(editForm.email)
+
+  const passShort       = newPassword.length > 0 && !pwIsValid(newPassword)
   const passMismatch    = confirmPass.length > 0 && confirmPass !== newPassword
   const passMatch       = confirmPass.length > 0 && confirmPass === newPassword
   const activeCount     = users.filter(u => u.isActive !== false).length
   const inactiveCount   = users.filter(u => u.isActive === false).length
 
-  // ── Fetch ─────────────────────────────────────────────────────
   const fetchUsers = async () => {
     setLoading(true)
     try {
@@ -94,17 +157,19 @@ const UserMaintenance = () => {
 
   const handleSearch = (e) => { e.preventDefault(); setPage(1); fetchUsers() }
 
-  // ── Add User ──────────────────────────────────────────────────
   const openAdd = () => {
     setAddForm({ name: '', email: '', phone: '', password: '', address: '' })
     setAddImg(null); setShowAddPass(false); setShowAddModal(true)
   }
 
   const handleAddUser = async () => {
-    if (!addForm.name.trim())        return toast.error('Name is required')
-    if (!addForm.email.trim())       return toast.error('Email is required')
-    if (addPhoneInvalid)             return toast.error('Phone must be 11 digits starting with 09')
-    if (addForm.password.length < 8) return toast.error('Password must be at least 8 characters')
+    if (!addForm.name.trim())                     return toast.error('Name is required')
+    if (!/^[A-Za-z\s]{2,}$/.test(addForm.name.trim())) return toast.error('Name can only contain letters and spaces')
+    if (!addForm.email.trim())                    return toast.error('Email is required')
+    if (!/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(addForm.email))
+                                                  return toast.error('Please enter a valid email address')
+    if (addPhoneInvalid)                          return toast.error('Phone must be 11 digits starting with 09')
+    if (!pwIsValid(addForm.password))             return toast.error('Password must be 8+ chars with uppercase, lowercase, number, and special character')
     setAddLoading(true)
     try {
       const formData = new FormData()
@@ -123,7 +188,6 @@ const UserMaintenance = () => {
     finally { setAddLoading(false) }
   }
 
-  // ── Toggle Status ─────────────────────────────────────────────
   const handleToggleStatus = async (user) => {
     try {
       const { data } = await axios.patch(
@@ -136,7 +200,6 @@ const UserMaintenance = () => {
     } catch { toast.error('Failed to update status') }
   }
 
-  // ── Edit ──────────────────────────────────────────────────────
   const addressToText = (addr) => {
     if (!addr) return ''
     if (typeof addr === 'string') return addr
@@ -145,10 +208,22 @@ const UserMaintenance = () => {
 
   const openEdit = (user) => {
     setEditUser(user)
-    setEditForm({ name: user.name, email: user.email, phone: user.phone || '', address: addressToText(user.address) })
+    setEditForm({
+      name: sanitizeName(user.name),
+      email: sanitizeEmail(user.email),
+      phone: sanitizePhone(user.phone || ''),
+      address: sanitizeAddress(addressToText(user.address)),
+    })
   }
 
   const handleEditSave = async () => {
+    if (editForm.name && !/^[A-Za-z\s]{2,}$/.test(editForm.name.trim()))
+      return toast.error('Name can only contain letters and spaces')
+    if (editForm.email && !/^[A-Za-z0-9._+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(editForm.email))
+      return toast.error('Please enter a valid email address')
+    if (editForm.phone && !/^09\d{9}$/.test(editForm.phone))
+      return toast.error('Phone must be 11 digits starting with 09')
+
     setEditLoading(true)
     try {
       const { data } = await axios.put(
@@ -162,7 +237,6 @@ const UserMaintenance = () => {
     finally { setEditLoading(false) }
   }
 
-  // ── Delete ────────────────────────────────────────────────────
   const handleDelete = async () => {
     setDeleteLoading(true)
     try {
@@ -176,13 +250,13 @@ const UserMaintenance = () => {
     finally { setDeleteLoading(false) }
   }
 
-  // ── Reset Password ────────────────────────────────────────────
   const openReset = (user) => {
     setResetTarget(user); setNewPassword(''); setConfirmPass(''); setShowPass(false)
   }
 
   const handleResetPassword = async () => {
-    if (newPassword.length < 8)     return toast.error('Password must be at least 8 characters')
+    if (!pwIsValid(newPassword))
+      return toast.error('Password must be 8+ chars with uppercase, lowercase, number, and special character')
     if (newPassword !== confirmPass) return toast.error('Passwords do not match')
     setResetLoading(true)
     try {
@@ -196,6 +270,9 @@ const UserMaintenance = () => {
     } catch { toast.error('Failed to reset password') }
     finally { setResetLoading(false) }
   }
+
+  // ─── Grid template — FIXED pixel width para sa No. column ──────────────
+  const GRID = 'grid grid-cols-[50px_2fr_1fr_1fr_1.8fr]'
 
   return (
     <div className='bg-neutral-50 min-h-screen' style={{ fontFamily: "'Georgia', serif" }}>
@@ -242,6 +319,10 @@ const UserMaintenance = () => {
               <Search size={14} className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300' />
               <input type='text' placeholder='Search by name, email, or phone...' value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={makeAddressKeyDown}
+                onPaste={makePasteHandler(sanitizeAddress, setSearch)}
+                onDrop={e => e.preventDefault()}
+                autoComplete='off'
                 className='w-full pl-9 pr-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white' />
             </div>
             <button type='submit'
@@ -263,7 +344,7 @@ const UserMaintenance = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-blue-100 overflow-hidden'>
+        <div className='bg-white border border-neutral-200 overflow-hidden'>
           {loading ? (
             <div className='flex justify-center items-center py-20 font-sans text-sm text-neutral-400'>Loading...</div>
           ) : users.length === 0 ? (
@@ -273,32 +354,50 @@ const UserMaintenance = () => {
             </div>
           ) : (
             <div>
-              <div className='grid grid-cols-[2fr_1fr_1fr_auto] bg-blue-50 px-7 py-3 border-b border-blue-100'>
-                {['User', 'Phone', 'Status', 'Actions'].map(h => (
-                  <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>{h}</span>
-                ))}
+              {/* Header — Fixed 50px No. column */}
+              <div className={`${GRID} bg-blue-50 border-b border-neutral-200`}>
+                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 py-3 border-r border-neutral-200 text-center'>No.</span>
+                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-left'>User</span>
+                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Phone</span>
+                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Status</span>
+                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 text-center'>Actions</span>
               </div>
-              <div className='divide-y divide-blue-50'>
-                {users.map((user) => (
-                  <div key={user.id} className='grid grid-cols-[2fr_1fr_1fr_auto] items-center px-7 py-4 hover:bg-blue-50 transition-colors'>
-                    <div className='flex items-center gap-3'>
+              <div className='divide-y divide-neutral-200'>
+                {users.map((user, index) => (
+                  <div key={user.id} className={`${GRID} items-stretch hover:bg-blue-50 transition-colors`}>
+
+                    {/* Number */}
+                    <div className='flex items-center justify-center py-5 border-r border-neutral-200'>
+                      <span className='font-sans font-bold text-sm text-neutral-500'>{index + 1}</span>
+                    </div>
+
+                    {/* User */}
+                    <div className='flex items-center gap-3 px-4 py-5 border-r border-neutral-200'>
                       <img src={user.image || `${DEFAULT_IMG}${encodeURIComponent(user.name)}`} alt={user.name}
                         className='w-9 h-9 object-cover flex-shrink-0'
                         onError={e => { e.target.src = `${DEFAULT_IMG}${encodeURIComponent(user.name)}` }} />
-                      <div>
-                        <p className='font-sans font-semibold text-sm text-neutral-700'>{user.name}</p>
-                        <p className='font-sans text-xs text-neutral-400'>{user.email}</p>
+                      <div className='min-w-0'>
+                        <p className='font-sans font-semibold text-sm text-neutral-700 truncate'>{user.name}</p>
+                        <p className='font-sans text-xs text-neutral-400 truncate'>{user.email}</p>
                       </div>
                     </div>
-                    <p className='font-sans text-xs text-neutral-500'>{user.phone || '—'}</p>
-                    <div>
+
+                    {/* Phone */}
+                    <div className='flex items-center justify-center px-4 py-5 border-r border-neutral-200'>
+                      <span className='font-sans text-xs text-neutral-500'>{user.phone || '—'}</span>
+                    </div>
+
+                    {/* Status */}
+                    <div className='flex items-center justify-center px-4 py-5 border-r border-neutral-200'>
                       {user.isActive !== false ? (
-                        <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-green-200 text-green-600 px-2 py-1 inline-flex items-center gap-1'><Check size={9} /> Active</span>
+                        <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-green-200 text-green-600 px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap'><Check size={9} /> Active</span>
                       ) : (
-                        <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-red-200 text-red-500 px-2 py-1 inline-flex items-center gap-1'><X size={9} /> Inactive</span>
+                        <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-red-200 text-red-500 px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap'><X size={9} /> Inactive</span>
                       )}
                     </div>
-                    <div className='flex items-center gap-1'>
+
+                    {/* Actions */}
+                    <div className='flex items-center justify-center gap-1 px-4 py-5'>
                       <button onClick={() => openEdit(user)} title='Edit' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><Pencil size={14} /></button>
                       <button onClick={() => handleToggleStatus(user)} title={user.isActive !== false ? 'Deactivate' : 'Activate'} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'>
                         {user.isActive !== false ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -312,7 +411,7 @@ const UserMaintenance = () => {
             </div>
           )}
           {pages > 1 && (
-            <div className='flex items-center justify-between px-7 py-4 border-t border-blue-100'>
+            <div className='flex items-center justify-between px-7 py-4 border-t border-neutral-200'>
               <span className='font-sans text-xs text-neutral-400'>
                 Page <span className='font-sans font-black text-neutral-700'>{page}</span> of <span className='font-sans font-black text-neutral-700'>{pages}</span> · {total} users
               </span>
@@ -371,17 +470,36 @@ const UserMaintenance = () => {
 
               {/* Name + Email */}
               <div className='grid grid-cols-2 gap-4'>
-                <ModalField label='Full Name' value={addForm.name} placeholder='Juan Dela Cruz'
-                  onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} />
-                <ModalField label='Email' type='email' value={addForm.email} placeholder='juan@email.com'
-                  onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} />
+                <ModalField
+                  label='Full Name'
+                  value={addForm.name}
+                  placeholder='Juan Dela Cruz'
+                  error={addNameInvalid ? 'Letters and spaces only' : ''}
+                  onKeyDown={makeNameKeyDown}
+                  onPaste={makePasteHandler(sanitizeName, v => setAddForm(p => ({ ...p, name: v })))}
+                  onChange={e => setAddForm(p => ({ ...p, name: sanitizeName(e.target.value) }))}
+                />
+                <ModalField
+                  label='Email'
+                  type='email'
+                  value={addForm.email}
+                  placeholder='juan@email.com'
+                  error={addEmailInvalid ? 'Invalid email format' : ''}
+                  onKeyDown={makeEmailKeyDown}
+                  onPaste={makePasteHandler(sanitizeEmail, v => setAddForm(p => ({ ...p, email: v })))}
+                  onChange={e => setAddForm(p => ({ ...p, email: sanitizeEmail(e.target.value) }))}
+                />
               </div>
 
               {/* Phone */}
               <div>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Phone</label>
                 <input type='text' value={addForm.phone} placeholder='09123456789'
-                  onChange={e => { const v = e.target.value; if (/^[0-9]*$/.test(v) && v.length <= 11) setAddForm(p => ({ ...p, phone: v })) }}
+                  onKeyDown={makePhoneKeyDown}
+                  onPaste={makePasteHandler(sanitizePhone, v => setAddForm(p => ({ ...p, phone: v })))}
+                  onDrop={e => e.preventDefault()}
+                  onChange={e => setAddForm(p => ({ ...p, phone: sanitizePhone(e.target.value) }))}
+                  autoComplete='off'
                   className={inputCls + (addPhoneInvalid ? ' border-red-300 focus:border-red-400' : '')} />
                 {addPhoneInvalid && <p className={errorCls}>Must be 11 digits starting with 09</p>}
               </div>
@@ -390,15 +508,20 @@ const UserMaintenance = () => {
               <div>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Password</label>
                 <div className='relative'>
-                  <input type={showAddPass ? 'text' : 'password'} value={addForm.password} placeholder='Min. 8 characters'
+                  <input type={showAddPass ? 'text' : 'password'} value={addForm.password} placeholder='Min. 8 chars with A-a-1-!'
                     onChange={e => setAddForm(p => ({ ...p, password: e.target.value }))}
+                    onDrop={e => e.preventDefault()}
+                    autoComplete='new-password'
                     className={inputCls + ' pr-10' + (addPassShort ? ' border-red-300 focus:border-red-400' : '')} />
                   <button type='button' onClick={() => setShowAddPass(p => !p)}
                     className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
                     {showAddPass ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
-                {addPassShort && <p className={errorCls}>Minimum 8 characters</p>}
+                {addPassShort && <p className={errorCls}>Must have 8+ chars, uppercase, lowercase, number, special</p>}
+                {!addPassShort && addForm.password.length === 0 && (
+                  <p className='font-sans text-[10px] text-neutral-400 mt-1'>8+ chars · 1 uppercase · 1 lowercase · 1 number · 1 special</p>
+                )}
               </div>
 
               {/* Address */}
@@ -407,7 +530,12 @@ const UserMaintenance = () => {
                   Address <span className='normal-case tracking-normal font-normal text-neutral-300'>(optional)</span>
                 </label>
                 <input type='text' value={addForm.address} placeholder='Street, Barangay, City'
-                  onChange={e => setAddForm(p => ({ ...p, address: e.target.value }))} className={inputCls} />
+                  onKeyDown={makeAddressKeyDown}
+                  onPaste={makePasteHandler(sanitizeAddress, v => setAddForm(p => ({ ...p, address: v })))}
+                  onDrop={e => e.preventDefault()}
+                  onChange={e => setAddForm(p => ({ ...p, address: sanitizeAddress(e.target.value) }))}
+                  autoComplete='off'
+                  className={inputCls} />
               </div>
 
             </div>
@@ -444,10 +572,37 @@ const UserMaintenance = () => {
               </div>
             </div>
             <div className='px-6 py-6 space-y-4'>
-              <ModalField label='Full Name' value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
-              <ModalField label='Email' type='email' value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
-              <ModalField label='Phone' value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} />
-              <ModalField label='Address' value={editForm.address} onChange={e => setEditForm(p => ({ ...p, address: e.target.value }))} />
+              <ModalField
+                label='Full Name'
+                value={editForm.name}
+                error={editNameInvalid ? 'Letters and spaces only' : ''}
+                onKeyDown={makeNameKeyDown}
+                onPaste={makePasteHandler(sanitizeName, v => setEditForm(p => ({ ...p, name: v })))}
+                onChange={e => setEditForm(p => ({ ...p, name: sanitizeName(e.target.value) }))}
+              />
+              <ModalField
+                label='Email'
+                type='email'
+                value={editForm.email}
+                error={editEmailInvalid ? 'Invalid email format' : ''}
+                onKeyDown={makeEmailKeyDown}
+                onPaste={makePasteHandler(sanitizeEmail, v => setEditForm(p => ({ ...p, email: v })))}
+                onChange={e => setEditForm(p => ({ ...p, email: sanitizeEmail(e.target.value) }))}
+              />
+              <ModalField
+                label='Phone'
+                value={editForm.phone}
+                onKeyDown={makePhoneKeyDown}
+                onPaste={makePasteHandler(sanitizePhone, v => setEditForm(p => ({ ...p, phone: v })))}
+                onChange={e => setEditForm(p => ({ ...p, phone: sanitizePhone(e.target.value) }))}
+              />
+              <ModalField
+                label='Address'
+                value={editForm.address}
+                onKeyDown={makeAddressKeyDown}
+                onPaste={makePasteHandler(sanitizeAddress, v => setEditForm(p => ({ ...p, address: v })))}
+                onChange={e => setEditForm(p => ({ ...p, address: sanitizeAddress(e.target.value) }))}
+              />
             </div>
             <div className='px-6 pb-6 flex gap-3'>
               <button onClick={() => setEditUser(null)}
@@ -490,22 +645,30 @@ const UserMaintenance = () => {
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>New Password</label>
                   <div className='relative'>
                     <input type={showPass ? 'text' : 'password'} value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)} placeholder='Min. 8 characters'
+                      onChange={e => setNewPassword(e.target.value)}
+                      onDrop={e => e.preventDefault()}
+                      placeholder='Min. 8 chars with A-a-1-!'
+                      autoComplete='new-password'
                       className={inputCls + ' pr-10' + (passShort ? ' border-red-300 focus:border-red-400' : '')} />
                     <button type='button' onClick={() => setShowPass(p => !p)}
                       className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
                       {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </div>
-                  {passShort && <p className={errorCls}>Minimum 8 characters</p>}
+                  {passShort && <p className={errorCls}>Must have 8+ chars, uppercase, lowercase, number, special</p>}
+                  {!passShort && newPassword.length === 0 && (
+                    <p className='font-sans text-[10px] text-neutral-400 mt-1'>8+ chars · 1 uppercase · 1 lowercase · 1 number · 1 special</p>
+                  )}
                 </div>
                 <div>
                   <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Confirm Password</label>
                   <input type={showPass ? 'text' : 'password'} value={confirmPass}
                     onChange={e => setConfirmPass(e.target.value)}
+                    onDrop={e => e.preventDefault()}
+                    autoComplete='new-password'
                     className={inputCls + (passMismatch ? ' border-red-300 focus:border-red-400' : passMatch ? ' border-green-300 focus:border-green-400' : '')} />
                   {passMismatch && <p className={errorCls}>Passwords do not match</p>}
-                  {passMatch    && <p className='font-sans text-[10px] text-green-500 uppercase tracking-widest mt-1'>Passwords match ✓</p>}
+                  {passMatch    && <p className='font-sans text-[10px] text-green-500 uppercase tracking-widest mt-1'>Passwords match</p>}
                 </div>
               </div>
             </div>

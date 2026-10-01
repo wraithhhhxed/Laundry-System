@@ -11,6 +11,16 @@ const clip = { clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%
 const clipModal = { clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }
 const headerBg = { background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }
 
+const MAX_QUANTITY = 999999
+
+// ─── Sanitizer: whole numbers only, no minus/special/decimal ────────────────
+const sanitizeInt = (v) =>
+  String(v ?? '').replace(/[^0-9]/g, '')
+
+// ─── Search sanitizer: letters, numbers, spaces, hyphens, dots only ─────────
+const sanitizeSearch = (v) =>
+  String(v ?? '').replace(/[^A-Za-z0-9\s.\-]/g, '')
+
 const AdminInventory = () => {
   const { aToken, backendUrl, branches, getAllBranches } = useContext(AdminContext)
 
@@ -19,14 +29,12 @@ const AdminInventory = () => {
   const [products,       setProducts]       = useState([])
   const [loading,        setLoading]        = useState(false)
   const [search,         setSearch]         = useState('')
-  const [staffMap,       setStaffMap]       = useState({})       // { staffId: "First Last" }
+  const [staffMap,       setStaffMap]       = useState({})
   const [showInactive,   setShowInactive]   = useState(false)
 
-  // modal: { mode: 'set' | 'restock', item?: existing inventory row }
   const [modal,      setModal]      = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // form fields (modal)
   const [productId,         setProductId]         = useState('')
   const [quantity,          setQuantity]           = useState('')
   const [lowStockThreshold, setLowStockThreshold]  = useState('')
@@ -41,7 +49,6 @@ const AdminInventory = () => {
     }
   }, [aToken])
 
-  // Default to first branch once branches load
   useEffect(() => {
     if (!selectedBranch && branches?.length > 0) setSelectedBranch(branches[0].id)
   }, [branches])
@@ -78,7 +85,6 @@ const AdminInventory = () => {
     }
   }
 
-  // ── Fetch staff list ng branch (para sa lastUpdatedBy names) ─────────────
   const fetchStaff = async (branchId) => {
     try {
       const { data } = await axios.get(
@@ -93,7 +99,7 @@ const AdminInventory = () => {
         setStaffMap(map)
       }
     } catch (err) {
-      // silent fail — pangalan lang naman ito, hindi critical
+      // silent fail
     }
   }
 
@@ -101,13 +107,13 @@ const AdminInventory = () => {
   const openAdd = () => {
     setProductId(''); setQuantity(''); setLowStockThreshold(''); setErrors({})
     setModal({ mode: 'set' })
-    setShowInactive(false) // Reset toggle when opening Add modal
+    setShowInactive(false)
   }
 
   const openSet = (item) => {
     setProductId((item.productId ?? item.product?.id)?.toString())
-    setQuantity(item.quantity)
-    setLowStockThreshold(item.lowStockThreshold ?? '')
+    setQuantity(sanitizeInt(item.quantity))
+    setLowStockThreshold(item.lowStockThreshold != null ? sanitizeInt(item.lowStockThreshold) : '')
     setErrors({})
     setModal({ mode: 'set', item })
   }
@@ -121,12 +127,49 @@ const AdminInventory = () => {
 
   const closeModal = () => setModal(null)
 
+  // ── Input handlers (numbers only) ────────────────────────────────────────
+  const makeIntKeyDownHandler = (currentValue) => (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+    if (allowed.includes(e.key)) return
+    if (e.ctrlKey || e.metaKey) return
+    if (e.key.length === 1 && !/[0-9]/.test(e.key)) e.preventDefault()
+    if (
+      e.key.length === 1 &&
+      currentValue === '0' &&
+      e.key !== '0'
+    ) {
+      return
+    }
+  }
+
+  const makeIntPasteHandler = (setter) => (e) => {
+    e.preventDefault()
+    const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+    const clean = sanitizeInt(pasted)
+    setter(clean)
+  }
+
   // ── Submit: set stock ────────────────────────────────────────────────────
   const handleSetStock = async () => {
     const errs = {}
     if (!productId) errs.productId = 'Choose a product.'
-    if (quantity === '' || isNaN(Number(quantity)) || Number(quantity) < 0)
-      errs.quantity = 'Maglagay ng valid na quantity (0 o higit pa).'
+
+    const qtyStr = String(quantity).trim()
+    if (qtyStr === '')
+      errs.quantity = 'Quantity is required.'
+    else if (!/^\d+$/.test(qtyStr))
+      errs.quantity = 'Quantity must be a whole number (no decimals, no special characters).'
+    else if (Number(qtyStr) > MAX_QUANTITY)
+      errs.quantity = `Quantity is too large (max ${MAX_QUANTITY.toLocaleString()}).`
+
+    const thresholdStr = String(lowStockThreshold).trim()
+    if (thresholdStr !== '') {
+      if (!/^\d+$/.test(thresholdStr))
+        errs.lowStockThreshold = 'Low stock threshold must be a whole number.'
+      else if (Number(thresholdStr) > MAX_QUANTITY)
+        errs.lowStockThreshold = `Threshold is too large (max ${MAX_QUANTITY.toLocaleString()}).`
+    }
+
     if (Object.keys(errs).length) return setErrors(errs)
 
     setSubmitting(true)
@@ -136,8 +179,8 @@ const AdminInventory = () => {
         {
           branchId: selectedBranch,
           productId,
-          quantity: Number(quantity),
-          lowStockThreshold: lowStockThreshold === '' ? undefined : Number(lowStockThreshold),
+          quantity: Number(qtyStr),
+          lowStockThreshold: thresholdStr === '' ? undefined : Number(thresholdStr),
         },
         { headers: authHeader(aToken) }
       )
@@ -156,15 +199,23 @@ const AdminInventory = () => {
   // ── Submit: restock ──────────────────────────────────────────────────────
   const handleRestock = async () => {
     const errs = {}
-    if (!addQuantity || isNaN(Number(addQuantity)) || Number(addQuantity) <= 0)
-      errs.addQuantity = 'Maglagay ng valid na dagdag na quantity (higit sa 0).'
+    const qtyStr = String(addQuantity).trim()
+    if (qtyStr === '')
+      errs.addQuantity = 'Add quantity is required.'
+    else if (!/^\d+$/.test(qtyStr))
+      errs.addQuantity = 'Add quantity must be a whole number (no decimals, no special characters).'
+    else if (Number(qtyStr) <= 0)
+      errs.addQuantity = 'Add quantity must be greater than 0.'
+    else if (Number(qtyStr) > MAX_QUANTITY)
+      errs.addQuantity = `Add quantity is too large (max ${MAX_QUANTITY.toLocaleString()}).`
+
     if (Object.keys(errs).length) return setErrors(errs)
 
     setSubmitting(true)
     try {
       const { data } = await axios.post(
         `${backendUrl}/api/inventory/restock`,
-        { branchId: selectedBranch, productId, addQuantity: Number(addQuantity) },
+        { branchId: selectedBranch, productId, addQuantity: Number(qtyStr) },
         { headers: authHeader(aToken) }
       )
       if (data.success) {
@@ -198,7 +249,7 @@ const AdminInventory = () => {
     }
   }
 
-  // ── Products na wala pa sa inventory ng napiling branch (para sa Add) ────
+  // ── Products na wala pa sa inventory ─────────────────────────────────────
   const inventoryProductIds = inventory.map(i => (i.productId ?? i.product?.id)?.toString())
   const availableProducts = products
     .filter(p => !inventoryProductIds.includes(p.id?.toString()))
@@ -263,8 +314,21 @@ const AdminInventory = () => {
             </svg>
             <input
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => setSearch(sanitizeSearch(e.target.value))}
+              onKeyDown={e => {
+                const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+                if (allowed.includes(e.key)) return
+                if (e.ctrlKey || e.metaKey) return
+                if (e.key.length === 1 && !/[A-Za-z0-9\s.\-]/.test(e.key)) e.preventDefault()
+              }}
+              onPaste={e => {
+                e.preventDefault()
+                const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+                setSearch(sanitizeSearch(pasted))
+              }}
+              onDrop={e => e.preventDefault()}
               placeholder='Search product...'
+              autoComplete='off'
               className='w-full pl-9 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
             />
             {search && (
@@ -280,11 +344,14 @@ const AdminInventory = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-blue-100 overflow-hidden'>
-          <div className='grid grid-cols-[2fr_1fr_1fr_1fr_1.8fr] bg-blue-50 px-7 py-3 border-b border-blue-100'>
-            {['Product', 'Quantity', 'Low Stock At', 'Last Updated By', 'Actions'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>{h}</span>
-            ))}
+        <div className='bg-white border border-neutral-200 overflow-hidden'>
+          <div className='grid grid-cols-[0.3fr_2fr_1fr_1fr_1.2fr_1.8fr] bg-blue-50 border-b border-neutral-200'>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-3 py-3 border-r border-neutral-200 text-center'>No.</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-left'>Product</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Quantity</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Low Stock At</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Last Updated By</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 text-center'>Actions</span>
           </div>
 
           {loading ? (
@@ -294,39 +361,57 @@ const AdminInventory = () => {
               {inventory.length === 0 ? 'There are currently no stocks' : 'No such product is available.'}
             </div>
           ) : (
-            <div className='divide-y divide-blue-50'>
-              {filtered.map(item => {
+            <div className='divide-y divide-neutral-200'>
+              {filtered.map((item, index) => {
                 const isLow = item.lowStockThreshold != null && item.quantity <= item.lowStockThreshold
                 return (
                   <div key={item.productId ?? item.product?.id}
-                    className='grid grid-cols-[2fr_1fr_1fr_1fr_1.8fr] items-center px-7 py-4 hover:bg-blue-50 transition-colors'>
+                    className='grid grid-cols-[0.3fr_2fr_1fr_1fr_1.2fr_1.8fr] items-center hover:bg-blue-50 transition-colors'>
 
-                    <p className='font-sans font-semibold text-sm text-neutral-700'>{item.product?.name || '—'}</p>
+                    {/* Number */}
+                    <div className='px-3 py-4 border-r border-neutral-200 flex justify-center'>
+                      <span className='font-sans font-bold text-sm text-neutral-500'>{index + 1}</span>
+                    </div>
 
-                    <span className={`font-sans font-black text-sm ${isLow ? 'text-red-500' : 'text-blue-600'}`}>
-                      {item.quantity}
-                      {isLow && <span className='ml-1 text-[10px] uppercase tracking-widest font-bold text-red-400'>Low</span>}
-                    </span>
+                    {/* Product */}
+                    <div className='px-4 py-4 border-r border-neutral-200'>
+                      <p className='font-sans font-semibold text-sm text-neutral-700 truncate'>{item.product?.name || '—'}</p>
+                    </div>
 
-                    <span className='font-sans text-sm text-neutral-500'>{item.lowStockThreshold ?? '—'}</span>
+                    {/* Quantity */}
+                    <div className='px-4 py-4 border-r border-neutral-200 flex justify-center'>
+                      <span className={`font-sans font-black text-sm ${isLow ? 'text-red-500' : 'text-blue-600'}`}>
+                        {item.quantity}
+                        {isLow && <span className='ml-1 text-[10px] uppercase tracking-widest font-bold text-red-400'>Low</span>}
+                      </span>
+                    </div>
 
-                    <span className='font-sans text-xs text-neutral-400'>
-                      {item.lastUpdatedBy
-                        ? (staffMap[item.lastUpdatedBy] || 'Unknown Staff')
-                        : 'Super Admin'}
-                    </span>
+                    {/* Low Stock At */}
+                    <div className='px-4 py-4 border-r border-neutral-200 flex justify-center'>
+                      <span className='font-sans text-sm text-neutral-500'>{item.lowStockThreshold ?? '—'}</span>
+                    </div>
 
-                    <div className='flex items-center gap-3 flex-wrap'>
+                    {/* Last Updated By */}
+                    <div className='px-4 py-4 border-r border-neutral-200 flex justify-center'>
+                      <span className='font-sans text-xs text-neutral-400 text-center'>
+                        {item.lastUpdatedBy
+                          ? (staffMap[item.lastUpdatedBy] || 'Unknown Staff')
+                          : 'Super Admin'}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className='flex items-center justify-center gap-3 px-4 py-4'>
                       <button onClick={() => openRestock(item)}
-                        className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-blue-500 hover:text-blue-700 transition-colors'>
+                        className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap'>
                         Restock
                       </button>
                       <button onClick={() => openSet(item)}
-                        className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-blue-600 transition-colors'>
+                        className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-500 hover:text-blue-700 transition-colors whitespace-nowrap'>
                         Set Stock
                       </button>
                       <button onClick={() => handleRemove(item)}
-                        className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-400 hover:text-red-600 transition-colors'>
+                        className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-500 hover:text-red-700 transition-colors whitespace-nowrap'>
                         Remove
                       </button>
                     </div>
@@ -361,7 +446,6 @@ const AdminInventory = () => {
 
             <div className='px-6 py-6 space-y-4'>
 
-              {/* Show Inactive Products toggle - only for Add mode */}
               {!modal.item && (
                 <label className='flex items-center gap-2 mb-1'>
                   <input
@@ -374,7 +458,6 @@ const AdminInventory = () => {
                 </label>
               )}
 
-              {/* Product select — locked kung existing item na (set/restock) */}
               <div>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>
                   Product <span className='text-red-400 normal-case'>*</span>
@@ -401,10 +484,18 @@ const AdminInventory = () => {
                     Add Quantity <span className='text-red-400 normal-case'>*</span>
                   </label>
                   <input
-                    type='number' min='1'
+                    type='text'
+                    inputMode='numeric'
                     value={addQuantity}
-                    onChange={e => setAddQuantity(e.target.value)}
+                    onKeyDown={makeIntKeyDownHandler(addQuantity)}
+                    onChange={e => {
+                      setAddQuantity(sanitizeInt(e.target.value))
+                      if (errors.addQuantity) setErrors(prev => { const e = { ...prev }; delete e.addQuantity; return e })
+                    }}
+                    onPaste={makeIntPasteHandler(setAddQuantity)}
+                    onDrop={e => e.preventDefault()}
                     placeholder='e.g. 10'
+                    autoComplete='off'
                     className={inputCls('addQuantity')}
                   />
                   {errors.addQuantity && <p className='font-sans text-[11px] text-red-500 mt-1'>{errors.addQuantity}</p>}
@@ -416,10 +507,18 @@ const AdminInventory = () => {
                       Quantity <span className='text-red-400 normal-case'>*</span>
                     </label>
                     <input
-                      type='number' min='0'
+                      type='text'
+                      inputMode='numeric'
                       value={quantity}
-                      onChange={e => setQuantity(e.target.value)}
+                      onKeyDown={makeIntKeyDownHandler(quantity)}
+                      onChange={e => {
+                        setQuantity(sanitizeInt(e.target.value))
+                        if (errors.quantity) setErrors(prev => { const e = { ...prev }; delete e.quantity; return e })
+                      }}
+                      onPaste={makeIntPasteHandler(setQuantity)}
+                      onDrop={e => e.preventDefault()}
                       placeholder='e.g. 20'
+                      autoComplete='off'
                       className={inputCls('quantity')}
                     />
                     {errors.quantity && <p className='font-sans text-[11px] text-red-500 mt-1'>{errors.quantity}</p>}
@@ -429,12 +528,21 @@ const AdminInventory = () => {
                       Low Stock Threshold <span className='normal-case font-normal text-neutral-300'>(optional)</span>
                     </label>
                     <input
-                      type='number' min='0'
+                      type='text'
+                      inputMode='numeric'
                       value={lowStockThreshold}
-                      onChange={e => setLowStockThreshold(e.target.value)}
+                      onKeyDown={makeIntKeyDownHandler(lowStockThreshold)}
+                      onChange={e => {
+                        setLowStockThreshold(sanitizeInt(e.target.value))
+                        if (errors.lowStockThreshold) setErrors(prev => { const e = { ...prev }; delete e.lowStockThreshold; return e })
+                      }}
+                      onPaste={makeIntPasteHandler(setLowStockThreshold)}
+                      onDrop={e => e.preventDefault()}
                       placeholder='e.g. 5'
+                      autoComplete='off'
                       className={inputCls('lowStockThreshold')}
                     />
+                    {errors.lowStockThreshold && <p className='font-sans text-[11px] text-red-500 mt-1'>{errors.lowStockThreshold}</p>}
                   </div>
                 </>
               )}

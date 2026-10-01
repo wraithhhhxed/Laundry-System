@@ -14,12 +14,24 @@ import axios from 'axios';
 
 const VALID_STATUSES = ['pending_approval', 'approved', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
 
+// Turf: serbisyo lang sa Taguig City
+const isTaguigAddress = (addr) => {
+  if (!addr) return false;
+  const text = typeof addr === 'string' ? addr : [addr.line1, addr.line2].filter(Boolean).join(' ');
+  return /taguig/i.test(text);
+};
+
 class AppointmentService {
 
   async bookAppointment(userId, branchId, slotDate, slotTime, servicesInput, extraDetails = {}, promoCode = null, addOns = [], actor = null) {
     const branch = await BranchRepository.findById(branchId);
     if (!branch) throw new ApiError(404, 'Branch not found');
     if (!branch.available) throw new ApiError(400, 'Branch not available');
+
+    if (!isTaguigAddress(extraDetails.pickupAddress))
+      throw new ApiError(400, 'Pickup address must be within Taguig City');
+    if (extraDetails.deliveryAddress && !isTaguigAddress(extraDetails.deliveryAddress))
+      throw new ApiError(400, 'Delivery address must be within Taguig City');
 
     const slotDateTime = new Date(`${slotDate}T${slotTime}`);
     if (isNaN(slotDateTime.getTime()))
@@ -679,6 +691,9 @@ class AppointmentService {
   }
 
   async createWalkInAppointment(phone, guestName, branchId, slotTime, servicesInput, overweightResolution = null, extraDetails = {}, addOns = [], actor = null, fulfillmentMethod = 'SELF_PICKUP') {
+    if (fulfillmentMethod === 'DELIVERY' && !isTaguigAddress(extraDetails.address))
+      throw new ApiError(400, 'Delivery address must be within Taguig City');
+
     let user = await UserRepository.findByPhone(phone);
     if (!user) {
       const newUserData = {

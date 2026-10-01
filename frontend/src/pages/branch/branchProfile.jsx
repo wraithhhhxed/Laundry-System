@@ -7,6 +7,79 @@ const SectionLabel = ({ children }) => (
 
 const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
+// ─── Sanitizers ──────────────────────────────────────────────────────
+// Phone: digits only, max 11
+const sanitizePhone = (v) =>
+  String(v || '').replace(/[^0-9]/g, '').slice(0, 11)
+
+// Address: letters, numbers, spaces, comma, period, #, hyphen
+const sanitizeAddress = (v) => {
+  let s = String(v || '')
+  s = s.replace(/[^A-Za-z0-9\s,.#\-]/g, '')
+  s = s.replace(/\s+/g, ' ')
+  s = s.replace(/,{2,}/g, ',')
+  s = s.replace(/\.{2,}/g, '.')
+  s = s.replace(/-{2,}/g, '-')
+  s = s.replace(/^[\s,.\-#]+/, '')
+  return s
+}
+
+// About: letters, numbers, spaces, basic punctuation
+const sanitizeAbout = (v) => {
+  let s = String(v || '')
+  s = s.replace(/[^A-Za-z0-9\s.,'&()!?%\-]/g, '')
+  s = s.replace(/\s+/g, ' ')
+  s = s.replace(/-{2,}/g, '-')
+  s = s.replace(/^[\s\-.,!?%]+/, '')
+  return s
+}
+
+// ─── Keydown factories ───────────────────────────────────────────────
+const makePhoneKeyDown = (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[0-9]/.test(e.key)) e.preventDefault()
+}
+
+const makeAddressKeyDown = (currentValue) => (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[A-Za-z0-9\s,.#\-]/.test(e.key)) { e.preventDefault(); return }
+  if (!currentValue && e.key.length === 1 && !/[A-Za-z0-9]/.test(e.key)) e.preventDefault()
+}
+
+const makeAboutKeyDown = (currentValue) => (e) => {
+  const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+  if (allowed.includes(e.key)) return
+  if (e.ctrlKey || e.metaKey) return
+  if (e.key.length === 1 && !/[A-Za-z0-9\s.,'&()!?%\-]/.test(e.key)) { e.preventDefault(); return }
+  if (!currentValue && e.key.length === 1 && !/[A-Za-z0-9]/.test(e.key)) e.preventDefault()
+}
+
+// ─── BeforeInput factories ───────────────────────────────────────────
+const makeAddressBeforeInput = (currentValue) => (e) => {
+  const data = e.data || ''
+  if (!data) return
+  if (!/^[A-Za-z0-9\s,.#\-]+$/.test(data)) { e.preventDefault(); return }
+  if (!currentValue && !/^[A-Za-z0-9]/.test(data)) e.preventDefault()
+}
+
+const makeAboutBeforeInput = (currentValue) => (e) => {
+  const data = e.data || ''
+  if (!data) return
+  if (!/^[A-Za-z0-9\s.,'&()!?%\-]+$/.test(data)) { e.preventDefault(); return }
+  if (!currentValue && !/^[A-Za-z0-9]/.test(data)) e.preventDefault()
+}
+
+// ─── Paste handler factory ───────────────────────────────────────────
+const makePasteHandler = (sanitize, setter) => (e) => {
+  e.preventDefault()
+  const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+  setter(sanitize(pasted))
+}
+
 const BranchProfile = () => {
   const { bToken, branchProfile, getBranchProfile, updateBranchProfile } = useContext(BranchesContext)
 
@@ -19,6 +92,7 @@ const BranchProfile = () => {
   const [imageFile,     setImageFile]     = useState(null)
   const [imagePreview,  setImagePreview]  = useState(null)
   const [saving,        setSaving]        = useState(false)
+  const [phoneError,    setPhoneError]    = useState('')
 
   const fileInputRef = useRef(null)
 
@@ -28,15 +102,31 @@ const BranchProfile = () => {
 
   useEffect(() => {
     if (branchProfile) {
-      setLine1(branchProfile.address?.line1 || '')
-      setLine2(branchProfile.address?.line2 || '')
+      setLine1(sanitizeAddress(branchProfile.address?.line1 || ''))
+      setLine2(sanitizeAddress(branchProfile.address?.line2 || ''))
       setAvailable(branchProfile.available)
-      setAbout(branchProfile.about || '')
-      setPhone(branchProfile.phone || '')
+      setAbout(sanitizeAbout(branchProfile.about || ''))
+      setPhone(sanitizePhone(branchProfile.phone || ''))
       setImageFile(null)
       setImagePreview(null)
+      setPhoneError('')
     }
   }, [branchProfile])
+
+  // ── Phone validation: dapat 11 digits at nagsisimula sa 09 ────────
+  const validatePhone = (value) => {
+    if (!value || value.length === 0) return ''          // empty is OK (optional)
+    if (!/^\d+$/.test(value)) return 'Phone can only contain numbers'
+    if (value.length !== 11) return 'Phone must be 11 digits'
+    if (!value.startsWith('09')) return 'Phone must start with 09'
+    return ''
+  }
+
+  const handlePhoneChange = (e) => {
+    const cleaned = sanitizePhone(e.target.value)
+    setPhone(cleaned)
+    setPhoneError(validatePhone(cleaned))
+  }
 
   const handleImageChange = (e) => {
     const file = e.target.files[0]
@@ -50,28 +140,39 @@ const BranchProfile = () => {
     setIsEdit(false)
     setImageFile(null)
     setImagePreview(null)
+    setPhoneError('')
     if (branchProfile) {
-      setLine1(branchProfile.address?.line1 || '')
-      setLine2(branchProfile.address?.line2 || '')
+      setLine1(sanitizeAddress(branchProfile.address?.line1 || ''))
+      setLine2(sanitizeAddress(branchProfile.address?.line2 || ''))
       setAvailable(branchProfile.available)
-      setAbout(branchProfile.about || '')
-      setPhone(branchProfile.phone || '')
+      setAbout(sanitizeAbout(branchProfile.about || ''))
+      setPhone(sanitizePhone(branchProfile.phone || ''))
     }
   }
 
   const handleSave = async () => {
+    // Final phone validation
+    const phoneErr = validatePhone(phone)
+    if (phoneErr) {
+      setPhoneError(phoneErr)
+      return
+    }
     setSaving(true)
     await updateBranchProfile({
-      address: JSON.stringify({ line1, line2 }),
+      address: JSON.stringify({
+        line1: sanitizeAddress(line1),
+        line2: sanitizeAddress(line2),
+      }),
       available,
-      about,
-      phone,
+      about: sanitizeAbout(about),
+      phone: sanitizePhone(phone),
       ...(imageFile && { image: imageFile }),
     })
     setSaving(false)
     setIsEdit(false)
     setImageFile(null)
     setImagePreview(null)
+    setPhoneError('')
   }
 
   if (!branchProfile) {
@@ -84,6 +185,7 @@ const BranchProfile = () => {
 
   const displayImage = imagePreview || branchProfile.image
   const inputClass   = "w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white"
+  const inputErrorClass = "w-full px-4 py-2.5 border border-red-300 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-red-400 transition-colors bg-white"
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
@@ -186,11 +288,28 @@ const BranchProfile = () => {
           <div className="mb-8">
             <SectionLabel>Phone</SectionLabel>
             <Divider />
-            {isEdit
-              ? <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                  placeholder="e.g. 09XX XXX XXXX" className={inputClass} />
-              : <p className="font-sans text-sm font-semibold text-neutral-700">{branchProfile.phone || '—'}</p>
-            }
+            {isEdit ? (
+              <div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  onKeyDown={makePhoneKeyDown}
+                  onPaste={makePasteHandler(sanitizePhone, v => { setPhone(v); setPhoneError(validatePhone(v)) })}
+                  onDrop={e => e.preventDefault()}
+                  placeholder="e.g. 09171234567"
+                  autoComplete="off"
+                  maxLength={11}
+                  className={phoneError ? inputErrorClass : inputClass}
+                />
+                {phoneError && (
+                  <p className="font-sans text-[10px] text-red-500 uppercase tracking-widest mt-1.5">{phoneError}</p>
+                )}
+              </div>
+            ) : (
+              <p className="font-sans text-sm font-semibold text-neutral-700">{branchProfile.phone || '—'}</p>
+            )}
           </div>
 
           {/* About */}
@@ -198,8 +317,14 @@ const BranchProfile = () => {
             <SectionLabel>About</SectionLabel>
             <Divider />
             {isEdit
-              ? <textarea value={about} onChange={e => setAbout(e.target.value)}
+              ? <textarea value={about}
+                  onChange={e => setAbout(sanitizeAbout(e.target.value))}
+                  onKeyDown={makeAboutKeyDown(about)}
+                  onBeforeInput={makeAboutBeforeInput(about)}
+                  onPaste={makePasteHandler(sanitizeAbout, setAbout)}
+                  onDrop={e => e.preventDefault()}
                   rows={4} placeholder="Tell customers about your branch..."
+                  autoComplete="off"
                   className={`${inputClass} resize-none`} />
               : <p className="font-sans text-sm font-medium text-neutral-600 leading-relaxed">{branchProfile.about || '—'}</p>
             }
@@ -211,10 +336,24 @@ const BranchProfile = () => {
             <Divider />
             {isEdit ? (
               <div className="flex flex-col gap-2">
-                <input value={line1} onChange={e => setLine1(e.target.value)}
-                  placeholder="Street / Barangay" className={inputClass} />
-                <input value={line2} onChange={e => setLine2(e.target.value)}
-                  placeholder="City / Province" className={inputClass} />
+                <input value={line1}
+                  onChange={e => setLine1(sanitizeAddress(e.target.value))}
+                  onKeyDown={makeAddressKeyDown(line1)}
+                  onBeforeInput={makeAddressBeforeInput(line1)}
+                  onPaste={makePasteHandler(sanitizeAddress, setLine1)}
+                  onDrop={e => e.preventDefault()}
+                  placeholder="Street / Barangay"
+                  autoComplete="off"
+                  className={inputClass} />
+                <input value={line2}
+                  onChange={e => setLine2(sanitizeAddress(e.target.value))}
+                  onKeyDown={makeAddressKeyDown(line2)}
+                  onBeforeInput={makeAddressBeforeInput(line2)}
+                  onPaste={makePasteHandler(sanitizeAddress, setLine2)}
+                  onDrop={e => e.preventDefault()}
+                  placeholder="City / Province"
+                  autoComplete="off"
+                  className={inputClass} />
               </div>
             ) : (
               <p className="font-sans text-sm font-semibold text-neutral-700">
@@ -273,8 +412,8 @@ const BranchProfile = () => {
               <>
                 <button
                   onClick={handleSave}
-                  disabled={saving}
-                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"
+                  disabled={saving || !!phoneError}
+                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
                 >
                   <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />

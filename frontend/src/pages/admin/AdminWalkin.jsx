@@ -16,8 +16,10 @@ const validatePhone = (phone) => {
 }
 
 const validateName = (name) => {
-  return /^[A-Za-z\s.\-']{2,}$/.test(name.trim())
+  return /^[A-Za-z\s]{2,}$/.test(name.trim())
 }
+
+const MAX_WEIGHT_KG = 70
 
 // ─── WHEEL CONFIG ────────────────────────────────────────────────
 const WHEEL_PRIZES = [
@@ -148,7 +150,15 @@ const AddressPicker = ({ value, onSelect }) => {
         const handleSelect = async (e) => {
           try {
             const place = e.placePrediction ? e.placePrediction.toPlace() : e.place
-            await place.fetchFields({ fields: ['formattedAddress', 'location', 'id'] })
+            await place.fetchFields({ fields: ['formattedAddress', 'location', 'id', 'addressComponents'] })
+            const inTaguig =
+              /taguig/i.test(place.formattedAddress || '') ||
+              (place.addressComponents || []).some(c => /taguig/i.test(c.longText || ''))
+            if (!inTaguig) {
+              onSelectRef.current({ line1: '', lat: null, lng: null, placeId: null })
+              toast.error('Sorry, we only serve addresses within Taguig City.')
+              return
+            }
             const lat = place.location.lat()
             const lng = place.location.lng()
             showPin(lat, lng)
@@ -288,7 +298,7 @@ const AdminWalkIn = () => {
   useEffect(() => {
     if (guestName && guestName.trim().length > 0) {
       if (!validateName(guestName)) {
-        setNameError('Name should only contain letters, spaces, dots, hyphens, or apostrophes')
+        setNameError('Name should only contain letters and spaces')
       } else {
         setNameError('')
       }
@@ -405,6 +415,7 @@ const AdminWalkIn = () => {
   const hasIncompleteBasket = baskets.some(b => b.actualKg && !b.serviceId)
   const hasServiceNoWeight = baskets.some(b => b.serviceId && !b.actualKg)
   const hasInvalidWeight = baskets.some(b => b.actualKg && Number(b.actualKg) < 0)
+  const hasOverMaxWeight = baskets.some(b => Number(b.actualKg) > MAX_WEIGHT_KG)
 
   const canSubmit =
     !branchLocked &&
@@ -417,6 +428,7 @@ const AdminWalkIn = () => {
     !hasIncompleteBasket &&
     !hasServiceNoWeight &&
     !hasInvalidWeight &&
+    !hasOverMaxWeight &&
     (!anyOverweight || overweightResolution) &&
     (fulfillmentMethod !== 'DELIVERY' || !!deliveryAddress.placeId || !!deliveryAddress.line1)
 
@@ -542,7 +554,7 @@ const AdminWalkIn = () => {
   }
 
   useEffect(() => {
-    if (fulfillmentMethod === 'DELIVERY' && foundUser?.address) {
+    if (fulfillmentMethod === 'DELIVERY' && foundUser?.address && /taguig/i.test(foundUser.address)) {
       setDeliveryAddress({ line1: foundUser.address, line2: '' })
     } else if (fulfillmentMethod === 'SELF_PICKUP') {
       setDeliveryAddress({ line1: '', line2: '' })
@@ -670,13 +682,35 @@ const AdminWalkIn = () => {
             <input
               type="text"
               value={guestName}
+              onBeforeInput={e => {
+                const data = e.data || ''
+                if (data && !/^[A-Za-z\s]*$/.test(data)) {
+                  e.preventDefault()
+                }
+              }}
+              onKeyDown={e => {
+                const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+                if (allowed.includes(e.key)) return
+                if (e.ctrlKey || e.metaKey) return
+                if (e.key.length === 1 && !/[A-Za-z\s]/.test(e.key)) {
+                  e.preventDefault()
+                }
+              }}
               onChange={e => {
-                const value = e.target.value.replace(/[^A-Za-z\s.\-']/g, '')
+                const value = e.target.value.replace(/[^A-Za-z\s]/g, '')
                 setGuestName(value)
               }}
+              onPaste={e => {
+                e.preventDefault()
+                const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+                const clean = pasted.replace(/[^A-Za-z\s]/g, '')
+                setGuestName(prev => prev + clean)
+              }}
+              onDrop={e => e.preventDefault()}
               disabled={locked || lookupState === 'found'}
               placeholder="Client name"
               className={nameError ? inputErrorClass : inputClass}
+              autoComplete="off"
             />
             {nameError && <p className="font-sans text-xs text-red-500 mt-1.5">{nameError}</p>}
             {!nameError && guestName && guestName.trim().length > 0 && guestName.trim().length < 2 && (
@@ -838,9 +872,10 @@ const AdminWalkIn = () => {
             const hasServiceError = basket.actualKg && !basket.serviceId
             const hasWeightError = basket.serviceId && !basket.actualKg
             const weightValue = basket.actualKg ? Number(basket.actualKg) : 0
+            const isOverMax = weightValue > MAX_WEIGHT_KG
 
             return (
-              <div key={idx} className={`border ${hasServiceError || hasWeightError ? 'border-red-300 bg-red-50/30' : 'border-blue-100'} px-5 py-4 flex flex-col sm:flex-row gap-4 sm:items-end`}>
+              <div key={idx} className={`border ${hasServiceError || hasWeightError || isOverMax ? 'border-red-300 bg-red-50/30' : 'border-blue-100'} px-5 py-4 flex flex-col sm:flex-row gap-4 sm:items-end`}>
                 <div className="flex-1">
                   <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">Service</label>
                   <select
@@ -862,23 +897,87 @@ const AdminWalkIn = () => {
                   <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">Weight (kg)</label>
                   <input
                     type="number"
-                    min="0.1"
-                    step="0.1"
+                    inputMode="decimal"
                     value={basket.actualKg}
-                    onChange={e => {
-                      const val = e.target.value
-                      if (val === '' || Number(val) >= 0) {
-                        updateBasket(idx, 'actualKg', val)
+                    min="0"
+                    max={MAX_WEIGHT_KG}
+                    step="0.01"
+                    onWheel={e => e.currentTarget.blur()}
+                    onBeforeInput={e => {
+                      const data = e.data || ''
+                      if (data && !/^[0-9.]*$/.test(data)) {
+                        e.preventDefault()
+                        return
+                      }
+                      if (data === '.' && String(basket.actualKg).includes('.')) {
+                        e.preventDefault()
+                        return
+                      }
+                      const next = String(basket.actualKg) + data
+                      if (data && !isNaN(Number(next)) && Number(next) > MAX_WEIGHT_KG) {
+                        e.preventDefault()
                       }
                     }}
+                    onKeyDown={e => {
+                      const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+                      if (allowed.includes(e.key)) return
+                      if (e.ctrlKey || e.metaKey) return
+                      if (e.key.length === 1 && !/[0-9.]/.test(e.key)) {
+                        e.preventDefault()
+                        return
+                      }
+                      if (e.key === '.' && String(basket.actualKg).includes('.')) {
+                        e.preventDefault()
+                        return
+                      }
+                      if (e.key.length === 1) {
+                        const next = String(basket.actualKg) + e.key
+                        if (!isNaN(Number(next)) && Number(next) > MAX_WEIGHT_KG) {
+                          e.preventDefault()
+                        }
+                      }
+                    }}
+                    onChange={e => {
+                      let val = e.target.value.replace(/[^0-9.]/g, '')
+                      const firstDot = val.indexOf('.')
+                      if (firstDot !== -1) {
+                        val = val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, '')
+                      }
+                      const parts = val.split('.')
+                      if (parts[1] && parts[1].length > 2) {
+                        val = parts[0] + '.' + parts[1].slice(0, 2)
+                      }
+                      if (val !== '' && !isNaN(Number(val)) && Number(val) > MAX_WEIGHT_KG) {
+                        val = String(MAX_WEIGHT_KG)
+                      }
+                      updateBasket(idx, 'actualKg', val)
+                    }}
+                    onPaste={e => {
+                      e.preventDefault()
+                      const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+                      let clean = pasted.replace(/[^0-9.]/g, '')
+                      const firstDot = clean.indexOf('.')
+                      if (firstDot !== -1) {
+                        clean = clean.slice(0, firstDot + 1) + clean.slice(firstDot + 1).replace(/\./g, '')
+                      }
+                      if (clean !== '' && !isNaN(Number(clean)) && Number(clean) > MAX_WEIGHT_KG) {
+                        clean = String(MAX_WEIGHT_KG)
+                      }
+                      updateBasket(idx, 'actualKg', clean)
+                    }}
+                    onDrop={e => e.preventDefault()}
                     disabled={locked}
                     placeholder="e.g. 7"
-                    className={hasWeightError ? inputErrorClass : inputClass}
+                    className={hasWeightError || isOverMax ? inputErrorClass : inputClass}
+                    autoComplete="off"
                   />
                   {hasWeightError && (
                     <p className="font-sans text-xs text-red-500 mt-1">Please enter weight</p>
                   )}
-                  {weightValue > 0 && weightValue < 0.5 && (
+                  {isOverMax && (
+                    <p className="font-sans text-xs text-red-500 mt-1">Maximum weight is {MAX_WEIGHT_KG}kg</p>
+                  )}
+                  {!isOverMax && weightValue > 0 && weightValue < 0.5 && (
                     <p className="font-sans text-xs text-amber-500 mt-1">Minimum weight is 0.5kg</p>
                   )}
                 </div>
@@ -1009,7 +1108,7 @@ const AdminWalkIn = () => {
           </button>
         </div>
 
-                {fulfillmentMethod === 'DELIVERY' && (
+        {fulfillmentMethod === 'DELIVERY' && (
           <div className="mb-10">
             <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">
               Delivery Address
@@ -1037,7 +1136,12 @@ const AdminWalkIn = () => {
             <input
               type="text"
               value={deliveryAddress.line2 || ''}
-              onChange={e => setDeliveryAddress(d => ({ ...d, line2: e.target.value }))}
+              onChange={e => {
+                const val = e.target.value
+                if (/^[a-zA-Z0-9\s.,'#\-()\/]*$/.test(val)) {
+                  setDeliveryAddress(d => ({ ...d, line2: val }))
+                }
+              }}
               disabled={locked}
               placeholder="Unit / floor / landmark (optional)"
               className={inputClass + ' mt-2'}

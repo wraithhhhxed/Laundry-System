@@ -54,6 +54,78 @@ const ExtraServicesList = () => {
     if (errors[field]) setErrors(prev => { const e = { ...prev }; delete e[field]; return e })
   }
 
+  // ─── Name handlers (letters, numbers, spaces only) ──────────────────────────
+  const handleNameChange = (e) => {
+    const cleaned = e.target.value.replace(/[^A-Za-z0-9\s]/g, '')
+    setForm(prev => ({ ...prev, name: cleaned }))
+    if (errors.name) setErrors(prev => { const e = { ...prev }; delete e.name; return e })
+  }
+
+  const handleNameKeyDown = (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+    if (allowed.includes(e.key)) return
+    if (e.ctrlKey || e.metaKey) return
+    if (e.key.length === 1 && !/[A-Za-z0-9\s]/.test(e.key)) {
+      e.preventDefault()
+    }
+  }
+
+  const handleNameBeforeInput = (e) => {
+    const data = e.data || ''
+    if (data && !/^[A-Za-z0-9\s]*$/.test(data)) {
+      e.preventDefault()
+    }
+  }
+
+  const handleNamePaste = (e) => {
+    e.preventDefault()
+    const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+    const clean = pasted.replace(/[^A-Za-z0-9\s]/g, '')
+    setForm(prev => ({ ...prev, name: prev.name + clean }))
+    if (errors.name) setErrors(prev => { const e = { ...prev }; delete e.name; return e })
+  }
+
+  // ─── Fee handlers (digits + single decimal, no minus/special) ───────────────
+  const handleFeeChange = (e) => {
+    let cleaned = e.target.value.replace(/[^0-9.]/g, '')
+    const firstDot = cleaned.indexOf('.')
+    if (firstDot !== -1) {
+      cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '')
+    }
+    const parts = cleaned.split('.')
+    if (parts[1] && parts[1].length > 2) {
+      cleaned = parts[0] + '.' + parts[1].slice(0, 2)
+    }
+    setForm(prev => ({ ...prev, fee: cleaned }))
+    if (errors.fee) setErrors(prev => { const e = { ...prev }; delete e.fee; return e })
+  }
+
+  const handleFeeKeyDown = (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+    if (allowed.includes(e.key)) return
+    if (e.ctrlKey || e.metaKey) return
+    if (e.key.length === 1 && !/[0-9.]/.test(e.key)) {
+      e.preventDefault()
+      return
+    }
+    if (e.key === '.' && String(form.fee).includes('.')) {
+      e.preventDefault()
+    }
+  }
+
+  const handleFeePaste = (e) => {
+    e.preventDefault()
+    const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+    let clean = pasted.replace(/[^0-9.]/g, '')
+    const firstDot = clean.indexOf('.')
+    if (firstDot !== -1) {
+      clean = clean.slice(0, firstDot + 1) + clean.slice(firstDot + 1).replace(/\./g, '')
+    }
+    setForm(prev => ({ ...prev, fee: clean }))
+    if (errors.fee) setErrors(prev => { const e = { ...prev }; delete e.fee; return e })
+  }
+
+  // ─── Open Add/Edit ──────────────────────────────────────────────────────────
   const openAdd = () => {
     setEditItem(null)
     setForm(EMPTY_FORM)
@@ -71,20 +143,25 @@ const ExtraServicesList = () => {
   // ─── Validation ─────────────────────────────────────────────────────────────
   const validate = () => {
     const errs = {}
-    if (!form.name.trim())
-      errs.name = 'Name is required.'
-    else if (form.name.trim().length < 2)
-      errs.name = 'Name must be at least 2 characters.'
-    else if (form.name.trim().length > 80)
-      errs.name = 'Name must not exceed 80 characters.'
+    const trimmedName = form.name.trim()
 
-    if (form.fee === '' || form.fee === null)
+    if (!trimmedName)
+      errs.name = 'Name is required.'
+    else if (trimmedName.length < 2)
+      errs.name = 'Name must be at least 2 characters.'
+    else if (trimmedName.length > 80)
+      errs.name = 'Name must not exceed 80 characters.'
+    else if (!/^[A-Za-z0-9\s]+$/.test(trimmedName))
+      errs.name = 'Name can only contain letters, numbers, and spaces.'
+
+    const feeStr = String(form.fee).trim()
+    if (feeStr === '' || form.fee === null)
       errs.fee = 'Fee is required.'
-    else if (isNaN(Number(form.fee)))
-      errs.fee = 'Fee must be a valid number.'
-    else if (Number(form.fee) < 0)
+    else if (!/^\d+(\.\d{1,2})?$/.test(feeStr))
+      errs.fee = 'Fee must be a valid number (e.g. 50 or 50.50).'
+    else if (Number(feeStr) < 0)
       errs.fee = 'Fee cannot be negative.'
-    else if (Number(form.fee) > 99999)
+    else if (Number(feeStr) > 99999)
       errs.fee = 'Fee seems too high. Please double-check.'
 
     if (form.description.trim().length > 200)
@@ -164,10 +241,10 @@ const ExtraServicesList = () => {
 
   // ─── Input class ────────────────────────────────────────────────────────────
   const inputCls = (field) =>
-    `w-full px-4 py-2.5 border font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none transition-colors bg-white ${
+    `w-full px-4 py-2.5 border font-sans text-sm text-neutral-800 placeholder-neutral-400 focus:outline-none transition-colors bg-white ${
       errors[field]
-        ? 'border-red-300 focus:border-red-400 bg-red-50/30'
-        : 'border-blue-100 focus:border-blue-400'
+        ? 'border-red-400 focus:border-red-500 bg-red-50/30'
+        : 'border-neutral-300 focus:border-blue-500'
     }`
 
   return (
@@ -202,9 +279,9 @@ const ExtraServicesList = () => {
       <div className='px-7 pb-10'>
 
         {/* Search */}
-        <div className='bg-white border border-blue-100 px-5 py-4 mb-4'>
+        <div className='bg-white border border-blue-200 px-5 py-4 mb-4'>
           <div className='relative'>
-            <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-300 pointer-events-none'
+            <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400 pointer-events-none'
               fill='none' stroke='currentColor' viewBox='0 0 24 24'>
               <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2}
                 d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0'/>
@@ -213,11 +290,11 @@ const ExtraServicesList = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder='Search extra services...'
-              className='w-full pl-9 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
+              className='w-full pl-9 pr-8 py-2.5 border border-blue-200 font-sans text-sm text-neutral-700 placeholder-neutral-400 focus:outline-none focus:border-blue-500 transition-colors bg-white'
             />
             {search && (
               <button onClick={() => setSearch('')}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-300 hover:text-blue-400 transition-colors'>
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-blue-500 transition-colors'>
                 <X size={14} />
               </button>
             )}
@@ -226,7 +303,7 @@ const ExtraServicesList = () => {
 
         {/* Count */}
         <div className='mb-4'>
-          <p className='font-sans text-xs text-neutral-400'>
+          <p className='font-sans text-xs text-neutral-500'>
             Showing{' '}
             <span className='font-sans font-black text-neutral-700'>{filtered.length}</span>
             {' '}of {items.length} extra service{items.length !== 1 ? 's' : ''}
@@ -234,63 +311,73 @@ const ExtraServicesList = () => {
         </div>
 
         {/* Table */}
-        <div className='bg-white border border-blue-100 overflow-hidden'>
+        <div className='bg-white border border-neutral-200 overflow-hidden'>
 
-          {/* Header */}
-          <div className='grid grid-cols-[2fr_2fr_1fr_1fr_auto] bg-blue-50 px-7 py-3 border-b border-blue-100'>
-            {['Service', 'Description', 'Fee', 'Status', 'Actions'].map(h => (
-              <span key={h} className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-400'>
-                {h}
-              </span>
-            ))}
+          {/* Header - Adjusted widths para hindi mag-overflow ang Actions */}
+          <div className='grid grid-cols-[0.4fr_1.4fr_1.8fr_1fr_1fr_1.8fr] bg-blue-50 border-b border-neutral-200'>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>No.</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-7 py-3 border-r border-neutral-200 text-center'>Service</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-7 py-3 border-r border-neutral-200 text-left'>Description</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-7 py-3 border-r border-neutral-200 text-center'>Fee</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-7 py-3 border-r border-neutral-200 text-center'>Status</span>
+            <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-7 py-3 text-center'>Actions</span>
           </div>
 
           {loading ? (
-            <div className='py-16 text-center font-sans text-sm text-neutral-300'>Loading...</div>
+            <div className='py-16 text-center font-sans text-sm text-neutral-400'>Loading...</div>
           ) : filtered.length === 0 ? (
-            <div className='py-16 text-center font-sans text-sm text-neutral-300'>
+            <div className='py-16 text-center font-sans text-sm text-neutral-400'>
               {items.length === 0 ? 'No extra services yet.' : 'No extra services match your search.'}
             </div>
           ) : (
-            <div className='divide-y divide-blue-50'>
-              {filtered.map(item => (
+            <div className='divide-y divide-neutral-200'>
+              {filtered.map((item, index) => (
                 <div key={item.id}
-                  className='grid grid-cols-[2fr_2fr_1fr_1fr_auto] items-center px-7 py-4 hover:bg-blue-50 transition-colors'>
+                  className='grid grid-cols-[0.4fr_1.4fr_1.8fr_1fr_1fr_1.8fr] items-center hover:bg-blue-50 transition-colors'>
 
-                  {/* Name */}
-                  <span className='font-sans font-semibold text-sm text-neutral-700'>{item.name}</span>
+                  {/* Number */}
+                  <span className='font-sans font-bold text-sm text-neutral-500 px-4 py-4 border-r border-neutral-200 text-center'>
+                    {index + 1}
+                  </span>
 
-                  {/* Description */}
-                  <span className='font-sans text-xs text-neutral-400 truncate max-w-[200px]'>
+                  {/* Name - Center */}
+                  <span className='font-sans font-semibold text-sm text-neutral-800 px-7 py-4 border-r border-neutral-200 text-center truncate'>
+                    {item.name}
+                  </span>
+
+                  {/* Description - Left aligned */}
+                  <span className='font-sans text-xs text-neutral-500 px-7 py-4 border-r border-neutral-200 text-left truncate'>
                     {item.description || '—'}
                   </span>
 
-                  {/* Fee */}
-                  <span className='font-sans font-black text-sm text-blue-600'>
+                  {/* Fee - Center */}
+                  <span className='font-sans font-black text-sm text-blue-700 px-7 py-4 border-r border-neutral-200 text-center'>
                     ₱{Number(item.fee).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                   </span>
 
-                  {/* Status */}
-                  <span className={`uppercase tracking-[0.2em] text-[10px] font-sans font-bold border px-2 py-1 w-fit ${
-                    item.isActive
-                      ? 'border-green-200 text-green-600'
-                      : 'border-neutral-200 text-neutral-400'
-                  }`}>
-                    {item.isActive ? 'Active' : 'Inactive'}
-                  </span>
+                  {/* Status - Center */}
+                  <div className='px-7 py-4 border-r border-neutral-200 flex justify-center'>
+                    <span className={`uppercase tracking-[0.2em] text-[10px] font-sans font-bold border px-2 py-1 w-fit ${
+                      item.isActive
+                        ? 'border-green-300 text-green-700 bg-green-50'
+                        : 'border-neutral-300 text-neutral-600 bg-neutral-100'
+                    }`}>
+                      {item.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
 
-                  {/* Actions */}
-                  <div className='flex items-center gap-3'>
+                  {/* Actions - Center */}
+                  <div className='flex items-center justify-center gap-3 px-4 py-4'>
                     <button onClick={() => handleToggle(item)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-400 hover:text-blue-600 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-neutral-500 hover:text-blue-700 transition-colors whitespace-nowrap'>
                       {item.isActive ? 'Deactivate' : 'Activate'}
                     </button>
                     <button onClick={() => openEdit(item)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-blue-500 hover:text-blue-700 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap'>
                       Edit
                     </button>
                     <button onClick={() => handleDelete(item)}
-                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-400 hover:text-red-600 transition-colors'>
+                      className='font-sans text-xs font-bold uppercase tracking-[0.15em] text-red-500 hover:text-red-700 transition-colors whitespace-nowrap'>
                       Delete
                     </button>
                   </div>
@@ -350,8 +437,13 @@ const ExtraServicesList = () => {
                   </label>
                   <input
                     value={form.name}
-                    onChange={set('name')}
+                    onBeforeInput={handleNameBeforeInput}
+                    onKeyDown={handleNameKeyDown}
+                    onChange={handleNameChange}
+                    onPaste={handleNamePaste}
+                    onDrop={e => e.preventDefault()}
                     placeholder='e.g. Folding / Tupi'
+                    autoComplete='off'
                     className={inputCls('name')}
                   />
                   <FieldError message={errors.name} />
@@ -363,12 +455,15 @@ const ExtraServicesList = () => {
                     Fee (₱) <span className='text-red-400 normal-case'>*</span>
                   </label>
                   <input
-                    type='number'
+                    type='text'
+                    inputMode='decimal'
                     value={form.fee}
-                    onChange={set('fee')}
+                    onKeyDown={handleFeeKeyDown}
+                    onChange={handleFeeChange}
+                    onPaste={handleFeePaste}
+                    onDrop={e => e.preventDefault()}
                     placeholder='e.g. 50'
-                    min='0'
-                    step='0.01'
+                    autoComplete='off'
                     className={inputCls('fee')}
                   />
                   <FieldError message={errors.fee} />
@@ -399,10 +494,10 @@ const ExtraServicesList = () => {
             <div className='px-6 pb-6 flex gap-3'>
               <button
                 onClick={() => setShowForm(false)}
-                className='group relative overflow-hidden flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
+                className='group relative overflow-hidden flex-1 border border-neutral-300 text-neutral-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
               >
-                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <div className='absolute inset-0 bg-neutral-100 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>Cancel</span>
               </button>
               <button

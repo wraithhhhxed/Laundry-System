@@ -1,6 +1,20 @@
 import { useState, useEffect, useContext } from 'react'
 import { AdminContext } from '../../context/AdminContext'
 
+// ─── Sanitizer: digits + at most 1 dot, max 2 decimal places ────────
+const sanitizeVat = (v) => {
+  let s = String(v ?? '').replace(/[^0-9.]/g, '')
+  const firstDot = s.indexOf('.')
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '')
+  }
+  const parts = s.split('.')
+  if (parts[1] && parts[1].length > 2) {
+    s = parts[0] + '.' + parts[1].slice(0, 2)
+  }
+  return s
+}
+
 const VatSettings = () => {
   const { getVatRate, updateVatRate } = useContext(AdminContext)
 
@@ -35,10 +49,40 @@ const VatSettings = () => {
     setError('')
   }
 
+  // ─── Input handlers: numbers + single dot only ────────────────────
+  const handleInputChange = (e) => {
+    setInputVal(sanitizeVat(e.target.value))
+    setError('')
+  }
+
+  const handleInputKeyDown = (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+    if (allowed.includes(e.key)) return
+    if (e.ctrlKey || e.metaKey) return
+    if (e.key.length === 1 && !/[0-9.]/.test(e.key)) {
+      e.preventDefault()
+      return
+    }
+    if (e.key === '.' && String(inputVal).includes('.')) {
+      e.preventDefault()
+    }
+  }
+
+  const handleInputPaste = (e) => {
+    e.preventDefault()
+    const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+    setInputVal(sanitizeVat(pasted))
+    setError('')
+  }
+
   const handleSaveClick = () => {
     const parsed = parseFloat(inputVal)
-    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
-      setError('Enter a valid percentage between 0 and 100 (e.g. 12 for 12%).')
+    if (inputVal === '' || isNaN(parsed)) {
+      setError('Enter a valid percentage (e.g. 12 for 12%).')
+      return
+    }
+    if (parsed < 0 || parsed > 100) {
+      setError('Enter a valid percentage between 0 and 100.')
       return
     }
     setError('')
@@ -124,12 +168,14 @@ const VatSettings = () => {
                 </label>
                 <div className='flex items-center gap-2'>
                   <input
-                    type='number'
-                    min='0'
-                    max='100'
-                    step='0.01'
+                    type='text'
+                    inputMode='decimal'
                     value={inputVal}
-                    onChange={e => { setInputVal(e.target.value); setError('') }}
+                    onChange={handleInputChange}
+                    onKeyDown={handleInputKeyDown}
+                    onPaste={handleInputPaste}
+                    onDrop={e => e.preventDefault()}
+                    autoComplete='off'
                     className='w-32 px-4 py-2 border border-blue-200 font-sans text-lg font-bold text-neutral-700 focus:outline-none focus:border-blue-500 transition-colors'
                     placeholder='e.g. 12'
                   />

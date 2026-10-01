@@ -3,6 +3,8 @@ import { BranchesContext } from '../../context/BranchesContext'
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
+const MAX_WEIGHT_KG = 70
+
 const DELIVERY_STEPS = [
   { status: 'pending_approval',  label: 'Pending Approval' },
   { status: 'approved',          label: 'Approved' },
@@ -12,14 +14,12 @@ const DELIVERY_STEPS = [
   { status: 'delivered',         label: 'Delivered' },
 ]
 
-// Self-Pickup — 3 lang, walang rider steps
 const SELF_PICKUP_STEPS = [
   { status: 'approved',    label: 'Approved' },
   { status: 'in_progress', label: 'On Process' },
   { status: 'delivered',   label: 'Completed' },
 ]
 
-// Walk-in na "Deliver to client" — walang "Picked Up" (nasa branch na mismo ang client)
 const WALKIN_DELIVERY_STEPS = [
   { status: 'approved',          label: 'Approved' },
   { status: 'in_progress',       label: 'On Process' },
@@ -71,8 +71,26 @@ const PAYMENT_STATUS_LABEL = {
   paid_online:     'Paid (Online)',
 }
 
-const PAGE_SIZE             = 10
+const PAGE_SIZE             = 6
 const AUTO_REFRESH_INTERVAL = 30
+const CARD_HEIGHT           = 'h-[580px]'
+
+// ─── WEIGHT SANITIZER ────────────────────────────────────────────────────────
+const sanitizeWeight = (v) => {
+  let s = String(v ?? '').replace(/[^0-9.]/g, '')
+  const firstDot = s.indexOf('.')
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '')
+  }
+  const parts = s.split('.')
+  if (parts[1] && parts[1].length > 2) {
+    s = parts[0] + '.' + parts[1].slice(0, 2)
+  }
+  if (s !== '' && !isNaN(Number(s)) && Number(s) > MAX_WEIGHT_KG) {
+    s = String(MAX_WEIGHT_KG)
+  }
+  return s
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -91,13 +109,12 @@ const getNextStatus = (current, steps) => {
   return steps[idx + 1]
 }
 
-// ── FIX #1: Summary format for services ────────────────────
 const renderServices = (appt) => {
   if (Array.isArray(appt.services) && appt.services.length > 0) {
     const count = appt.services.length
     const firstName = appt.services[0]?.name ?? appt.services[0]
     if (count === 1) return firstName
-    return `${firstName} (×${count} baskets)`
+    return `${firstName} (x${count} baskets)`
   }
   if (appt.service) return appt.service
   return '—'
@@ -112,12 +129,12 @@ const renderAmount = (appt) => {
     <div className="space-y-1">
       {appt.promoCode && appt.discountAmount > 0 && (
         <p className="font-sans text-xs text-green-600 font-semibold">
-          {appt.promoCode} — −{fmt(appt.discountAmount)}
+          {appt.promoCode} — -{fmt(appt.discountAmount)}
         </p>
       )}
       {appt.luckyWheelSpinId && (
         <p className="font-sans text-xs text-purple-600 font-semibold">
-           {appt.luckyWheelPrizeLabel || 'Lucky Wheel Prize'}
+          {appt.luckyWheelPrizeLabel || 'Lucky Wheel Prize'}
         </p>
       )}
       {hasActual ? (
@@ -145,7 +162,6 @@ const renderAmount = (appt) => {
   )
 }
 
-// ── FIX #2: Summary format for weight (limited rows) ───────
 const renderWeight = (appt) => {
   if (!Array.isArray(appt.services) || appt.services.length === 0) return null
 
@@ -189,7 +205,6 @@ const renderWeight = (appt) => {
   )
 }
 
-// ── FIX #3: New renderAddOns function ──────────────────────
 const renderAddOns = (appt) => {
   if (!Array.isArray(appt.addOns) || appt.addOns.length === 0) return null
   const total = appt.addOns.reduce((sum, a) => sum + (a.price * a.quantity), 0)
@@ -197,7 +212,7 @@ const renderAddOns = (appt) => {
     <div className="space-y-1">
       {appt.addOns.map((a, idx) => (
         <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
-          <span>· {a.name} ×{a.quantity}</span>
+          <span>· {a.name} x{a.quantity}</span>
           <span className="font-medium">{fmt(a.price * a.quantity)}</span>
         </div>
       ))}
@@ -290,7 +305,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="divider"></div>
     <div class="mb4 mt4">
       <div class="tag">Add-ons</div>
-      ${appt.addOns.map(a => `<div class="row"><span>${a.name} ×${a.quantity}</span><span>${fmt(a.price * a.quantity)}</span></div>`).join('')}
+      ${appt.addOns.map(a => `<div class="row"><span>${a.name} x${a.quantity}</span><span>${fmt(a.price * a.quantity)}</span></div>`).join('')}
     </div>` : ''}
     <div class="divider"></div>
     <div class="mb4 mt4">
@@ -376,7 +391,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
                 <div className="mb-3">
                   <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Add-ons</p>
                   {appt.addOns.map((a, i) => (
-                    <div key={i} className="flex justify-between text-[10px]"><span>{a.name} ×{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
+                    <div key={i} className="flex justify-between text-[10px]"><span>{a.name} x{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
                   ))}
                 </div>
               </>
@@ -427,13 +442,13 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
             className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 flex-1 py-2.5"
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
             <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-            <span className="relative">🖨 {printed ? 'Print Again' : 'Print Receipt'}</span>
+            <span className="relative">{printed ? 'Print Again' : 'Print Receipt'}</span>
           </button>
           <button onClick={onConfirm} disabled={!printed || loading}
             className={`group relative overflow-hidden font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center flex-1 py-2.5 disabled:cursor-not-allowed transition-colors ${printed ? 'bg-blue-600 text-white' : 'bg-neutral-200 text-neutral-400'}`}
             style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
             {printed && <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />}
-            <span className="relative">{loading ? 'Processing...' : (isSelfPickupTarget ? '✓ Mark Completed' : '→ Out for Delivery')}</span>
+            <span className="relative">{loading ? 'Processing...' : (isSelfPickupTarget ? 'Mark Completed' : 'Out for Delivery')}</span>
           </button>
         </div>
         {!printed && (
@@ -453,21 +468,55 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
   const [actualKgs, setActualKgs] = useState(
     appt.services.map((s, i) => ({ serviceIndex: i, actualKg: s.actualKg ?? s.kg ?? '' }))
   )
-  const handleChange = (idx, value) =>
-    setActualKgs(prev => prev.map((item, i) => i === idx ? { ...item, actualKg: value } : item))
+  const [errors, setErrors] = useState({})
+
+  const handleChange = (idx, value) => {
+    const cleaned = sanitizeWeight(value)
+    setActualKgs(prev => prev.map((item, i) => i === idx ? { ...item, actualKg: cleaned } : item))
+    if (errors[idx]) setErrors(prev => { const e = { ...prev }; delete e[idx]; return e })
+  }
+
+  const handleKeyDown = (idx) => (e) => {
+    const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Home','End','Enter']
+    if (allowed.includes(e.key)) return
+    if (e.ctrlKey || e.metaKey) return
+    if (e.key.length === 1 && !/[0-9.]/.test(e.key)) { e.preventDefault(); return }
+    const current = String(actualKgs[idx]?.actualKg ?? '')
+    if (e.key === '.' && current.includes('.')) { e.preventDefault(); return }
+    if (e.key.length === 1) {
+      const next = current + e.key
+      if (!isNaN(Number(next)) && Number(next) > MAX_WEIGHT_KG) e.preventDefault()
+    }
+  }
+
+  const handlePaste = (idx) => (e) => {
+    e.preventDefault()
+    const pasted = (e.clipboardData || window.clipboardData).getData('text') || ''
+    const cleaned = sanitizeWeight(pasted)
+    setActualKgs(prev => prev.map((item, i) => i === idx ? { ...item, actualKg: cleaned } : item))
+    if (errors[idx]) setErrors(prev => { const e = { ...prev }; delete e[idx]; return e })
+  }
 
   const handleSubmit = () => {
+    const errs = {}
     for (const item of actualKgs) {
-      if (!item.actualKg || Number(item.actualKg) < 1)
-        return alert(`Please enter a valid weight for basket ${item.serviceIndex + 1}`)
+      const val = Number(item.actualKg)
+      if (!item.actualKg || item.actualKg === '') {
+        errs[item.serviceIndex] = `Weight is required for basket ${item.serviceIndex + 1}`
+      } else if (isNaN(val) || val < 1) {
+        errs[item.serviceIndex] = `Minimum weight is 1kg (basket ${item.serviceIndex + 1})`
+      } else if (val > MAX_WEIGHT_KG) {
+        errs[item.serviceIndex] = `Maximum weight is ${MAX_WEIGHT_KG}kg (basket ${item.serviceIndex + 1})`
+      }
     }
+    if (Object.keys(errs).length > 0) { setErrors(errs); return }
     onSubmit(actualKgs.map(item => ({ serviceIndex: item.serviceIndex, actualKg: Number(item.actualKg) })))
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white w-full max-w-lg" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+      <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+        <div className="px-6 py-5 sticky top-0 z-10" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
@@ -484,41 +533,63 @@ const ActualWeightModal = ({ appt, onClose, onSubmit, loading }) => {
               ? 'Update the actual weight to correct a previous entry. Final amount will be recomputed.'
               : 'Enter the actual weight after physically weighing each basket. Final amount will be recomputed.'}
           </p>
-          {appt.services.map((svc, idx) => (
-            <div key={idx} className="border border-blue-100 px-4 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-sans text-xs font-bold text-blue-600 uppercase tracking-wider">Basket {idx + 1} — {svc.name}</p>
-                  <p className="font-sans text-xs text-neutral-400 mt-0.5">Estimated: {svc.kg}kg ({fmt(svc.kgPrice)})</p>
+          {appt.services.map((svc, idx) => {
+            const weightValue = actualKgs[idx]?.actualKg ? Number(actualKgs[idx].actualKg) : 0
+            const isOverweight = weightValue > 7
+            const isOverMax = weightValue > MAX_WEIGHT_KG
+            const hasErr = !!errors[idx]
+            return (
+              <div key={idx} className={`border px-4 py-4 ${hasErr || isOverMax ? 'border-red-300 bg-red-50/30' : 'border-blue-100'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-sans text-xs font-bold text-blue-600 uppercase tracking-wider">Basket {idx + 1} — {svc.name}</p>
+                    <p className="font-sans text-xs text-neutral-400 mt-0.5">Estimated: {svc.kg}kg ({fmt(svc.kgPrice)})</p>
+                  </div>
+                  {svc.actualKg != null && (
+                    <span className="font-sans text-xs bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5">
+                      Current: {svc.actualKg}kg
+                    </span>
+                  )}
                 </div>
-                {svc.actualKg != null && (
-                  <span className="font-sans text-xs bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5">
-                    Current: {svc.actualKg}kg
-                  </span>
+                <div className="flex items-center gap-3">
+                  <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider flex-shrink-0">
+                    {svc.actualKg != null ? 'New KG' : 'Actual KG'}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="1"
+                    max={MAX_WEIGHT_KG}
+                    step="0.1"
+                    value={actualKgs[idx]?.actualKg ?? ''}
+                    onWheel={e => e.currentTarget.blur()}
+                    onKeyDown={handleKeyDown(idx)}
+                    onChange={e => handleChange(idx, e.target.value)}
+                    onPaste={handlePaste(idx)}
+                    onDrop={e => e.preventDefault()}
+                    className={`flex-1 px-4 py-2.5 border font-sans text-sm text-neutral-700 focus:outline-none transition-colors bg-white ${
+                      hasErr || isOverMax ? 'border-red-300 focus:border-red-400' : 'border-blue-100 focus:border-blue-400'
+                    }`}
+                    placeholder={`e.g. ${svc.actualKg ?? svc.kg}`}
+                  />
+                  <span className="font-sans text-xs text-neutral-400 flex-shrink-0">kg</span>
+                </div>
+                {hasErr && (
+                  <p className="font-sans text-xs text-red-500 mt-1.5">{errors[idx]}</p>
+                )}
+                {!hasErr && isOverMax && (
+                  <p className="font-sans text-xs text-red-500 mt-1.5">Maximum weight is {MAX_WEIGHT_KG}kg</p>
+                )}
+                {!hasErr && !isOverMax && isOverweight && (
+                  <p className="font-sans text-xs text-amber-600 mt-1.5">
+                    Over 7kg — overweight charge of ₱20/kg applies for {(weightValue - 7).toFixed(1)}kg extra
+                  </p>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider flex-shrink-0">
-                  {svc.actualKg != null ? 'New KG' : 'Actual KG'}
-                </label>
-                <input
-                  type="number" min="1" step="0.1"
-                  value={actualKgs[idx]?.actualKg ?? ''}
-                  onChange={e => handleChange(idx, e.target.value)}
-                  className="flex-1 px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white"
-                  placeholder={`e.g. ${svc.actualKg ?? svc.kg}`}
-                />
-                <span className="font-sans text-xs text-neutral-400 flex-shrink-0">kg</span>
-              </div>
-              {Number(actualKgs[idx]?.actualKg) > 7 && (
-                <p className="font-sans text-xs text-amber-600 mt-1.5">
-                  ⚠ Over 7kg — overweight charge of ₱20/kg applies for {(Number(actualKgs[idx].actualKg) - 7).toFixed(1)}kg extra
-                </p>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
-        <div className="px-6 pb-6 flex gap-3">
+        <div className="px-6 pb-6 flex gap-3 sticky bottom-0 bg-white border-t border-blue-100 pt-4">
           <button onClick={onClose}
             className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors">
             Cancel
@@ -555,7 +626,6 @@ const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
             <span className="font-sans font-black text-blue-700 text-xl" style={{ letterSpacing: '-0.02em' }}>{fmt(finalAmt)}</span>
           </div>
           <div className="flex items-center gap-3 bg-green-50 border border-green-200 px-4 py-3">
-            <span className="text-xl"></span>
             <div>
               <p className="font-sans text-sm font-bold text-green-700">Cash Payment</p>
               <p className="font-sans text-xs text-green-600">Confirm that you have collected {fmt(finalAmt)} in cash from the client.</p>
@@ -573,7 +643,7 @@ const CashPaymentModal = ({ appt, onClose, onSubmit, loading }) => {
           </button>
           <button onClick={() => onSubmit('cash')} disabled={loading}
             className="flex-1 bg-green-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-green-700 transition-colors disabled:opacity-50">
-            {loading ? 'Processing...' : '✓ Confirm Cash Received'}
+            {loading ? 'Processing...' : 'Confirm Cash Received'}
           </button>
         </div>
       </div>
@@ -615,9 +685,357 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
           </button>
           <button onClick={onConfirm} disabled={loading}
             className="flex-1 bg-amber-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-amber-700 transition-colors disabled:opacity-50">
-            {loading ? 'Archiving...' : '✓ Archive'}
+            {loading ? 'Archiving...' : 'Archive'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── APPOINTMENT CARD ─────────────────────────────────────────────────────────
+
+const AppointmentCard = ({
+  appt,
+  cardNumber,
+  onWeigh,
+  onCash,
+  onArchive,
+  onNextStatus,
+  onReceipt,
+  onApprove,
+  onCancel,
+}) => {
+  const isCancelled    = appt.cancelled
+  const isCompleted    = appt.isCompleted
+  const isArchived     = appt.archived
+
+  const steps          = getSteps(appt)
+  const nextStatus     = getNextStatus(appt.deliveryStatus || 'pending_approval', steps)
+
+  const showButtons    = !isCancelled && !isCompleted && !isArchived
+  const payStatus      = resolvePaymentStatus(appt)
+  const isWeighed      = appt.services?.some(s => s.actualKg != null)
+  const isPaid         = payStatus === 'paid_cash' || payStatus === 'paid_online'
+
+  const isCashMethod   = appt.preferredPaymentMethod === 'cash' || !appt.preferredPaymentMethod
+  const isOnlineMethod = appt.preferredPaymentMethod === 'online'
+  const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
+  const isSelfPickup   = appt.fulfillmentMethod === 'SELF_PICKUP'
+
+  const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid && appt.bookingSource !== 'WALK_IN'
+  const canConfirmCash = !isCancelled && !isPaid && isCashMethod && !isArchived && (
+    isSelfPickup
+      ? ['approved', 'in_progress'].includes(appt.deliveryStatus)
+      : appt.deliveryStatus === 'out_for_delivery'
+  )
+
+  const blockedByOnlinePayment = isOnlineMethod && !isPaid
+    && (nextStatus?.status === 'out_for_delivery' || (isSelfPickup && nextStatus?.status === 'delivered'))
+
+  const blockedByCashPayment = isCashMethod && !isPaid
+    && nextStatus?.status === 'delivered'
+
+  const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
+
+  const handleNextStatus = () => {
+    if (!nextStatus) return
+    if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision) return
+    const needsReceipt = isSelfPickup ? nextStatus.status === 'delivered' : nextStatus.status === 'out_for_delivery'
+    if (needsReceipt) onReceipt({ ...appt, __targetStatus: nextStatus.status })
+    else onNextStatus(appt.id, nextStatus.status)
+  }
+
+  const hasActions = showButtons && (
+    appt.deliveryStatus === 'pending_approval' ||
+    (nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision) ||
+    canWeigh || canConfirmCash
+  )
+
+  return (
+    <div className={`bg-white border border-blue-100 flex flex-col ${CARD_HEIGHT} overflow-hidden`}>
+
+      {/* ── Pinned header ── */}
+      <div className="px-6 pt-6 pb-5 flex-shrink-0">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+
+            {/* Card number badge */}
+            <div className="flex-shrink-0 flex flex-col items-center justify-center w-10 h-10 border border-blue-200 bg-blue-50">
+              <span className="font-sans text-[8px] uppercase tracking-widest text-blue-400 font-semibold leading-none mb-0.5">No.</span>
+              <span className="font-sans font-black text-blue-600 text-xs leading-none" style={{ letterSpacing: '-0.02em' }}>
+                {cardNumber}
+              </span>
+            </div>
+
+            {appt.userData?.image
+              ? <img src={appt.userData.image} className="w-10 h-10 object-cover flex-shrink-0 border border-blue-100" alt="" />
+              : (
+                <div className="w-10 h-10 bg-blue-600 flex items-center justify-center flex-shrink-0 text-white font-bold font-sans text-sm">
+                  {appt.userData?.name?.[0]?.toUpperCase() || '?'}
+                </div>
+              )
+            }
+            <div className="min-w-0">
+              <p className="text-blue-900 font-bold text-sm truncate" style={{ letterSpacing: '-0.01em' }}>
+                {appt.userData?.name || '—'}
+              </p>
+              <p className="font-sans text-xs text-neutral-400 truncate">{appt.userData?.email || ''}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <span className={`inline-block border px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold ${PAYMENT_STATUS_CHIP[payStatus] || PAYMENT_STATUS_CHIP.unpaid}`}>
+              {PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}
+            </span>
+            <span className="font-sans text-[10px] text-neutral-400">
+              {isOnlineMethod ? 'Online' : 'Cash'}
+            </span>
+            {isArchived && (
+              <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
+                Archived
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="h-px bg-blue-100 flex-shrink-0" />
+
+      {/* ── Scrollable body ── */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* Info grid */}
+        <div className="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-5">
+          <div className="min-w-0">
+            <SectionLabel>Service</SectionLabel>
+            <p className="font-sans text-sm text-neutral-700 truncate">{renderServices(appt)}</p>
+          </div>
+          <div className="min-w-0">
+            <SectionLabel>Schedule</SectionLabel>
+            <p className="font-sans text-sm text-neutral-700">{appt.slotDate}</p>
+            <p className="font-sans text-xs text-neutral-400">{appt.slotTime}</p>
+          </div>
+          <div className="min-w-0">
+            <SectionLabel>Amount</SectionLabel>
+            {renderAmount(appt)}
+          </div>
+          <div className="min-w-0">
+            <SectionLabel>Weight</SectionLabel>
+            {renderWeight(appt) || <p className="font-sans text-sm text-neutral-400">—</p>}
+          </div>
+        </div>
+
+        {/* Add-ons */}
+        {Array.isArray(appt.addOns) && appt.addOns.length > 0 && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-5">
+              <SectionLabel>Add-ons</SectionLabel>
+              {renderAddOns(appt)}
+            </div>
+          </>
+        )}
+
+        {/* Other details */}
+        {(appt.overweightResolution || appt.preferredPaymentMethod || appt.bookingSource) && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-5">
+              <SectionLabel>Other Details</SectionLabel>
+              <div className="flex flex-wrap gap-x-5 gap-y-1.5 font-sans text-xs text-neutral-600">
+                {appt.overweightResolution && (
+                  <span>Overweight: <span className="font-medium capitalize">{appt.overweightResolution}</span></span>
+                )}
+                {appt.preferredPaymentMethod && (
+                  <span>Payment: <span className="font-medium capitalize">{appt.preferredPaymentMethod}</span></span>
+                )}
+                {appt.bookingSource && (
+                  <span>Source: <span className="font-medium">{appt.bookingSource}</span></span>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Notes */}
+        {appt.specialInstructions && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-5">
+              <SectionLabel>Notes</SectionLabel>
+              <p className="font-sans text-sm text-neutral-500 italic">"{appt.specialInstructions}"</p>
+            </div>
+          </>
+        )}
+
+        {/* Pickup Address */}
+        {appt.pickupAddress?.line1 && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-5">
+              <SectionLabel>Pickup Address</SectionLabel>
+              <p className="font-sans text-sm text-neutral-700 leading-relaxed">
+                {appt.pickupAddress.line1}{appt.pickupAddress.line2 ? ', ' + appt.pickupAddress.line2 : ''}
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Delivery Address */}
+        {appt.deliveryAddress?.line1 && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-5">
+              <SectionLabel>Delivery Address</SectionLabel>
+              <p className="font-sans text-sm text-neutral-700 leading-relaxed">
+                {appt.deliveryAddress.line1}{appt.deliveryAddress.line2 ? ', ' + appt.deliveryAddress.line2 : ''}
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Preferred pickup window */}
+        {appt.preferredPickupWindow && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-5">
+              <SectionLabel>Preferred Pickup Window</SectionLabel>
+              <p className="font-sans text-sm text-neutral-700">{appt.preferredPickupWindow}</p>
+            </div>
+          </>
+        )}
+
+        {/* Notices */}
+        {isOnlineMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-4 bg-blue-50">
+              <p className="font-sans text-xs text-blue-600">Client will pay online. Waiting for online payment confirmation.</p>
+            </div>
+          </>
+        )}
+
+        {isCashMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-4 bg-amber-50">
+              <p className="font-sans text-xs text-amber-600">Waiting for cash payment confirmation before marking as Delivered.</p>
+            </div>
+          </>
+        )}
+
+        {hasOverweightDecision && (
+          <>
+            <div className="h-px bg-blue-100" />
+            <div className="px-6 py-4 bg-amber-50">
+              <p className="font-sans text-xs text-amber-600">
+                Overweight by {appt.overweightExcessKg}kg — waiting for client decision (split or trim). Auto-cancels if unresolved by end of day.
+              </p>
+            </div>
+          </>
+        )}
+
+      </div>
+
+      {/* ── Pinned footer: status + actions ── */}
+      <div className="h-px bg-blue-100 flex-shrink-0" />
+      <div className="px-6 py-4 flex-shrink-0 bg-white">
+        <div className="flex flex-wrap gap-1.5">
+          {isCancelled
+            ? (
+              <span className="inline-block border border-red-300 bg-red-50 text-red-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+                Cancelled
+              </span>
+            )
+            : <StatusChip status={appt.deliveryStatus || 'pending_approval'} steps={steps} />
+          }
+          {isWeighed && !isPaid && appt.deliveryStatus === 'in_progress' && !isArchived && (
+            <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+              Weight Confirmed
+            </span>
+          )}
+          {hasOverweightDecision && (
+            <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+              Awaiting Client Decision
+            </span>
+          )}
+          {isArchived && (
+            <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
+              Archived
+            </span>
+          )}
+        </div>
+
+        {hasActions && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {appt.deliveryStatus === 'pending_approval' && (
+              <>
+                <button onClick={() => onApprove(appt.id)}
+                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                  <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <span className="relative">Approve</span>
+                </button>
+                <button onClick={() => onCancel(appt.id)}
+                  className="group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                  style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                  <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                  <span className="relative">Cancel</span>
+                </button>
+              </>
+            )}
+
+            {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && (
+              <button onClick={handleNextStatus}
+                className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">
+                  {(nextStatus.status === 'out_for_delivery' || (isSelfPickup && nextStatus.status === 'delivered')) ? 'Print & ' : ''}{nextStatus.label}
+                </span>
+              </button>
+            )}
+
+            {canWeigh && (
+              <button onClick={() => onWeigh(appt)}
+                className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">{isWeighed ? 'Update Weight' : 'Confirm Weight'}</span>
+              </button>
+            )}
+
+            {canConfirmCash && (
+              <button onClick={() => onCash(appt)}
+                className="group relative overflow-hidden bg-green-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-green-700 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">Confirm Payment</span>
+              </button>
+            )}
+
+            {canArchive && (
+              <button onClick={() => onArchive(appt)}
+                className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">Archive</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {!hasActions && canArchive && (
+          <div className="flex justify-end mt-3">
+            <button onClick={() => onArchive(appt)}
+              className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
+              style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+              <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+              <span className="relative">Archive</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -639,7 +1057,7 @@ const AllAppointments = () => {
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState('all')
   const [paymentFilter,  setPaymentFilter]  = useState('all')
-  const [sourceFilter,   setSourceFilter]   = useState('all') // all | ONLINE | WALK_IN
+  const [sourceFilter,   setSourceFilter]   = useState('all')
   const [currentPage,    setCurrentPage]    = useState(1)
   const [weightModal,    setWeightModal]    = useState(null)
   const [paymentModal,   setPaymentModal]   = useState(null)
@@ -707,7 +1125,7 @@ const AllAppointments = () => {
       }
 
       if (appt.archived) return false
-      
+
       if (sourceFilter !== 'all' && appt.bookingSource !== sourceFilter) return false
 
       const isCancelled = appt.cancelled
@@ -760,7 +1178,7 @@ const AllAppointments = () => {
     : '—'
 
   return (
-    <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-white">
+    <div style={{ fontFamily: "'Georgia', serif" }} className="min-h-screen bg-neutral-50">
 
       {weightModal  && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
@@ -866,7 +1284,7 @@ const AllAppointments = () => {
         </div>
 
         {filtered.length === 0 && (
-          <div className="border border-blue-100 px-7 py-16 flex flex-col items-center gap-3">
+          <div className="border border-blue-100 px-7 py-16 flex flex-col items-center gap-3 bg-white">
             <p className="font-sans text-sm text-neutral-300 uppercase tracking-widest">
               {appointments.length === 0 ? 'No appointments found' : 'No appointments match your filters'}
             </p>
@@ -879,271 +1297,27 @@ const AllAppointments = () => {
           </div>
         )}
 
-        {/* ── Cards ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-px bg-blue-100">
-          {paginated.map((appt) => {
-            const isCancelled    = appt.cancelled
-            const isCompleted    = appt.isCompleted
-            const isArchived     = appt.archived
-
-            const steps          = getSteps(appt)
-            const nextStatus     = getNextStatus(appt.deliveryStatus || 'pending_approval', steps)
-
-            const showButtons    = !isCancelled && !isCompleted && !isArchived
-            const payStatus      = resolvePaymentStatus(appt)
-            const isWeighed      = appt.services?.some(s => s.actualKg != null)
-            const isPaid         = payStatus === 'paid_cash' || payStatus === 'paid_online'
-
-            const isCashMethod   = appt.preferredPaymentMethod === 'cash' || !appt.preferredPaymentMethod
-            const isOnlineMethod = appt.preferredPaymentMethod === 'online'
-            const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
-            const isSelfPickup   = appt.fulfillmentMethod === 'SELF_PICKUP'
-
-            const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid && appt.bookingSource !== 'WALK_IN'
-            const canConfirmCash = !isCancelled && !isPaid && isCashMethod && !isArchived && (
-              isSelfPickup
-                ? ['approved', 'in_progress'].includes(appt.deliveryStatus)
-                : appt.deliveryStatus === 'out_for_delivery'
-            )
-
-            const blockedByOnlinePayment = isOnlineMethod && !isPaid
-              && (nextStatus?.status === 'out_for_delivery' || (isSelfPickup && nextStatus?.status === 'delivered'))
-
-            const blockedByCashPayment = isCashMethod && !isPaid
-              && nextStatus?.status === 'delivered'
-
-            const handleNextStatus = () => {
-              if (!nextStatus) return
-              if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision) return
-              const needsReceipt = isSelfPickup ? nextStatus.status === 'delivered' : nextStatus.status === 'out_for_delivery'
-              needsReceipt ? setReceiptModal({ ...appt, __targetStatus: nextStatus.status }) : updateDeliveryStatus(appt.id, nextStatus.status)
-            }
-
-            const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
+        {/* ── Cards grid: separate cards with gap ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {paginated.map((appt, idx) => {
+            // Global index within filtered (0 = newest, since filtered is sorted newest → oldest)
+            const globalIndex = (currentPage - 1) * PAGE_SIZE + idx
+            // Reverse numbering: newest = highest, oldest = #1
+            const cardNumber = filtered.length - globalIndex
 
             return (
-              <div key={appt.id} className={`bg-white px-7 py-8 flex flex-col gap-5 ${isArchived ? 'opacity-75' : ''}`}>
-
-                {/* ── Header row ── */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    {appt.userData?.image
-                      ? <img src={appt.userData.image} className="w-10 h-10 object-cover flex-shrink-0" alt="" />
-                      : (
-                        <div className="w-10 h-10 bg-blue-600 flex items-center justify-center flex-shrink-0 text-white font-bold font-sans text-sm">
-                          {appt.userData?.name?.[0]?.toUpperCase() || '?'}
-                        </div>
-                      )
-                    }
-                    <div>
-                      <p className="text-blue-900 font-bold text-sm" style={{ letterSpacing: '-0.01em' }}>
-                        {appt.userData?.name || '—'}
-                      </p>
-                      <p className="font-sans text-xs text-neutral-400">{appt.userData?.email || ''}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-1">
-                    <span className={`inline-block border px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold ${PAYMENT_STATUS_CHIP[payStatus] || PAYMENT_STATUS_CHIP.unpaid}`}>
-                      {PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}
-                    </span>
-                    <span className="font-sans text-[10px] text-neutral-400">
-                      {isOnlineMethod ? 'Online' : 'Cash'}
-                    </span>
-                    {isArchived && (
-                      <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
-                        Archived
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="h-px bg-blue-100" />
-
-                {/* ── Detail grid ── */}
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                  <div>
-                    <SectionLabel>Service</SectionLabel>
-                    <p className="font-sans text-sm text-neutral-700">{renderServices(appt)}</p>
-                  </div>
-                  <div>
-                    <SectionLabel>Schedule</SectionLabel>
-                    <p className="font-sans text-sm text-neutral-700">{appt.slotDate}</p>
-                    <p className="font-sans text-xs text-neutral-400">{appt.slotTime}</p>
-                  </div>
-                  <div>
-                    <SectionLabel>Amount</SectionLabel>
-                    {renderAmount(appt)}
-                  </div>
-                  <div>
-                    <SectionLabel>Weight</SectionLabel>
-                    {renderWeight(appt) || <p className="font-sans text-sm text-neutral-400">—</p>}
-                  </div>
-                  {Array.isArray(appt.addOns) && appt.addOns.length > 0 && (
-                    <div className="col-span-2">
-                      <SectionLabel>Add-ons</SectionLabel>
-                      {renderAddOns(appt)}
-                    </div>
-                  )}
-                  {(appt.overweightResolution || appt.preferredPaymentMethod || appt.bookingSource) && (
-                    <div className="col-span-2">
-                      <SectionLabel>Other Details</SectionLabel>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 font-sans text-xs text-neutral-600">
-                        {appt.overweightResolution && (
-                          <span>Overweight: <span className="font-medium capitalize">{appt.overweightResolution}</span></span>
-                        )}
-                        {appt.preferredPaymentMethod && (
-                          <span>Payment: <span className="font-medium capitalize">{appt.preferredPaymentMethod}</span></span>
-                        )}
-                        {appt.bookingSource && (
-                          <span>Source: <span className="font-medium">{appt.bookingSource}</span></span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {appt.specialInstructions && (
-                    <div className="col-span-2">
-                      <SectionLabel>Notes</SectionLabel>
-                      <p className="font-sans text-sm text-neutral-500 italic">"{appt.specialInstructions}"</p>
-                    </div>
-                  )}
-                  {appt.pickupAddress?.line1 && (
-                    <div className="col-span-2">
-                      <SectionLabel>Pickup Address</SectionLabel>
-                      <p className="font-sans text-sm text-neutral-700">
-                        {appt.pickupAddress.line1}{appt.pickupAddress.line2 ? ', ' + appt.pickupAddress.line2 : ''}
-                      </p>
-                    </div>
-                  )}
-                  {appt.deliveryAddress?.line1 && (
-                    <div className="col-span-2">
-                      <SectionLabel>Delivery Address</SectionLabel>
-                      <p className="font-sans text-sm text-neutral-700">
-                        {appt.deliveryAddress.line1}{appt.deliveryAddress.line2 ? ', ' + appt.deliveryAddress.line2 : ''}
-                      </p>
-                    </div>
-                  )}
-                  {appt.preferredPickupWindow && (
-                    <div className="col-span-2">
-                      <SectionLabel>Preferred Pickup Window</SectionLabel>
-                      <p className="font-sans text-sm text-neutral-700">{appt.preferredPickupWindow}</p>
-                    </div>
-                  )}
-
-                  {isOnlineMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
-                    <div className="col-span-2 bg-blue-50 border border-blue-200 px-3 py-2">
-                      <p className="font-sans text-xs text-blue-600">Client will pay online. Waiting for online payment confirmation.</p>
-                    </div>
-                  )}
-
-                  {isCashMethod && !isPaid && appt.deliveryStatus === 'out_for_delivery' && !isArchived && (
-                    <div className="col-span-2 bg-amber-50 border border-amber-200 px-3 py-2">
-                      <p className="font-sans text-xs text-amber-600">Waiting for cash payment confirmation before marking as Delivered.</p>
-                    </div>
-                  )}
-
-                  {hasOverweightDecision && (
-                    <div className="col-span-2 bg-amber-50 border border-amber-200 px-3 py-2">
-                      <p className="font-sans text-xs text-amber-600">
-                        Overweight by {appt.overweightExcessKg}kg — waiting for client decision (split or trim). Auto-cancels if unresolved by end of day.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="h-px bg-blue-100" />
-
-                {/* ── Status + buttons ── */}
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {isCancelled
-                      ? (
-                        <span className="inline-block border border-red-300 bg-red-50 text-red-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
-                          Cancelled
-                        </span>
-                      )
-                      : <StatusChip status={appt.deliveryStatus || 'pending_approval'} steps={steps} />
-                    }
-                    {isWeighed && !isPaid && appt.deliveryStatus === 'in_progress' && !isArchived && (
-                      <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
-                        Weight Confirmed
-                      </span>
-                    )}
-                    {hasOverweightDecision && (
-                      <span className="inline-block border border-amber-300 bg-amber-50 text-amber-600 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
-                        Awaiting Client Decision
-                      </span>
-                    )}
-                    {isArchived && (
-                      <span className="inline-block border border-neutral-300 bg-neutral-100 text-neutral-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold">
-                        Archived
-                      </span>
-                    )}
-                  </div>
-
-                  {showButtons && (
-                    <div className="flex flex-wrap gap-2">
-
-                      {appt.deliveryStatus === 'pending_approval' && (
-                        <>
-                          <button onClick={() => updateDeliveryStatus(appt.id, 'approved')}
-                            className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
-                            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                            <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                            <span className="relative">Approve</span>
-                          </button>
-                          <button onClick={() => cancelAppointment(appt.id)}
-                            className="group relative overflow-hidden border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
-                            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                            <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                            <span className="relative">Cancel</span>
-                          </button>
-                        </>
-                      )}
-
-                      {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && (
-                        <button onClick={handleNextStatus}
-                          className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
-                          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                          <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                          <span className="relative">
-                            {(nextStatus.status === 'out_for_delivery' || (isSelfPickup && nextStatus.status === 'delivered')) ? '🖨 Print & ' : '→ '}{nextStatus.label}
-                          </span>
-                        </button>
-                      )}
-
-                      {canWeigh && (
-                        <button onClick={() => setWeightModal(appt)}
-                          className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
-                          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                          <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                          <span className="relative">⚖ {isWeighed ? 'Update Weight' : 'Confirm Weight'}</span>
-                        </button>
-                      )}
-
-                      {canConfirmCash && (
-                        <button onClick={() => setPaymentModal(appt)}
-                          className="group relative overflow-hidden bg-green-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
-                          style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                          <div className="absolute inset-0 bg-green-700 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                          <span className="relative">Confirm Payment</span>
-                        </button>
-                      )}
-
-                    </div>
-                  )}
-
-                  {canArchive && (
-                    <button onClick={() => setArchiveModal(appt)}
-                      className="group relative overflow-hidden border border-neutral-300 text-neutral-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
-                      style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                      <div className="absolute inset-0 bg-neutral-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
-                      <span className="relative">Archive</span>
-                    </button>
-                  )}
-                </div>
-
-              </div>
+              <AppointmentCard
+                key={appt.id}
+                appt={appt}
+                cardNumber={cardNumber}
+                onWeigh={setWeightModal}
+                onCash={setPaymentModal}
+                onArchive={setArchiveModal}
+                onReceipt={setReceiptModal}
+                onApprove={(id) => updateDeliveryStatus(id, 'approved')}
+                onCancel={cancelAppointment}
+                onNextStatus={updateDeliveryStatus}
+              />
             )
           })}
         </div>
@@ -1156,7 +1330,7 @@ const AllAppointments = () => {
             </p>
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed bg-white"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
                 <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                 <span className="relative">← Prev</span>
@@ -1165,7 +1339,7 @@ const AllAppointments = () => {
               {getPageRange()[0] > 1 && (
                 <>
                   <button onClick={() => setCurrentPage(1)}
-                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
+                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9 bg-white">
                     <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                     <span className="relative">1</span>
                   </button>
@@ -1176,7 +1350,7 @@ const AllAppointments = () => {
               {getPageRange().map(page => (
                 <button key={page} onClick={() => setCurrentPage(page)}
                   className={`group relative overflow-hidden border font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9 transition-colors duration-200 ${
-                    page === currentPage ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-100 text-blue-400'
+                    page === currentPage ? 'bg-blue-600 border-blue-600 text-white' : 'border-blue-100 text-blue-400 bg-white'
                   }`}>
                   {page !== currentPage && <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />}
                   <span className="relative">{page}</span>
@@ -1187,7 +1361,7 @@ const AllAppointments = () => {
                 <>
                   {getPageRange().at(-1) < totalPages - 1 && <span className="font-sans text-xs text-neutral-300 px-1">…</span>}
                   <button onClick={() => setCurrentPage(totalPages)}
-                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9">
+                    className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs font-bold inline-flex items-center justify-center w-9 h-9 bg-white">
                     <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                     <span className="relative">{totalPages}</span>
                   </button>
@@ -1195,7 +1369,7 @@ const AllAppointments = () => {
               )}
 
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="group relative overflow-hidden border border-blue-100 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-4 py-2.5 disabled:opacity-30 disabled:cursor-not-allowed bg-white"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)' }}>
                 <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-200 ease-out" />
                 <span className="relative">Next →</span>

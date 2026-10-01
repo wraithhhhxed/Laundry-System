@@ -15,7 +15,7 @@ const Sidebar = () => {
   const maintenanceItems = [
     { to: '/admin/services',        label: 'Services' },
     { to: '/admin/extra-services',  label: 'Extra Services' },
-    { to: '/admin/promo-codes',     label: 'Promo Codes' },
+    { to: '/admin/promo-codes',     label: 'Promos' },
     { to: '/admin/products',        label: 'Products' },
     { to: '/admin/inventory',       label: 'Inventory' },  // <-- BAGONG ITEM
   ]
