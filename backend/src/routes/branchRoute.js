@@ -11,6 +11,7 @@ import {
   getBranchDashboard,
   changeBranchAvailability,
   updateDeliveryStatus,
+  emailReceipt,
   confirmActualWeight,
   confirmPayment,
   createWalkInAppointment,
@@ -43,6 +44,7 @@ branchRouter.post('/complete-appointment',   protect('branch'), completeAppointm
 branchRouter.post('/cancel-appointment',     protect('branch'), cancelAppointment)
 branchRouter.get('/dashboard',               protect('branch'), getBranchDashboard)
 branchRouter.post('/update-delivery-status', protect('branch'), updateDeliveryStatus)
+branchRouter.post('/email-receipt', protect('branch'), emailReceipt)
 branchRouter.post('/change-availability',    protect('branch'), changeBranchAvailability)
 branchRouter.post('/logout',                 protect('branch'), logoutBranch)
 branchRouter.post('/create-walk-in',         protect('branch'), createWalkInAppointment)

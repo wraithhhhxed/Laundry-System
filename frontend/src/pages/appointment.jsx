@@ -355,8 +355,13 @@ const Appointment = () => {
 
   const getQtyForService = (serviceId) => baskets.filter(b => b.serviceId === serviceId).length
 
+  const MAX_BASKETS = 10 // 10 baskets x 7 kg = 70 kg max
+
   const addBasket = (service) => {
     if (!token) { toast.warning('Please login first'); return navigate('/login') }
+    if (baskets.length >= MAX_BASKETS) {
+      return toast.warning('Maximum of 10 baskets (70 kg) per booking.')
+    }
     setBaskets(prev => [...prev, makeBasket(service)])
   }
 
@@ -373,9 +378,17 @@ const Appointment = () => {
     setBaskets(prev => prev.map(b => b.basketKey === basketKey ? { ...b, kg } : b))
   }
 
-  const selectedAddOns = productsList
-    .filter(p => addOnQty[p.id] > 0)
-    .map(p => ({ productId: p.id, name: p.name, price: p.price, quantity: addOnQty[p.id] }))
+  const selectedAddOns = baskets.flatMap((b, idx) =>
+    productsList
+      .filter(p => addOnQty[`${b.basketKey}:${p.id}`] > 0)
+      .map(p => ({
+        productId: p.id,
+        name: p.name,
+        price: p.price,
+        quantity: addOnQty[`${b.basketKey}:${p.id}`],
+        basketIndex: idx,
+      }))
+  )
 
   const basketsTotal = baskets.reduce((sum, b) => sum + (b.service?.price || 0), 0)
   const addOnsTotal   = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
@@ -428,14 +441,21 @@ const Appointment = () => {
 
   const availableSlots = selectedDate ? getAvailableTimeSlots(selectedDate) : TIME_SLOTS
 
-  const setQty = (productId, value) => {
-    const qty = Math.max(0, Math.min(99, parseInt(value) || 0))
-    setAddOnQty(prev => ({ ...prev, [productId]: qty }))
+  const MAX_QTY_PER_PRODUCT = 3
+
+  const setQty = (basketKey, productId, value) => {
+  const key = `${basketKey}:${productId}`
+  const qty = Math.max(0, Math.min(MAX_QTY_PER_PRODUCT, parseInt(value) || 0))
+  setAddOnQty(prev => ({ ...prev, [key]: qty }))
   }
-  const incrementQty = (productId) =>
-    setAddOnQty(prev => ({ ...prev, [productId]: Math.min(99, (prev[productId] || 0) + 1) }))
-  const decrementQty = (productId) =>
-    setAddOnQty(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) - 1) }))
+  const incrementQty = (basketKey, productId) => {
+    const key = `${basketKey}:${productId}`
+    setAddOnQty(prev => ({ ...prev, [key]: Math.min(MAX_QTY_PER_PRODUCT, (prev[key] || 0) + 1) }))
+  }
+  const decrementQty = (basketKey, productId) => {
+    const key = `${basketKey}:${productId}`
+    setAddOnQty(prev => ({ ...prev, [key]: Math.max(0, (prev[key] || 0) - 1) }))
+  }
 
   const goNext = () => {
     if (step === 1 && baskets.length === 0)
@@ -716,8 +736,10 @@ const Appointment = () => {
                           qty > 0 ? 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white' : 'border-blue-100 text-blue-200 cursor-not-allowed'
                         }`}>−</button>
                       <span className='font-sans text-sm font-bold text-blue-700 w-6 text-center'>{qty}</span>
-                      <button onClick={() => addBasket(service)}
-                        className='w-8 h-8 font-sans font-bold text-sm flex items-center justify-center border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors'>+</button>
+                      <button onClick={() => addBasket(service)} disabled={baskets.length >= MAX_BASKETS}
+                        className={`w-8 h-8 font-sans font-bold text-sm flex items-center justify-center border transition-colors ${
+                          baskets.length >= MAX_BASKETS ? 'border-blue-100 text-blue-200 cursor-not-allowed' : 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
+                        }`}>+</button>
                     </div>
                   </div>
                 )
@@ -858,7 +880,7 @@ const Appointment = () => {
           </div>
         )}
 
-        {step === 3 && (
+               {step === 3 && (
           <div className='space-y-8'>
             <div>
               <SectionLabel>Step 03 — Optional Add-ons</SectionLabel>
@@ -872,48 +894,68 @@ const Appointment = () => {
                   ? 'Forgot to bring your own supplies? Buy them here.' 
                   : 'Add extra detergents, conditioners, or other products.'}
                 {' '}
-                <span className='text-neutral-300'>Skip if you don't need any.</span>
+                <span className='text-neutral-300'>Max 3 per product. Skip if you don't need any.</span>
               </p>
             </div>
 
-            {productsList.length === 0 ? (
+            {baskets.length === 0 ? (
+              <p className='font-sans text-sm text-neutral-400 py-6'>No baskets selected yet. Go back to Step 1 to add a service.</p>
+            ) : productsList.length === 0 ? (
               <p className='font-sans text-sm text-neutral-400 py-6'>No add-on products available at this time.</p>
             ) : (
-              Object.entries(productsByCategory).map(([cat, products]) => (
-                <div key={cat}>
-                  <SectionLabel>{CATEGORY_LABELS[cat] || cat}</SectionLabel>
-                  <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                    {products.map(product => {
-                      const qty     = addOnQty[product.id] || 0
-                      const isAdded = qty > 0
-                      return (
-                        <div key={product.id}
-                          className={`flex items-center gap-4 p-4 border transition-colors duration-200 ${isAdded ? 'bg-blue-50 border-blue-400' : 'bg-white border-blue-100 hover:bg-blue-50/40'}`}>
-                          {product.image
-                            ? <img src={product.image} alt={product.name} className='w-12 h-12 object-cover flex-shrink-0' />
-                            : <div className='w-12 h-12 bg-blue-100 flex items-center justify-center flex-shrink-0'>
-                                <span className='text-blue-400 font-bold font-sans'>{product.name[0]?.toUpperCase()}</span>
+              baskets.map((basket, basketIdx) => (
+                <div key={basket.basketKey} className='border border-blue-200'>
+                  <div className='bg-blue-600 px-6 py-4 relative overflow-hidden'>
+                    <div className='absolute top-0 left-0 w-full h-full pointer-events-none'
+                      style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%)' }} />
+                    <div className='relative z-10'>
+                      <span className='uppercase tracking-[0.35em] text-[10px] text-white/50 font-sans block mb-0.5'>Basket {basketIdx + 1}</span>
+                      <p className='text-white font-bold font-sans' style={{ letterSpacing: '-0.02em', fontSize: '16px' }}>{basket.service.name}</p>
+                    </div>
+                  </div>
+                  <div className='px-6 py-5 space-y-5'>
+                    {Object.entries(productsByCategory).map(([cat, products]) => (
+                      <div key={cat}>
+                        <SectionLabel>{CATEGORY_LABELS[cat] || cat}</SectionLabel>
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+                          {products.map(product => {
+                            const key     = `${basket.basketKey}:${product.id}`
+                            const qty     = addOnQty[key] || 0
+                            const isAdded = qty > 0
+                            const atMax   = qty >= MAX_QTY_PER_PRODUCT
+                            return (
+                              <div key={product.id}
+                                className={`flex items-center gap-4 p-4 border transition-colors duration-200 ${isAdded ? 'bg-blue-50 border-blue-400' : 'bg-white border-blue-100 hover:bg-blue-50/40'}`}>
+                                {product.image
+                                  ? <img src={product.image} alt={product.name} className='w-12 h-12 object-cover flex-shrink-0' />
+                                  : <div className='w-12 h-12 bg-blue-100 flex items-center justify-center flex-shrink-0'>
+                                      <span className='text-blue-400 font-bold font-sans'>{product.name[0]?.toUpperCase()}</span>
+                                    </div>
+                                }
+                                <div className='flex-1 min-w-0'>
+                                  <p className='font-sans text-sm font-semibold text-neutral-700 truncate'>{product.name}</p>
+                                  <p className='font-sans text-xs text-blue-600 font-bold'>₱{product.price.toFixed(2)}</p>
+                                  {product.description && <p className='font-sans text-xs text-neutral-400 truncate'>{product.description}</p>}
+                                </div>
+                                <div className='flex items-center gap-2 flex-shrink-0'>
+                                  <button onClick={() => decrementQty(basket.basketKey, product.id)} disabled={qty === 0}
+                                    className={`w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border transition-colors ${
+                                      qty > 0 ? 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white' : 'border-blue-100 text-blue-200 cursor-not-allowed'
+                                    }`}>−</button>
+                                  <input type='number' value={qty} onChange={e => setQty(basket.basketKey, product.id, e.target.value)}
+                                    className='w-8 text-center font-sans text-sm font-semibold border border-blue-100 focus:outline-none focus:border-blue-400 py-0.5'
+                                    min='0' max={MAX_QTY_PER_PRODUCT} />
+                                  <button onClick={() => incrementQty(basket.basketKey, product.id)} disabled={atMax}
+                                    className={`w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border transition-colors ${
+                                      atMax ? 'border-blue-100 text-blue-200 cursor-not-allowed' : 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
+                                    }`}>+</button>
+                                </div>
                               </div>
-                          }
-                          <div className='flex-1 min-w-0'>
-                            <p className='font-sans text-sm font-semibold text-neutral-700 truncate'>{product.name}</p>
-                            <p className='font-sans text-xs text-blue-600 font-bold'>₱{product.price.toFixed(2)}</p>
-                            {product.description && <p className='font-sans text-xs text-neutral-400 truncate'>{product.description}</p>}
-                          </div>
-                          <div className='flex items-center gap-2 flex-shrink-0'>
-                            <button onClick={() => decrementQty(product.id)} disabled={qty === 0}
-                              className={`w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border transition-colors ${
-                                qty > 0 ? 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white' : 'border-blue-100 text-blue-200 cursor-not-allowed'
-                              }`}>−</button>
-                            <input type='number' value={qty} onChange={e => setQty(product.id, e.target.value)}
-                              className='w-8 text-center font-sans text-sm font-semibold border border-blue-100 focus:outline-none focus:border-blue-400 py-0.5'
-                              min='0' max='99' />
-                            <button onClick={() => incrementQty(product.id)}
-                              className='w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors'>+</button>
-                          </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))
@@ -923,9 +965,9 @@ const Appointment = () => {
               <div className='border border-blue-100 bg-blue-50/40 px-6 py-5'>
                 <SectionLabel>Selected Add-ons</SectionLabel>
                 <div className='font-sans text-sm space-y-1.5'>
-                  {selectedAddOns.map(a => (
-                    <div key={a.productId} className='flex justify-between text-neutral-600'>
-                      <span>{a.name} × {a.quantity}</span>
+                  {selectedAddOns.map((a, i) => (
+                    <div key={`${a.basketIndex}-${a.productId}-${i}`} className='flex justify-between text-neutral-600'>
+                      <span>Basket {a.basketIndex + 1} — {a.name} × {a.quantity}</span>
                       <span className='font-medium'>₱{(a.price * a.quantity).toFixed(2)}</span>
                     </div>
                   ))}
@@ -1104,7 +1146,7 @@ const Appointment = () => {
                     {selectedAddOns.length > 0 && (
                       <div>
                         <span className='text-neutral-400 uppercase tracking-widest text-[10px]'>Add-ons</span>
-                        <p className='mt-0.5'>{selectedAddOns.map(a => `${a.name} ×${a.quantity}`).join(', ')}</p>
+                        <p className='mt-0.5'>{selectedAddOns.map(a => `${a.name} ×${a.quantity} (Basket ${a.basketIndex + 1})`).join(', ')}</p>
                       </div>
                     )}
                     {specialInstructions && (

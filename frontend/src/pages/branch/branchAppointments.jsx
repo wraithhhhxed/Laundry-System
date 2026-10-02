@@ -205,18 +205,52 @@ const renderWeight = (appt) => {
   )
 }
 
+// ─── ADD-ONS (grouped per basket) ─────────────────────────────────────────────
 const renderAddOns = (appt) => {
   if (!Array.isArray(appt.addOns) || appt.addOns.length === 0) return null
   const total = appt.addOns.reduce((sum, a) => sum + (a.price * a.quantity), 0)
+
+  // Group by basketIndex (null → "General Add-ons")
+  const groups = appt.addOns.reduce((acc, a) => {
+    const key = a.basketIndex != null ? a.basketIndex : 'none'
+    if (!acc[key]) acc[key] = []
+    acc[key].push(a)
+    return acc
+  }, {})
+
+  // Sort: numbered baskets first (0,1,2...), then 'none' last
+  const sortedKeys = Object.keys(groups).sort((x, y) => {
+    if (x === 'none') return 1
+    if (y === 'none') return -1
+    return Number(x) - Number(y)
+  })
+
   return (
-    <div className="space-y-1">
-      {appt.addOns.map((a, idx) => (
-        <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
-          <span>· {a.name} x{a.quantity}</span>
-          <span className="font-medium">{fmt(a.price * a.quantity)}</span>
-        </div>
-      ))}
-      <div className="flex items-center justify-between font-sans text-xs text-blue-700 font-bold pt-1 border-t border-blue-100">
+    <div className="space-y-3">
+      {sortedKeys.map(key => {
+        const items = groups[key]
+        const subTotal = items.reduce((s, a) => s + a.price * a.quantity, 0)
+        return (
+          <div key={key}>
+            <p className="font-sans text-[10px] uppercase tracking-widest text-blue-400 font-bold mb-1">
+              {key === 'none' ? 'General Add-ons' : `Basket ${Number(key) + 1}`}
+            </p>
+            <div className="space-y-1">
+              {items.map((a, idx) => (
+                <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
+                  <span>· {a.name} x{a.quantity}</span>
+                  <span className="font-medium">{fmt(a.price * a.quantity)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between font-sans text-[11px] text-neutral-400 mt-1 pl-3">
+              <span>Subtotal</span>
+              <span>{fmt(subTotal)}</span>
+            </div>
+          </div>
+        )
+      })}
+      <div className="flex items-center justify-between font-sans text-xs text-blue-700 font-bold pt-2 border-t border-blue-100">
         <span>Add-ons Total</span>
         <span>{fmt(total)}</span>
       </div>
@@ -243,9 +277,10 @@ const StatusChip = ({ status, steps = DELIVERY_STEPS }) => {
 
 // ─── RECEIPT MODAL ────────────────────────────────────────────────────────────
 
-const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
+const ReceiptModal = ({ appt, onClose, onConfirm, loading, onEmailReceipt }) => {
   const isSelfPickupTarget = appt.__targetStatus === 'delivered' && appt.fulfillmentMethod === 'SELF_PICKUP'
   const [printed, setPrinted] = useState(false)
+  const [printError, setPrintError] = useState(false)
 
   const hasActual   = appt.actualFinalAmount != null
   const estimated   = appt.finalAmount ?? appt.totalAmount ?? 0
@@ -259,23 +294,48 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
   const receiptDate = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
   const receiptTime = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank', 'width=400,height=700')
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Receipt — ${appt.userData?.name || 'Client'}</title>
-    <style>
-      *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'Courier New',monospace;font-size:12px;color:#111;background:#fff;padding:20px;max-width:320px;margin:0 auto}
-      .center{text-align:center}.bold{font-weight:bold}.large{font-size:16px}
-      .xlarge{font-size:20px;font-weight:900;letter-spacing:-0.5px}.small{font-size:10px;color:#555}
-      .divider{border-top:1px dashed #999;margin:10px 0}.row{display:flex;justify-content:space-between;margin:3px 0}
-      .label{color:#555}.total{font-size:15px;font-weight:900}
-      .chip{display:inline-block;border:1px solid;padding:2px 8px;font-size:10px;font-weight:bold;letter-spacing:1px;text-transform:uppercase}
-      .paid{border-color:#16a34a;color:#16a34a}.pending{border-color:#d97706;color:#d97706}
-      .tag{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888}
-      .mt4{margin-top:12px}.mb4{margin-bottom:12px}.strike{text-decoration:line-through;color:#999}
-    </style></head><body>
+  const receiptStyles = `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', monospace;
+      font-size: 10px; color: #000; background: #fff;
+      width: 58mm; padding: 0; margin: 0 auto; font-weight: bold;
+    }
+    @page { size: 58mm 80mm !important; margin: 0 !important; padding: 0 !important; }
+    .receipt-copy {
+      width: 58mm; max-width: 58mm; padding: 2mm 3mm;
+      page-break-after: always !important;
+      font-weight: bold;
+    }
+    .receipt-copy:last-child { page-break-after: auto !important; }
+    .center { text-align: center; }
+    .bold { font-weight: 900; }
+    .large { font-size: 13px; font-weight: 900; }
+    .xlarge { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; }
+    .small { font-size: 8px; font-weight: bold; color: #333; }
+    .divider { border-top: 1px dashed #999; margin: 3px 0; }
+    .row { display: flex; justify-content: space-between; margin: 2px 0; font-weight: bold; }
+    .label { color: #444; font-weight: bold; }
+    .total { font-size: 14px; font-weight: 900; }
+    .chip {
+      display: inline-block; border: 1px solid; padding: 2px 6px;
+      font-size: 8px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
+    }
+    .paid { border-color: #16a34a; color: #16a34a; }
+    .pending { border-color: #d97706; color: #d97706; }
+    .tag { font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: #555; font-weight: bold; }
+    .mt4 { margin-top: 4px; }
+    .mb4 { margin-bottom: 4px; }
+    .strike { text-decoration: line-through; color: #999; }
+    @media print {
+      html, body { margin: 0 !important; padding: 0 !important; width: 58mm !important; height: 80mm !important; }
+      .no-print { display: none !important; }
+    }
+  `
+
+  const renderReceiptContent = (copyLabel) => `
     <div class="center mb4">
-      <div class="tag">Branch Portal</div>
+      <div class="tag">Branch Portal — ${copyLabel}</div>
       <div class="xlarge">SELFIE WASH</div>
       <div class="small">Official Service Receipt</div>
       <div class="divider"></div>
@@ -289,32 +349,32 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="divider"></div>
     <div class="mb4 mt4">
       <div class="tag">Schedule</div>
-      <div>${appt.slotDate} · ${appt.slotTime}</div>
+      <div class="bold">${appt.slotDate} · ${appt.slotTime}</div>
     </div>
     <div class="divider"></div>
     <div class="mb4 mt4">
       <div class="tag">Services</div>
       ${(appt.services || []).map((svc, i) => `
-        <div class="row" style="margin-top:6px"><span class="bold">Basket ${i + 1} — ${svc.name}</span></div>
-        <div class="row"><span class="label">Est. weight</span><span>${svc.kg}kg</span></div>
+        <div class="row" style="margin-top:2px"><span class="bold">Basket ${i + 1} — ${svc.name}</span></div>
+        <div class="row"><span class="label">Est. weight</span><span class="bold">${svc.kg}kg</span></div>
         ${svc.actualKg != null ? `<div class="row"><span class="label">Actual weight</span><span class="bold">${svc.actualKg}kg</span></div>` : ''}
-        ${svc.overweightCharge > 0 ? `<div class="row"><span class="label">Overweight charge</span><span>${fmt(svc.overweightCharge)}</span></div>` : ''}
+        ${svc.overweightCharge > 0 ? `<div class="row"><span class="label">Overweight charge</span><span class="bold">${fmt(svc.overweightCharge)}</span></div>` : ''}
       `).join('')}
     </div>
     ${appt.addOns?.length > 0 ? `
     <div class="divider"></div>
     <div class="mb4 mt4">
       <div class="tag">Add-ons</div>
-      ${appt.addOns.map(a => `<div class="row"><span>${a.name} x${a.quantity}</span><span>${fmt(a.price * a.quantity)}</span></div>`).join('')}
+      ${appt.addOns.map(a => `<div class="row"><span class="bold">${a.basketIndex != null ? `B${a.basketIndex + 1} — ` : ''}${a.name} x${a.quantity}</span><span class="bold">${fmt(a.price * a.quantity)}</span></div>`).join('')}
     </div>` : ''}
     <div class="divider"></div>
     <div class="mb4 mt4">
       ${hasActual
         ? `<div class="row"><span class="label">Estimated</span><span class="strike">${fmt(estimated)}</span></div>
-           ${appt.overweightChargeTotal > 0 ? `<div class="row"><span class="label">Overweight total</span><span>+${fmt(appt.overweightChargeTotal)}</span></div>` : ''}`
+          ${appt.overweightChargeTotal > 0 ? `<div class="row"><span class="label">Overweight total</span><span class="bold">+${fmt(appt.overweightChargeTotal)}</span></div>` : ''}`
         : ''
       }
-      ${appt.discountAmount > 0 ? `<div class="row"><span class="label">Discount (${appt.promoCode || ''})</span><span>-${fmt(appt.discountAmount)}</span></div>` : ''}
+      ${appt.discountAmount > 0 ? `<div class="row"><span class="label">Discount (${appt.promoCode || ''})</span><span class="bold">-${fmt(appt.discountAmount)}</span></div>` : ''}
       <div class="divider"></div>
       <div class="row total"><span>TOTAL</span><span>${fmt(finalAmt)}</span></div>
       ${vatPercent > 0 ? `
@@ -325,135 +385,173 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="divider"></div>
     <div class="center mt4">
       <span class="chip ${isPaid ? 'paid' : 'pending'}">${PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}</span>
-      <div class="small" style="margin-top:6px">Payment: ${appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</div>
+      <div class="small" style="margin-top:2px">Payment: ${appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</div>
     </div>
-    <div class="divider" style="margin-top:20px"></div>
-    <div class="center small" style="margin-top:8px">Thank you for choosing Selfie Wash!<br/>Please keep this receipt for your records.</div>
-    </body></html>`)
-    printWindow.document.close()
-    printWindow.focus()
-    setTimeout(() => { printWindow.print(); printWindow.close() }, 300)
-    setPrinted(true)
+    <div class="divider" style="margin-top:10px"></div>
+    <div class="center small" style="margin-top:3px">Thank you for choosing Selfie Wash!<br/>Please keep this receipt.</div>
+  `
+
+  const handlePrint = () => {
+    setPrintError(false)
+    try {
+      const printWindow = window.open('', '_blank', 'width=400,height=600')
+      if (!printWindow) { setPrintError(true); return }
+
+      const htmlContent = `<!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt</title>
+        <style>${receiptStyles}</style>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              try {
+                window.print();
+                setTimeout(function() { window.close(); }, 1000);
+              } catch (e) { console.log('Print cancelled'); }
+            }, 500);
+          };
+        <\/script>
+      </head>
+      <body>
+        <div class="receipt-copy">${renderReceiptContent('Branch Copy')}</div>
+        ${appt.bookingSource === 'WALK_IN' ? `<div class="receipt-copy">${renderReceiptContent('Client Copy')}</div>` : ''}
+      </body>
+      </html>`
+
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+      setPrinted(true)
+      if (appt.bookingSource === 'ONLINE' && onEmailReceipt) onEmailReceipt(appt.id)
+    } catch (error) {
+      console.error('Print error:', error)
+      setPrintError(true)
+    }
   }
+
+  const renderPreview = () => (
+    <div className="border border-dashed border-neutral-300 bg-neutral-50 p-2.5 font-mono text-[8px] text-neutral-800" style={{ maxWidth: '58mm', margin: '0 auto' }}>
+      <div className="text-center mb-1.5">
+        <p className="text-[6px] uppercase tracking-[0.3em] text-neutral-400">Branch Portal — Preview</p>
+        <p className="font-black text-sm tracking-tight">SELFIE WASH</p>
+        <p className="text-[6px] text-neutral-400">Official Service Receipt</p>
+        <div className="border-t border-dashed border-neutral-300 mt-1 pt-1">
+          <p className="text-[6px] text-neutral-400">{receiptDate} · {receiptTime}</p>
+        </div>
+      </div>
+      <div className="mb-1.5">
+        <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Client</p>
+        <p className="font-bold text-[8px]">{appt.userData?.name || '—'}</p>
+        <p className="text-[6px] text-neutral-400">{appt.userData?.email || ''}</p>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="mb-1.5">
+        <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Schedule</p>
+        <p>{appt.slotDate} · {appt.slotTime}</p>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="mb-1.5">
+        <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Services</p>
+        {(appt.services || []).map((svc, i) => (
+          <div key={i} className="mb-1">
+            <p className="font-bold text-[7px]">Basket {i + 1} — {svc.name}</p>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Est. weight</span><span>{svc.kg}kg</span></div>
+            {svc.actualKg != null && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Actual weight</span><span className="font-bold text-blue-700">{svc.actualKg}kg</span></div>}
+            {svc.overweightCharge > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Overweight charge</span><span className="text-amber-600">{fmt(svc.overweightCharge)}</span></div>}
+          </div>
+        ))}
+      </div>
+      {appt.addOns?.length > 0 && (
+        <>
+          <div className="border-t border-dashed border-neutral-300 my-1.5" />
+          <div className="mb-1.5">
+            <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Add-ons</p>
+            {appt.addOns.map((a, i) => (
+              <div key={i} className="flex justify-between text-[7px]"><span>{a.basketIndex != null ? `B${a.basketIndex + 1} — ` : ''}{a.name} x{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="mb-1.5 space-y-0.5">
+        {hasActual ? (
+          <>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
+            {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
+          </>
+        ) : null}
+        {appt.discountAmount > 0 && <div className="flex justify-between text-[7px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
+        <div className="border-t border-dashed border-neutral-300 pt-1 mt-1 flex justify-between font-black text-[9px]">
+          <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
+        </div>
+        {vatPercent > 0 && (
+          <>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VATable Sales</span><span>{fmt(vatableSales)}</span></div>
+            <div className="flex justify-between text-[7px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>{fmt(vatAmt)}</span></div>
+            <p className="text-center text-[6px] text-neutral-400">Price is VAT inclusive</p>
+          </>
+        )}
+      </div>
+      <div className="border-t border-dashed border-neutral-300 my-1.5" />
+      <div className="text-center">
+        <span className={`inline-block border px-1.5 py-0.5 text-[6px] uppercase tracking-widest font-bold ${PAYMENT_STATUS_CHIP[payStatus] || PAYMENT_STATUS_CHIP.unpaid}`}>
+          {PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}
+        </span>
+        <p className="text-[6px] text-neutral-400 mt-0.5">Payment: {appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</p>
+      </div>
+      <div className="border-t border-dashed border-neutral-300 mt-2 pt-1.5 text-center">
+        <p className="text-[6px] text-neutral-400">Thank you for choosing Selfie Wash!</p>
+        <p className="text-[6px] text-neutral-400">Please keep this receipt.</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white w-full max-w-lg flex flex-col max-h-[90vh]"
-        style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-
-        <div className="px-6 py-5 flex-shrink-0"
-          style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+      <div className="bg-white w-full max-w-lg flex flex-col max-h-[90vh]" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+        <div className="px-6 py-5 flex-shrink-0" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
               <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Print Receipt</h2>
-              <p className="font-sans text-xs text-blue-300 mt-0.5">Print the receipt before marking as {isSelfPickupTarget ? 'Completed' : 'Out for Delivery'}</p>
+              <p className="font-sans text-xs text-blue-300 mt-0.5">58mm thermal printer</p>
             </div>
             <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
           </div>
         </div>
-
         <div className="overflow-y-auto flex-1 px-6 py-6">
-          <div className="border border-dashed border-neutral-300 bg-neutral-50 p-6 font-mono text-xs text-neutral-800 max-w-xs mx-auto">
-            <div className="text-center mb-4">
-              <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-400">Branch Portal</p>
-              <p className="font-black text-lg tracking-tight">SELFIE WASH</p>
-              <p className="text-[9px] text-neutral-400">Official Service Receipt</p>
-              <div className="border-t border-dashed border-neutral-300 mt-2 pt-2">
-                <p className="text-[9px] text-neutral-400">{receiptDate} · {receiptTime}</p>
-              </div>
+          {printError ? (
+            <div className="bg-red-50 border border-red-200 px-4 py-3 mb-4">
+              <p className="font-sans text-sm text-red-700 font-bold">Print Error</p>
+              <p className="font-sans text-xs text-red-600 mt-1">Unable to print. Please check if:</p>
+              <ul className="font-sans text-xs text-red-600 mt-1 list-disc pl-4 space-y-0.5">
+                <li>A printer is connected and turned on</li>
+                <li>Pop-ups are allowed for this site</li>
+                <li>The printer has paper</li>
+              </ul>
+              <button onClick={() => setPrintError(false)} className="mt-2 text-xs text-red-700 underline font-bold hover:text-red-900">Try again</button>
             </div>
-            <div className="mb-3">
-              <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-0.5">Client</p>
-              <p className="font-bold">{appt.userData?.name || '—'}</p>
-              <p className="text-[9px] text-neutral-400">{appt.userData?.email || ''}</p>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="mb-3">
-              <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-0.5">Schedule</p>
-              <p>{appt.slotDate} · {appt.slotTime}</p>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="mb-3">
-              <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Services</p>
-              {(appt.services || []).map((svc, i) => (
-                <div key={i} className="mb-2">
-                  <p className="font-bold">Basket {i + 1} — {svc.name}</p>
-                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Est. weight</span><span>{svc.kg}kg</span></div>
-                  {svc.actualKg != null && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Actual weight</span><span className="font-bold text-blue-700">{svc.actualKg}kg</span></div>}
-                  {svc.overweightCharge > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Overweight charge</span><span className="text-amber-600">{fmt(svc.overweightCharge)}</span></div>}
-                </div>
-              ))}
-            </div>
-            {appt.addOns?.length > 0 && (
-              <>
-                <div className="border-t border-dashed border-neutral-300 my-3" />
-                <div className="mb-3">
-                  <p className="text-[9px] uppercase tracking-widest text-neutral-400 mb-1">Add-ons</p>
-                  {appt.addOns.map((a, i) => (
-                    <div key={i} className="flex justify-between text-[10px]"><span>{a.name} x{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="mb-3 space-y-1">
-              {hasActual ? (
-                <>
-                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Estimated</span><span className="line-through text-neutral-400">{fmt(estimated)}</span></div>
-                  {appt.overweightChargeTotal > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Overweight total</span><span className="text-amber-600">+{fmt(appt.overweightChargeTotal)}</span></div>}
-                </>
-              ) : null}
-              {appt.discountAmount > 0 && <div className="flex justify-between text-[10px]"><span className="text-neutral-500">Discount {appt.promoCode && `(${appt.promoCode})`}</span><span className="text-green-600">-{fmt(appt.discountAmount)}</span></div>}
-              <div className="border-t border-dashed border-neutral-300 pt-2 mt-1 flex justify-between font-black text-sm">
-                <span>TOTAL</span><span className="text-blue-900">{fmt(finalAmt)}</span>
-              </div>
-              {vatPercent > 0 && (
-                <>
-                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">VATable Sales</span><span>{fmt(vatableSales)}</span></div>
-                  <div className="flex justify-between text-[10px]"><span className="text-neutral-500">VAT ({vatPercent}%)</span><span>{fmt(vatAmt)}</span></div>
-                  <p className="text-center text-[9px] text-neutral-400">Price is VAT inclusive</p>
-                </>
-              )}
-            </div>
-            <div className="border-t border-dashed border-neutral-300 my-3" />
-            <div className="text-center">
-              <span className={`inline-block border px-2 py-0.5 text-[9px] uppercase tracking-widest font-bold ${PAYMENT_STATUS_CHIP[payStatus] || PAYMENT_STATUS_CHIP.unpaid}`}>
-                {PAYMENT_STATUS_LABEL[payStatus] || 'Unpaid'}
-              </span>
-              <p className="text-[9px] text-neutral-400 mt-1">Payment: {appt.preferredPaymentMethod === 'online' ? 'Online' : 'Cash'}</p>
-            </div>
-            <div className="border-t border-dashed border-neutral-300 mt-4 pt-3 text-center">
-              <p className="text-[9px] text-neutral-400">Thank you for choosing Selfie Wash!</p>
-              <p className="text-[9px] text-neutral-400">Please keep this receipt for your records.</p>
-            </div>
-          </div>
-
-          {printed && (
+          ) : renderPreview()}
+          {printed && !printError && (
             <div className="mt-4 flex items-center gap-2 bg-green-50 border border-green-200 px-4 py-2.5 max-w-xs mx-auto">
               <span className="text-green-600 text-sm">✓</span>
               <p className="font-sans text-xs text-green-700 font-semibold">Receipt printed — ready to proceed</p>
             </div>
           )}
         </div>
-
         <div className="px-6 pb-4 pt-3 flex gap-3 flex-shrink-0 border-t border-blue-100">
-          <button onClick={handlePrint}
-            className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 flex-1 py-2.5"
-            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+          <button onClick={handlePrint} className="group relative overflow-hidden border border-blue-400 text-blue-600 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center gap-2 flex-1 py-2.5" style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
             <div className="absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
             <span className="relative">{printed ? 'Print Again' : 'Print Receipt'}</span>
           </button>
-          <button onClick={onConfirm} disabled={!printed || loading}
-            className={`group relative overflow-hidden font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center flex-1 py-2.5 disabled:cursor-not-allowed transition-colors ${printed ? 'bg-blue-600 text-white' : 'bg-neutral-200 text-neutral-400'}`}
-            style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-            {printed && <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />}
+          <button onClick={onConfirm} disabled={!printed || loading || printError} className={`group relative overflow-hidden font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center flex-1 py-2.5 disabled:cursor-not-allowed transition-colors ${printed && !printError ? 'bg-blue-600 text-white' : 'bg-neutral-200 text-neutral-400'}`} style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+            {printed && !printError && <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />}
             <span className="relative">{loading ? 'Processing...' : (isSelfPickupTarget ? 'Mark Completed' : 'Out for Delivery')}</span>
           </button>
         </div>
-        {!printed && (
+        {(!printed || printError) && (
           <p className="text-center font-sans text-[10px] text-neutral-400 pb-4">
-            {`Print the receipt first to enable the ${isSelfPickupTarget ? 'Mark Completed' : 'Out for Delivery'} button`}
+            {printError ? 'Fix the issues above then try again' : `Print the receipt first to enable the ${isSelfPickupTarget ? 'Mark Completed' : 'Out for Delivery'} button`}
           </p>
         )}
       </div>
@@ -1049,6 +1147,7 @@ const AllAppointments = () => {
     appointments,      getBranchAppointments,
     cancelAppointment,
     updateDeliveryStatus,
+    emailReceipt,
     confirmActualWeight,
     confirmPayment,
     archiveAppointment,
@@ -1182,7 +1281,7 @@ const AllAppointments = () => {
 
       {weightModal  && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
-      {receiptModal && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} />}
+      {receiptModal && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} onEmailReceipt={emailReceipt} />}
       {archiveModal && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
 
       {/* ── Header ── */}
@@ -1300,9 +1399,7 @@ const AllAppointments = () => {
         {/* ── Cards grid: separate cards with gap ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {paginated.map((appt, idx) => {
-            // Global index within filtered (0 = newest, since filtered is sorted newest → oldest)
             const globalIndex = (currentPage - 1) * PAGE_SIZE + idx
-            // Reverse numbering: newest = highest, oldest = #1
             const cardNumber = filtered.length - globalIndex
 
             return (

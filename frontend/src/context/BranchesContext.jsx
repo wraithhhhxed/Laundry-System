@@ -245,6 +245,25 @@ const BranchesContextProvider = (props) => {
     }
   }
 
+  const emailReceipt = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/branch/email-receipt',
+        { appointmentId },
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) {
+        if (data.data?.sent) toast.success('Receipt emailed to client')
+        return data.data
+      }
+      toast.error(data.message)
+      return null
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
   const confirmActualWeight = async (appointmentId, actualServices) => {
     try {
       const { data } = await axios.post(
@@ -405,6 +424,7 @@ const BranchesContextProvider = (props) => {
     completeAppointment, cancelAppointment,
     dashData, getBranchDashboard,
     updateDeliveryStatus,
+    emailReceipt,
     confirmActualWeight,
     archiveAppointment,
     confirmPayment,

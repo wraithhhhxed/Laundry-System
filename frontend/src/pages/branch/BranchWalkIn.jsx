@@ -20,6 +20,8 @@ const validateName = (name) => {
 }
 
 const MAX_WEIGHT_KG = 70
+const MAX_BASKETS = 10
+const MAX_TOTAL_KG = 70
 
 // ─── WHEEL CONFIG ────────────────────────────────────────────────
 const WHEEL_PRIZES = [
@@ -331,10 +333,26 @@ const BranchWalkIn = () => {
 
   const [baskets, setBaskets] = useState([{ serviceId: '', actualKg: '' }])
 
-  const addBasket    = () => setBaskets(prev => [...prev, { serviceId: '', actualKg: '' }])
+    const addBasket    = () => {
+    if (baskets.length >= MAX_BASKETS) {
+      toast.error(`Maximum of ${MAX_BASKETS} baskets per booking.`)
+      return
+    }
+    setBaskets(prev => [...prev, { serviceId: '', actualKg: '' }])
+  }
   const removeBasket = (idx) => setBaskets(prev => prev.filter((_, i) => i !== idx))
-  const updateBasket = (idx, field, value) =>
-    setBaskets(prev => prev.map((b, i) => i === idx ? { ...b, [field]: value } : b))
+    const updateBasket = (idx, field, value) =>
+    setBaskets(prev => {
+      if (field === 'actualKg' && value !== '' && !isNaN(Number(value))) {
+        const others = prev.reduce((sum, b, i) => i === idx ? sum : sum + (Number(b.actualKg) || 0), 0)
+        const room = Math.max(0, MAX_TOTAL_KG - others)
+        if (Number(value) > room) {
+          value = String(room)
+          toast.error(`Total weight cannot exceed ${MAX_TOTAL_KG} kg.`)
+        }
+      }
+      return prev.map((b, i) => i === idx ? { ...b, [field]: value } : b)
+    })
 
   const getServicePrice = (serviceId) =>
     walkInServices.find(s => s.id === serviceId)?.price || 0

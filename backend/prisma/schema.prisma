@@ -111,6 +111,7 @@ model Appointment {
   paymentStatus          String                    @default("unpaid")
   paymentMethod          String?
   paymentPaidAt          DateTime?
+  receiptEmailSentAt     DateTime?
   payment                Boolean                   @default(false)
   slotDate               String
   slotTime               String
@@ -173,6 +174,7 @@ model AppointmentAddOn {
   name          String
   price         Float
   quantity      Int
+  basketIndex   Int?
   appointment   Appointment @relation(fields: [appointmentId], references: [id])
 
   @@map("appointment_addons")

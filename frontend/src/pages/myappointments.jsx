@@ -242,8 +242,7 @@ const AppointmentCard = ({
             )}
             {item.addOns?.length > 0 && (
               <p className='break-words'><span className='text-neutral-700 font-semibold'>Add-ons:</span>{' '}
-                {item.addOns.map(a => `${a.name} ×${a.quantity}`).join(', ')}
-              </p>
+                {item.addOns.map(a => `${a.basketIndex != null ? `Basket ${a.basketIndex + 1}: ` : ''}${a.name} ×${a.quantity}`).join(', ')}              </p>
             )}
                         {item.promoCode && (
               <div className='mt-2 bg-green-50 border border-green-200 px-3 py-2'>

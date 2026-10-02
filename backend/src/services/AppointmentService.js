@@ -11,10 +11,10 @@ import { ApiError } from '../utils/ApiError.js';
 import EmailService from './EmailService.js';
 import NotificationService from './NotificationService.js';
 import axios from 'axios';
+import prisma from '../config/prismaClient.js';
 
 const VALID_STATUSES = ['pending_approval', 'approved', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
 
-// Turf: serbisyo lang sa Taguig City
 const isTaguigAddress = (addr) => {
   if (!addr) return false;
   const text = typeof addr === 'string' ? addr : [addr.line1, addr.line2].filter(Boolean).join(' ');
@@ -39,6 +39,8 @@ class AppointmentService {
 
     if (!servicesInput || servicesInput.length === 0)
       throw new ApiError(400, 'At least one service is required');
+    if (servicesInput.length > 10)
+      throw new ApiError(400, 'Maximum of 10 baskets (70 kg) per booking');
 
     const enrichedServices = [];
     let servicesTotal = 0;
@@ -62,6 +64,15 @@ class AppointmentService {
       servicesTotal += service.price;
     }
 
+    // Each add-on must belong to a valid basket (0-based) or be null
+    addOns = addOns.map((a) => {
+      const idx = a.basketIndex;
+      if (idx === undefined || idx === null) return { ...a, basketIndex: null };
+      if (!Number.isInteger(idx) || idx < 0 || idx >= servicesInput.length)
+        throw new ApiError(400, `Invalid basket for add-on "${a.name}"`);
+      return { ...a, basketIndex: idx };
+    });
+
     const addOnsTotal = addOns.reduce((sum, a) => sum + a.price * a.quantity, 0);
     const subtotal = servicesTotal + addOnsTotal;
 
@@ -81,7 +92,6 @@ class AppointmentService {
       discountAmount = validatedPromo.discountAmount;
     }
 
-    // Lucky Wheel: auto-apply FREE_DISCOUNT or FREE_BAG if the customer holds one
     let luckySpin = null;
     let luckyPrizeType = null;
     let luckyPrizeLabel = null;
@@ -114,7 +124,6 @@ class AppointmentService {
     try {
       const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      // VAT-inclusive: presyo na may VAT, kaya hindi nagbabago ang total
       finalAmount = parseFloat(discountedBase.toFixed(2));
       vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
     } catch (err) {
@@ -521,7 +530,6 @@ class AppointmentService {
     if (cancelledBy === 'user' && appointment.deliveryStatus !== 'pending_approval')
       throw new ApiError(400, 'Cancellation is no longer allowed once your appointment has been approved by the branch');
 
-    // Rollback: release reserved resources before cancelling
     if (appointment.assignedMilestone) {
       try {
         await UserRepository.unclaimMilestone(appointment.userId, appointment.assignedMilestone);
@@ -573,6 +581,43 @@ class AppointmentService {
     if (appointment.branchId !== branchId)
       throw new ApiError(403, 'Unauthorized');
     return await AppointmentRepository.markCompleted(appointmentId);
+  }
+
+  async emailReceipt(appointmentId, branchId) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.branchId !== branchId)
+      throw new ApiError(403, 'Unauthorized');
+
+    if (appointment.bookingSource !== 'ONLINE')
+      return { sent: false, reason: 'walk_in' };
+    if (!appointment.weightConfirmedAt)
+      throw new ApiError(400, 'Confirm the actual weight before sending the receipt');
+    if (appointment.receiptEmailSentAt)
+      return { sent: false, reason: 'already_sent' };
+
+    const userEmail = appointment.userData?.email;
+    if (!userEmail) return { sent: false, reason: 'no_email' };
+
+    // Claim first so a double-click cannot send twice
+    const claim = await prisma.appointment.updateMany({
+      where: { id: appointmentId, receiptEmailSentAt: null },
+      data: { receiptEmailSentAt: new Date() },
+    });
+    if (claim.count === 0) return { sent: false, reason: 'already_sent' };
+
+    try {
+      await EmailService.sendReceiptEmail(userEmail, appointment);
+      return { sent: true };
+    } catch (err) {
+      // release the claim so staff can try again
+      await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: { receiptEmailSentAt: null },
+      });
+      console.warn(`[Email] Receipt email failed: ${err.message}`);
+      throw new ApiError(500, 'Receipt email failed to send');
+    }
   }
 
   async updateDeliveryStatus(appointmentId, branchId, newStatus, actor = null) {
@@ -629,7 +674,11 @@ class AppointmentService {
       try {
         const userEmail = appointment.userData?.email;
         if (userEmail) {
-          await EmailService.sendDeliveryCompletedEmail(userEmail, appointment);
+          if (appointment.bookingSource === 'ONLINE' && appointment.fulfillmentMethod === 'SELF_PICKUP') {
+            await EmailService.sendReceiptEmail(userEmail, appointment);
+          } else {
+            await EmailService.sendDeliveryCompletedEmail(userEmail, appointment);
+          }
         }
       } catch (err) {
         console.warn(`[Email] Delivery email failed: ${err.message}`);
@@ -713,6 +762,8 @@ class AppointmentService {
 
     if (!servicesInput || servicesInput.length === 0)
       throw new ApiError(400, 'At least one service is required');
+    if (servicesInput.length > 10)
+      throw new ApiError(400, 'Maximum of 10 baskets (70 kg) per booking');
 
     const enrichedServices = [];
     let servicesTotal = 0;
@@ -735,6 +786,15 @@ class AppointmentService {
 
       servicesTotal += service.price;
     }
+
+    // Each add-on must belong to a valid basket (0-based) or be null
+    addOns = addOns.map((a) => {
+      const idx = a.basketIndex;
+      if (idx === undefined || idx === null) return { ...a, basketIndex: null };
+      if (!Number.isInteger(idx) || idx < 0 || idx >= servicesInput.length)
+        throw new ApiError(400, `Invalid basket for add-on "${a.name}"`);
+      return { ...a, basketIndex: idx };
+    });
 
     let totalExcessKg = 0;
     let hasOverweight = false;
@@ -765,7 +825,6 @@ class AppointmentService {
       discountAmount = validatedPromo.discountAmount;
     }
 
-    // Lucky Wheel: auto-apply FREE_DISCOUNT or FREE_BAG if the customer holds one
     let luckySpin = null;
     let luckyPrizeType = null;
     let luckyPrizeLabel = null;
@@ -798,7 +857,6 @@ class AppointmentService {
     try {
       const discountedBase = subtotal - discountAmount;
       vatRate = await SettingService.getVatRate();
-      // VAT-inclusive: presyo na may VAT, kaya hindi nagbabago ang total
       finalAmount = parseFloat(discountedBase.toFixed(2));
       vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
     } catch (err) {
@@ -872,19 +930,11 @@ class AppointmentService {
       if (luckySpin && luckyClaimed) {
         await LuckyWheelRepository.linkSpinToAppointment(luckySpin.id, appointment.id);
 
-        // Walk-in never increments loyalty stamps, so it can never reach the
-        // online-side "newStampCount === 20" reset trigger. Reset here instead,
-        // right when the spin's prize gets used, if no other spin is still held.
         const remainingSpins = await LuckyWheelRepository.getUserSpins(user.id, true);
         if (remainingSpins.length === 0) {
           await UserRepository.resetLoyaltyCycle(user.id);
         }
       }
-
-      // NOTE: walk-in delivery address is intentionally NOT saved back to
-      // User.address — it's a one-time delivery address for this order only,
-      // stored on Appointment.deliveryAddress. The customer's profile address
-      // stays untouched unless they update it themselves (e.g. via My Profile).
 
       if (preferredPaymentMethod === 'online' && userEmail) {
         try {
@@ -1125,3 +1175,4 @@ class AppointmentService {
 }
 
 export default new AppointmentService();
+

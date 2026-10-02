@@ -207,7 +207,7 @@ const renderAddOns = (appt) => {
     <div className="space-y-1">
       {appt.addOns.map((a, idx) => (
         <div key={idx} className="flex items-center justify-between font-sans text-xs text-neutral-600">
-          <span>· {a.name} x{a.quantity}</span>
+                    <span>· {a.basketIndex != null ? `Basket ${a.basketIndex + 1} — ` : ''}{a.name} x{a.quantity}</span>
           <span className="font-medium">{fmt(a.price * a.quantity)}</span>
         </div>
       ))}
@@ -236,7 +236,7 @@ const StatusChip = ({ status, steps = DELIVERY_STEPS }) => {
 
 /* ─────────────────────────────  MODALS  ───────────────────────────── */
 
-const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
+const ReceiptModal = ({ appt, onClose, onConfirm, loading, onEmailReceipt }) => {
   const isSelfPickupTarget = appt.__targetStatus === 'delivered' && appt.fulfillmentMethod === 'SELF_PICKUP'
   const [printed, setPrinted] = useState(false)
   const [printError, setPrintError] = useState(false)
@@ -261,11 +261,10 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
       width: 58mm; padding: 0; margin: 0 auto; font-weight: bold;
     }
     @page { size: 58mm 80mm !important; margin: 0 !important; padding: 0 !important; }
-    .receipt-copy {
+        .receipt-copy {
       width: 58mm; max-width: 58mm; padding: 2mm 3mm;
       page-break-after: always !important;
-      page-break-inside: avoid !important;
-      height: 80mm; max-height: 80mm; overflow: hidden; font-weight: bold;
+      font-weight: bold;
     }
     .receipt-copy:last-child { page-break-after: auto !important; }
     .center { text-align: center; }
@@ -325,8 +324,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
     <div class="divider"></div>
     <div class="mb4 mt4">
       <div class="tag">Add-ons</div>
-      ${appt.addOns.map(a => `<div class="row"><span class="bold">${a.name} x${a.quantity}</span><span class="bold">${fmt(a.price * a.quantity)}</span></div>`).join('')}
-    </div>` : ''}
+      ${appt.addOns.map(a => `<div class="row"><span class="bold">${a.basketIndex != null ? `B${a.basketIndex + 1} — ` : ''}${a.name} x${a.quantity}</span><span class="bold">${fmt(a.price * a.quantity)}</span></div>`).join('')}    </div>` : ''}
     <div class="divider"></div>
     <div class="mb4 mt4">
       ${hasActual
@@ -375,13 +373,14 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
       </head>
       <body>
         <div class="receipt-copy">${renderReceiptContent('Admin Copy')}</div>
-        <div class="receipt-copy">${renderReceiptContent('Client Copy')}</div>
+        ${appt.bookingSource === 'WALK_IN' ? `<div class="receipt-copy">${renderReceiptContent('Client Copy')}</div>` : ''}
       </body>
       </html>`
 
       printWindow.document.write(htmlContent)
       printWindow.document.close()
       setPrinted(true)
+      if (appt.bookingSource === 'ONLINE' && onEmailReceipt) onEmailReceipt(appt.id)
     } catch (error) {
       console.error('Print error:', error)
       setPrintError(true)
@@ -426,8 +425,7 @@ const ReceiptModal = ({ appt, onClose, onConfirm, loading }) => {
           <div className="mb-1.5">
             <p className="text-[6px] uppercase tracking-widest text-neutral-400 mb-0.5">Add-ons</p>
             {appt.addOns.map((a, i) => (
-              <div key={i} className="flex justify-between text-[7px]"><span>{a.name} x{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>
-            ))}
+              <div key={i} className="flex justify-between text-[7px]"><span>{a.basketIndex != null ? `B${a.basketIndex + 1} — ` : ''}{a.name} x{a.quantity}</span><span>{fmt(a.price * a.quantity)}</span></div>            ))}
           </div>
         </>
       )}
@@ -1154,6 +1152,7 @@ const AllAppointments = () => {
     cancelAppointment,
     approveBooking,
     updateDeliveryStatus,
+    emailReceipt,
     confirmActualWeight,
     confirmPayment,
     archiveAppointment,
@@ -1303,7 +1302,7 @@ const AllAppointments = () => {
 
       {weightModal    && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal   && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
-      {receiptModal   && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} />}
+      {receiptModal   && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} onEmailReceipt={emailReceipt} />}
       {archiveModal   && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
       {deleteAllModal && <DeleteAllModal    onClose={() => setDeleteAllModal(false)} onConfirm={handleDeleteAllConfirm} loading={modalLoading} count={appointments.length} />}
 

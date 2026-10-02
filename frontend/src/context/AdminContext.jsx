@@ -104,6 +104,25 @@ const AdminContextProvider = (props) => {
     }
   }
 
+  const emailReceipt = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/admin/email-receipt',
+        { appointmentId },
+        { headers: authHeader(aToken) }
+      )
+      if (data.success) {
+        if (data.data?.sent) toast.success('Receipt emailed to client')
+        return data.data
+      }
+      toast.error(data.message)
+      return null
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+      return null
+    }
+  }
+
   const archiveAppointment = async (appointmentId) => {
     try {
       const { data } = await axios.post(
@@ -615,6 +634,7 @@ const AdminContextProvider = (props) => {
     appointments, getAllAppointments, cancelAppointment,
     approveBooking,
     updateDeliveryStatus,
+    emailReceipt,
     archiveAppointment,
     confirmActualWeight,
     confirmPayment,

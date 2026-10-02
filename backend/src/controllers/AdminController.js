@@ -146,6 +146,18 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { appointment: updated }, 'Delivery status updated'))
 })
 
+// ─── EMAIL RECEIPT (admin override) ──────────────────────────────
+const emailReceipt = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.body
+  if (!appointmentId) throw new ApiError(400, 'appointmentId is required')
+
+  const appointment = await AppointmentRepository.findById(appointmentId)
+  if (!appointment) throw new ApiError(404, 'Appointment not found')
+
+  const result = await appointmentService.emailReceipt(appointmentId, appointment.branchId)
+  res.json(new ApiResponse(200, result, 'Receipt email processed'))
+})
+
 // ─── CONFIRM ACTUAL WEIGHT (admin override) ───────────────────────
 const confirmActualWeight = asyncHandler(async (req, res) => {
   const { appointmentId, actualServices } = req.body
@@ -579,7 +591,7 @@ export {
 
   allAppointments, cancelAppointment, adminDashboard, approveBooking, approvePayment,
   updateDeliveryStatus,
-  confirmActualWeight, confirmPayment,
+  emailReceipt,confirmActualWeight, confirmPayment,
   archiveAppointment,
   createWalkInAppointment,
   lookupPhone,
