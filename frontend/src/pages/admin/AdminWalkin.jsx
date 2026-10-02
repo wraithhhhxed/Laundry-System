@@ -470,6 +470,11 @@ const AdminWalkIn = () => {
       }
     }
 
+       if (newBaskets.length > MAX_BASKETS) {
+      toast.error(`Splitting would exceed ${MAX_BASKETS} baskets. Choose Trim to 7kg instead.`)
+      return
+    }
+
     setBaskets(newBaskets)
     setOverweightResolution('split')
   }
@@ -1013,8 +1018,8 @@ const AdminWalkIn = () => {
             )
           })}
         </div>
-        <button onClick={addBasket}
-          disabled={locked}
+                <button onClick={addBasket}
+          disabled={locked || baskets.length >= MAX_BASKETS}
           className="font-sans text-xs uppercase tracking-[0.2em] text-blue-500 hover:text-blue-700 transition-colors mb-10 disabled:opacity-40 disabled:cursor-not-allowed">
           + Add Another Basket
         </button>
