@@ -23,6 +23,9 @@ const MAX_WEIGHT_KG = 70
 const MAX_BASKETS = 10
 const MAX_TOTAL_KG = 70
 
+let basketKeyCounter = 0
+const newBasketKey = () => `bk${++basketKeyCounter}`
+
 // ─── WHEEL CONFIG ────────────────────────────────────────────────
 const WHEEL_PRIZES = [
   { type: 'FREE_DISCOUNT', label: '₱50 OFF' },
@@ -238,20 +241,6 @@ const BranchWalkIn = () => {
     return acc
   }, {})
 
-  const selectedAddOns = productsList
-    .filter(p => addOnQty[p.id] > 0)
-    .map(p => ({ productId: p.id, name: p.name, price: p.price, quantity: addOnQty[p.id] }))
-  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
-
-  const setQty = (productId, value) => {
-    const qty = Math.max(0, Math.min(99, parseInt(value) || 0))
-    setAddOnQty(prev => ({ ...prev, [productId]: qty }))
-  }
-  const incrementQty = (productId) =>
-    setAddOnQty(prev => ({ ...prev, [productId]: Math.min(99, (prev[productId] || 0) + 1) }))
-  const decrementQty = (productId) =>
-    setAddOnQty(prev => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) - 1) }))
-
   useEffect(() => {
     const branchId = branchProfile?.id
     if (!branchId) return
@@ -331,14 +320,14 @@ const BranchWalkIn = () => {
     return () => clearTimeout(lookupTimer.current)
   }, [phone, phoneError])
 
-  const [baskets, setBaskets] = useState([{ serviceId: '', actualKg: '' }])
+  const [baskets, setBaskets] = useState(() => [{ key: newBasketKey(), serviceId: '', actualKg: '' }])
 
     const addBasket    = () => {
     if (baskets.length >= MAX_BASKETS) {
       toast.error(`Maximum of ${MAX_BASKETS} baskets per booking.`)
       return
     }
-    setBaskets(prev => [...prev, { serviceId: '', actualKg: '' }])
+    setBaskets(prev => [...prev, { key: newBasketKey(), serviceId: '', actualKg: '' }])
   }
   const removeBasket = (idx) => setBaskets(prev => prev.filter((_, i) => i !== idx))
     const updateBasket = (idx, field, value) =>
@@ -357,8 +346,45 @@ const BranchWalkIn = () => {
   const getServicePrice = (serviceId) =>
     walkInServices.find(s => s.id === serviceId)?.price || 0
 
+  // ─── ADD-ONS (keyed by `${basketKey}:${productId}`) ────────────
+  const addOnKey = (basketKey, productId) => `${basketKey}:${productId}`
+  const qtyFor = (basketKey, productId) => addOnQty[addOnKey(basketKey, productId)] || 0
+
+  const selectedAddOns = baskets.flatMap((b, basketIndex) =>
+    productsList
+      .filter(p => qtyFor(b.key, p.id) > 0)
+      .map(p => ({
+        productId: p.id,
+        name: p.name,
+        price: p.price,
+        quantity: qtyFor(b.key, p.id),
+        basketKey: b.key,
+        basketIndex,
+      }))
+  )
+  const addOnsTotal = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
+
+  const setQty = (basketKey, productId, value) => {
+    const qty = Math.max(0, Math.min(99, parseInt(value) || 0))
+    setAddOnQty(prev => ({ ...prev, [addOnKey(basketKey, productId)]: qty }))
+  }
+  const incrementQty = (basketKey, productId) =>
+    setAddOnQty(prev => {
+      const k = addOnKey(basketKey, productId)
+      return { ...prev, [k]: Math.min(99, (prev[k] || 0) + 1) }
+    })
+  const decrementQty = (basketKey, productId) =>
+    setAddOnQty(prev => {
+      const k = addOnKey(basketKey, productId)
+      return { ...prev, [k]: Math.max(0, (prev[k] || 0) - 1) }
+    })
+
+  const [activeBasketKey, setActiveBasketKey] = useState('')
+  // falls back to Basket 1 if nothing is picked or the picked basket was removed
+  const targetKey = baskets.some(b => b.key === activeBasketKey) ? activeBasketKey : baskets[0]?.key
+
   const estimatedTotal = baskets.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0)
-    + productsList.filter(p => addOnQty[p.id] > 0).reduce((sum, p) => sum + p.price * addOnQty[p.id], 0)
+    + addOnsTotal
 
   const anyOverweight = baskets.some(b => Number(b.actualKg) > 7)
 
@@ -425,12 +451,13 @@ const BranchWalkIn = () => {
 
   const resetForm = () => {
     setPhone(''); setPhoneError(''); setGuestName(''); setNameError(''); setFoundUser(null); setLookupState('idle')
-    setBaskets([{ serviceId: '', actualKg: '' }])
+    setBaskets([{ key: newBasketKey(), serviceId: '', actualKg: '' }])
     setOverweightResolution('')
     setFulfillmentMethod('SELF_PICKUP')
     setDeliveryAddress({ line1: '', line2: '' })
     setPaymentMethod('CASH')
     setAddOnQty({})
+    setActiveBasketKey('')
     setSpinResult(null)
     setRotation(0)
   }
@@ -458,12 +485,12 @@ const BranchWalkIn = () => {
       if (weight <= 7) {
         newBaskets.push(basket)
       } else {
-        newBaskets.push({ serviceId: basket.serviceId, actualKg: 7 })
+        newBaskets.push({ key: basket.key, serviceId: basket.serviceId, actualKg: 7 })
 
         let remaining = weight - 7
         while (remaining > 0) {
           const basketKg = parseFloat(Math.min(7, remaining).toFixed(2))
-          newBaskets.push({ serviceId: basket.serviceId, actualKg: basketKg })
+          newBaskets.push({ key: newBasketKey(), serviceId: basket.serviceId, actualKg: basketKg })
           remaining -= basketKg
         }
       }
@@ -622,8 +649,8 @@ const BranchWalkIn = () => {
             placeId: deliveryAddress.placeId,
           }
         : null,
-      addOns: selectedAddOns,
-    }
+      addOns: selectedAddOns.map(({ basketKey, ...rest }) => rest),   
+     }
 
     const result = await createWalkInAppointment(payload)
     setSubmitting(false)
@@ -885,7 +912,7 @@ const BranchWalkIn = () => {
             const isOverMax = weightValue > MAX_WEIGHT_KG
 
             return (
-              <div key={idx} className={`border ${hasServiceError || hasWeightError || isOverMax ? 'border-red-300 bg-red-50/30' : 'border-blue-100'} px-5 py-4 flex flex-col sm:flex-row gap-4 sm:items-end`}>
+              <div key={basket.key} className={`border ${hasServiceError || hasWeightError || isOverMax ? 'border-red-300 bg-red-50/30' : 'border-blue-100'} px-5 py-4 flex flex-col sm:flex-row gap-4 sm:items-end`}>
                 <div className="flex-1">
                   <label className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-1.5 block">Service</label>
                   <select
@@ -1008,8 +1035,19 @@ const BranchWalkIn = () => {
           + Add Another Basket
         </button>
 
-        <SectionLabel>Add-ons (Optional)</SectionLabel>
+                <SectionLabel>Add-ons (Optional)</SectionLabel>
         <Divider />
+        <div className="mb-6">
+          <p className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-2">Add to which basket?</p>
+          <div className="flex flex-wrap gap-2">
+            {baskets.map((b, i) => (
+              <button key={b.key} type="button" onClick={() => setActiveBasketKey(b.key)}
+                className={`px-4 py-2 font-sans text-xs uppercase tracking-widest font-bold border transition-colors ${b.key === targetKey ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}>
+                Basket {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="space-y-6 mb-10">
           {productsList.length === 0 ? (
             <p className="font-sans text-sm text-neutral-400">No add-on products available at this time.</p>
@@ -1021,7 +1059,7 @@ const BranchWalkIn = () => {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {products.map(product => {
-                    const qty = addOnQty[product.id] || 0
+                    const qty = qtyFor(targetKey, product.id)
                     const isAdded = qty > 0
                     return (
                       <div key={product.id}
@@ -1038,14 +1076,14 @@ const BranchWalkIn = () => {
                           {product.description && <p className="font-sans text-xs text-neutral-400 truncate">{product.description}</p>}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <button onClick={() => decrementQty(product.id)} disabled={qty === 0}
+                          <button onClick={() => decrementQty(targetKey, product.id)} disabled={qty === 0}
                             className={`w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border transition-colors ${
                               qty > 0 ? 'border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white' : 'border-blue-100 text-blue-200 cursor-not-allowed'
                             }`}>−</button>
-                          <input type="number" value={qty} onChange={e => setQty(product.id, e.target.value)}
+                          <input type="number" value={qty} onChange={e => setQty(targetKey, product.id, e.target.value)}
                             className="w-8 text-center font-sans text-sm font-semibold border border-blue-100 focus:outline-none focus:border-blue-400 py-0.5"
                             min="0" max="99" />
-                          <button onClick={() => incrementQty(product.id)}
+                          <button onClick={() => incrementQty(targetKey, product.id)}
                             className="w-7 h-7 font-sans font-bold text-sm flex items-center justify-center border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors">+</button>
                         </div>
                       </div>
@@ -1061,8 +1099,8 @@ const BranchWalkIn = () => {
               <p className="font-sans text-xs text-neutral-500 uppercase tracking-wider mb-2">Selected Add-ons</p>
               <div className="font-sans text-sm space-y-1.5">
                 {selectedAddOns.map(a => (
-                  <div key={a.productId} className="flex justify-between text-neutral-600">
-                    <span>{a.name} × {a.quantity}</span>
+                                    <div key={`${a.basketKey}:${a.productId}`} className="flex justify-between text-neutral-600">
+                    <span>Basket {a.basketIndex + 1} — {a.name} × {a.quantity}</span>
                     <span className="font-medium">{fmt(a.price * a.quantity)}</span>
                   </div>
                 ))}
