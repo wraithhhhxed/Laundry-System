@@ -27,7 +27,7 @@ model User {
   address                   Json             @default("{}")
   gender                    String           @default("Not Selected")
   dob                       String           @default("Not Selected")
-  phone                     String           @default("0000000000")
+  phone                     String?  
   loyaltyStamps             Int              @default(0)
   fifthStampRedeemedAt      DateTime?
   tenthStampRedeemedAt      DateTime?

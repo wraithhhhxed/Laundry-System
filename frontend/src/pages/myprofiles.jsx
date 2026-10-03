@@ -94,8 +94,8 @@ const MyProfiles = () => {
     try {
       const formData = new FormData()
       formData.append('name', userData.name)
-      formData.append('phone', userData.phone)
-      formData.append('address', JSON.stringify(userData.address))
+      formData.append('phone', userData.phone || '')
+            formData.append('address', JSON.stringify(userData.address))
       formData.append('gender', userData.gender)
       formData.append('dob', userData.dob)
       if (image) formData.append('image', image)
@@ -287,8 +287,8 @@ const MyProfiles = () => {
                     <input
                       className={inputCls}
                       type='text'
-                      value={userData.phone}
-                      onChange={e => {
+                      value={userData.phone || ''}
+                                            onChange={e => {
                         const v = e.target.value
                         if (/^[0-9]*$/.test(v)) setUserData(prev => ({ ...prev, phone: v }))
                       }}

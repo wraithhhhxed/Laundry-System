@@ -67,9 +67,10 @@ class UserService {
   async updateProfile(userId, updates, imageFile) {
     const { name, phone, address, dob, gender } = updates
 
-    const updateData = { name, phone, dob, gender }
-    if (address) {
-      updateData.address = typeof address === 'string' ? JSON.parse(address) : address
+      const updateData = { name, dob, gender }
+    if (phone !== undefined) {
+      const cleanPhone = String(phone).trim()
+      updateData.phone = cleanPhone === '' || cleanPhone === 'null' ? null : cleanPhone
     }
 
     if (imageFile) {
@@ -233,7 +234,7 @@ class UserService {
         googleId,
         password: null,
         image: picture,
-        phone: '0000000000',
+        phone: null,
         address: { line1: '', line2: '' }
       })
     } else if (!user.googleId) {
