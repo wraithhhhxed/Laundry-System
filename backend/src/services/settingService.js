@@ -11,7 +11,7 @@ const assertValidKey = (key) => {
 // Totoong deliveryStatus enum (6 values). "cancelled" ay HIWALAY na boolean flag
 // (appliesToCancelled), hindi bahagi ng deliveryStatus.
 const VALID_STATUSES = [
-  'pending_approval', 'approved', 'picked_up',
+  'pending_approval', 'approved', 'rider_dispatched', 'picked_up',
   'in_progress', 'out_for_delivery', 'delivered',
 ]
 

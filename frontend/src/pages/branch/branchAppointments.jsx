@@ -8,6 +8,7 @@ const MAX_WEIGHT_KG = 70
 const DELIVERY_STEPS = [
   { status: 'pending_approval',  label: 'Pending Approval' },
   { status: 'approved',          label: 'Approved' },
+  { status: 'rider_dispatched',  label: 'Dispatch Rider' },
   { status: 'picked_up',         label: 'Picked Up' },
   { status: 'in_progress',       label: 'On Process' },
   { status: 'out_for_delivery',  label: 'Out for Delivery' },
@@ -38,6 +39,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'all',              label: 'All Statuses' },
   { value: 'pending_approval', label: 'Pending Approval' },
   { value: 'approved',         label: 'Approved' },
+  { value: 'rider_dispatched', label: 'Rider Dispatched' },
   { value: 'picked_up',        label: 'Picked Up' },
   { value: 'in_progress',      label: 'On Process' },
   { value: 'out_for_delivery', label: 'Out for Delivery' },
@@ -49,6 +51,7 @@ const STATUS_FILTER_OPTIONS = [
 const STATUS_CHIP = {
   pending_approval: 'text-amber-600 border-amber-300 bg-amber-50',
   approved:         'text-blue-600 border-blue-300 bg-blue-50',
+  rider_dispatched: 'text-cyan-600 border-cyan-300 bg-cyan-50',
   picked_up:        'text-indigo-600 border-indigo-300 bg-indigo-50',
   in_progress:      'text-blue-600 border-blue-300 bg-blue-50',
   out_for_delivery: 'text-purple-600 border-purple-300 bg-purple-50',
@@ -111,6 +114,14 @@ const getNextStatus = (current, steps) => {
   if (idx === -1 || idx === steps.length - 1) return null
   return steps[idx + 1]
 }
+
+const getUnlockAt = (appt) => {
+  const d = new Date(`${appt.slotDate}T${appt.slotTime}:00+08:00`)
+  return isNaN(d.getTime()) ? null : d
+}
+
+const formatUnlockLabel = (d) =>
+  d.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 const renderServices = (appt) => {
   if (Array.isArray(appt.services) && appt.services.length > 0) {
@@ -944,11 +955,19 @@ const AppointmentCard = ({
     appt.deliveryStatus === 'in_progress' &&
     !isWeighed
 
+  const unlockAt = getUnlockAt(appt)
+  const blockedByPickupTime =
+    appt.bookingSource === 'ONLINE' &&
+    !isSelfPickup &&
+    nextStatus?.status === 'rider_dispatched' &&
+    unlockAt !== null &&
+    Date.now() < unlockAt.getTime()
+
   const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
 
   const handleNextStatus = () => {
     if (!nextStatus) return
-    if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision || blockedByWeightConfirmation) return
+        if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision || blockedByWeightConfirmation || blockedByPickupTime) return
     const needsReceipt = isSelfPickup ? nextStatus.status === 'delivered' : nextStatus.status === 'out_for_delivery'
     if (needsReceipt) onReceipt({ ...appt, __targetStatus: nextStatus.status })
     else onNextStatus(appt.id, nextStatus.status)
@@ -1194,7 +1213,13 @@ const AppointmentCard = ({
               </>
             )}
 
-            {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && !blockedByWeightConfirmation && (
+                        {blockedByPickupTime && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Dispatch Rider available on {formatUnlockLabel(unlockAt)}
+              </p>
+            )}
+
+            {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && !blockedByWeightConfirmation && !blockedByPickupTime && (
               <button onClick={handleNextStatus}
                 className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>

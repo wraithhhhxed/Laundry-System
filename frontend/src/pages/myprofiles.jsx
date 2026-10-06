@@ -371,7 +371,7 @@ const MyProfiles = () => {
             <section>
               <div className='flex items-center gap-4 mb-6'>
                 <span className='uppercase tracking-[0.3em] text-[10px] text-blue-500 font-sans font-black whitespace-nowrap'>
-                  Loyalty Stamps
+                  SOAK-I card
                 </span>
                 <div className='h-px bg-blue-50 w-full' />
               </div>

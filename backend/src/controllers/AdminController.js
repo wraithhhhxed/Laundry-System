@@ -122,7 +122,7 @@ const approvePayment = asyncHandler(async (req, res) => {
 })
 
 const VALID_DELIVERY_STATUSES = [
-  'pending_approval', 'approved', 'picked_up',
+  'pending_approval', 'approved', 'rider_dispatched', 'picked_up',
   'in_progress', 'out_for_delivery', 'delivered',
 ]
 

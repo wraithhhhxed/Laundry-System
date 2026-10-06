@@ -13,7 +13,7 @@ import NotificationService from './NotificationService.js';
 import axios from 'axios';
 import prisma from '../config/prismaClient.js';
 
-const VALID_STATUSES = ['pending_approval', 'approved', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
+const VALID_STATUSES = ['pending_approval', 'approved', 'rider_dispatched', 'picked_up', 'in_progress', 'out_for_delivery', 'delivered', 'archived'];
 
 const isTaguigAddress = (addr) => {
   if (!addr) return false;
@@ -39,6 +39,12 @@ class AppointmentService {
     const slotDateTime = new Date(`${slotDate}T${slotTime}`);
     if (isNaN(slotDateTime.getTime()))
       throw new ApiError(400, 'Invalid slot date or time format');
+
+    const MAX_ADVANCE_DAYS = 7;
+    const maxBookingDate = new Date();
+    maxBookingDate.setDate(maxBookingDate.getDate() + MAX_ADVANCE_DAYS + 1);
+    if (slotDate > maxBookingDate.toISOString().split('T')[0])
+      throw new ApiError(400, `Bookings can only be made up to ${MAX_ADVANCE_DAYS} days in advance`);
 
     const deliveryFee = computeDeliveryFee(servicesInput?.length || 0);
 
@@ -346,7 +352,7 @@ class AppointmentService {
           const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
 
           let remainingKg = excessKg;
-          while (remainingKg > 0) {
+          while (remainingKg >= 0.01) {
             const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
             addedBaskets += 1;
             await AppointmentRepository.addSplitLoad(appointmentId, {
@@ -649,10 +655,34 @@ class AppointmentService {
     if (appointment.branchId !== branchId)
       throw new ApiError(403, 'Unauthorized');
 
-    const fromStatus = appointment.deliveryStatus;
+        const fromStatus = appointment.deliveryStatus;
+
+    if (newStatus === 'rider_dispatched' && appointment.bookingSource !== 'WALK_IN') {
+      const unlockAt = new Date(`${appointment.slotDate}T${appointment.slotTime}:00+08:00`);
+      if (!isNaN(unlockAt.getTime()) && Date.now() < unlockAt.getTime())
+        throw new ApiError(400, 'Rider can only be dispatched at or after the scheduled pickup time');
+    }
 
     const updates = { deliveryStatus: newStatus };
     if (newStatus === 'delivered') updates.isCompleted = true;
+
+    if (newStatus === 'rider_dispatched') {
+      try {
+        const userEmail = appointment.userData?.email;
+        if (userEmail) {
+          await EmailService.sendRiderDispatchedEmail(userEmail, appointment);
+        }
+      } catch (err) {
+        console.warn(`[Email] Rider dispatched email failed: ${err.message}`);
+      }
+
+      await NotificationService.create(
+        appointment.userId,
+        'rider_dispatched',
+        'Rider Dispatched',
+        'A rider has been dispatched to pick up your laundry.'
+      );
+    }
 
     if (newStatus === 'picked_up') {
       try {
@@ -989,7 +1019,7 @@ class AppointmentService {
               const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
 
               let remainingKg = excessKg;
-              while (remainingKg > 0) {
+              while (remainingKg >= 0.01) {
                 const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
                 addedBaskets += 1;
                 await AppointmentRepository.addSplitLoad(appointment.id, {

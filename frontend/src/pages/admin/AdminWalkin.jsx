@@ -788,7 +788,7 @@ const AdminWalkIn = () => {
 
         {!locked && foundUser && lookupState === 'found' && (
           <>
-            <SectionLabel>Customer Loyalty</SectionLabel>
+            <SectionLabel>SOAK-I card</SectionLabel>
             <Divider />
             <div className="mb-10 bg-blue-50 border border-blue-100 px-5 py-4">
               <div className="grid grid-cols-10 gap-2 mb-4">

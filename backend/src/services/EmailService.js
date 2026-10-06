@@ -57,6 +57,56 @@ class EmailService {
     }
   }
 
+    async sendRiderDispatchedEmail(userEmail, appointment) {
+    if (!userEmail) {
+      console.warn('[Email] No email provided for rider dispatched notification');
+      return;
+    }
+
+    try {
+      const branchName = appointment.branch?.name || 'Selfie Wash';
+      const appointmentId = appointment.id;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f7faff;">
+          <div style="background: #2563eb; color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 700;">Rider On The Way</h1>
+          </div>
+
+          <div style="background: white; padding: 24px; border: 1px solid #dbeafe;">
+            <p style="font-size: 16px; color: #1f2937;">Hi there,</p>
+
+            <p style="font-size: 15px; color: #374151; line-height: 1.6;">Our rider is on the way to pick up your laundry at your pickup address. Please have it ready.</p>
+
+            <div style="background-color: #eff6ff; padding: 16px; border-left: 4px solid #2563eb; margin: 20px 0;">
+              <p style="margin: 5px 0; color: #1f2937; font-size: 14px;"><strong>Appointment ID:</strong> ${appointmentId}</p>
+              <p style="margin: 5px 0; color: #1f2937; font-size: 14px;"><strong>Branch:</strong> ${branchName}</p>
+              <p style="margin: 5px 0; color: #1f2937; font-size: 14px;"><strong>Status:</strong> Rider Dispatched</p>
+            </div>
+
+            <p style="font-size: 15px; color: #1f2937;">Thank you for choosing Selfie Wash!</p>
+
+            <hr style="border: none; border-top: 1px solid #dbeafe; margin: 20px 0;">
+            <p style="color: #9ca3af; font-size: 12px; text-align: center;">Selfie Wash Laundry System | Hagonoy, Taguig</p>
+          </div>
+        </div>
+      `;
+
+      const response = await resend.emails.send({
+        from: SENDER_EMAIL,
+        to: userEmail,
+        subject: 'Your Rider Is On The Way — Selfie Wash',
+        html,
+      });
+
+      console.log(`[Email] Rider dispatched email sent to ${userEmail}:`, response);
+      return response;
+    } catch (error) {
+      console.error(`[Email] Failed to send rider dispatched email: ${error.message}`);
+      throw error;
+    }
+  }
+
   async sendDeliveryCompletedEmail(userEmail, appointment) {
     if (!userEmail) {
       console.warn('[Email] No email provided for delivery completed notification');

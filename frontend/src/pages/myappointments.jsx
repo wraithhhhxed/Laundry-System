@@ -5,6 +5,7 @@ import { toast } from 'react-toastify'
 const DELIVERY_STATUS_MAP = {
   pending_approval: { label: 'Waiting for Approval', color: 'text-amber-600 bg-amber-50 border-amber-200' },
   approved:         { label: 'Approved',              color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  rider_dispatched: { label: 'Rider On The Way',      color: 'text-cyan-600 bg-cyan-50 border-cyan-200' },
   picked_up:        { label: 'Picked Up',             color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
   in_progress:      { label: 'On Process',            color: 'text-blue-600 bg-blue-50 border-blue-200' },
   out_for_delivery: { label: 'Out for Delivery',      color: 'text-purple-600 bg-purple-50 border-purple-200' },
