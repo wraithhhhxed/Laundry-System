@@ -36,9 +36,13 @@ const TIME_SLOTS = [
   '16:00',
 ]
 
+const getTodayManila = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+
 const getAvailableTimeSlots = (selectedDate) => {
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = getTodayManila()
   if (selectedDate !== todayStr) return TIME_SLOTS
+
   const now = new Date()
   const cutoff = now.getHours() * 60 + now.getMinutes() + 30
   return TIME_SLOTS.filter(slot => {
@@ -430,10 +434,10 @@ const Appointment = () => {
     if (promoResult) { setPromoResult(null); setPromoInput(''); setPromoError('') }
   }, [totalAmount])
 
-  const getMinDate = () => new Date().toISOString().split('T')[0]
+   const getMinDate = () => getTodayManila()
   const getMaxDate = () => {
-    const d = new Date(); d.setDate(d.getDate() + MAX_ADVANCE_DAYS)
-    return d.toISOString().split('T')[0]
+    const [y, m, d] = getTodayManila().split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d + MAX_ADVANCE_DAYS)).toISOString().split('T')[0]
   }
 
   const isSlotFull = (date, time) => {
@@ -496,7 +500,7 @@ const Appointment = () => {
   const bookAppointment = async () => {
     if (!selectedDate || !selectedTime) return toast.error('Please select date and time')
     if (isPastDate(selectedDate)) return toast.error('Selected date has already passed.')
-    const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = getTodayManila()
     if (selectedDate === todayStr) {
       const available = getAvailableTimeSlots(selectedDate)
       if (!available.includes(selectedTime)) return toast.error('That time slot has already passed.')
