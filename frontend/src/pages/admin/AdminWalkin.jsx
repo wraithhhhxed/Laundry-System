@@ -440,8 +440,12 @@ const AdminWalkIn = () => {
       ? getServicePrice(matchedFreeServiceBasket.serviceId)
       : 0
 
-  const discountAmount = stampDiscount + luckyDiscount
-  const finalEstimate = Math.max(0, estimatedTotal - discountAmount)
+    const discountAmount = stampDiscount + luckyDiscount
+  // Delivery fee: only for DELIVERY. 30 + 20 per extra basket. NOT discounted. Keep in sync with backend computeDeliveryFee.
+  const deliveryFee = fulfillmentMethod === 'DELIVERY' && baskets.length > 0
+    ? 30 + 20 * (baskets.length - 1)
+    : 0
+  const finalEstimate = Math.max(0, estimatedTotal - discountAmount) + deliveryFee
 
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
@@ -501,17 +505,17 @@ const AdminWalkIn = () => {
       } else {
         newBaskets.push({ key: basket.key, serviceId: basket.serviceId, actualKg: 7 })
 
-        let remaining = weight - 7
-        while (remaining > 0) {
+                let remaining = parseFloat((weight - 7).toFixed(2))
+        while (remaining >= 0.01) {
           const basketKg = parseFloat(Math.min(7, remaining).toFixed(2))
           newBaskets.push({ key: newBasketKey(), serviceId: basket.serviceId, actualKg: basketKg })
-          remaining -= basketKg
+          remaining = parseFloat((remaining - basketKg).toFixed(2))
         }
       }
     }
 
     if (newBaskets.length > MAX_BASKETS) {
-      toast.error(`Splitting would exceed ${MAX_BASKETS} baskets. Choose Trim to 7kg instead.`)
+      toast.error(`Split would make ${newBaskets.length} baskets (max ${MAX_BASKETS}). Reduce the weight or choose Trim to 7kg.`)
       return
     }
 
@@ -1283,7 +1287,18 @@ const AdminWalkIn = () => {
             </div>
           )}
 
-          {(autoPromo || luckyDiscount > 0) && (
+                    {deliveryFee > 0 && (
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-blue-100">
+              <span className="font-sans text-xs uppercase tracking-widest text-neutral-600 font-bold">
+                Delivery fee ({baskets.length} basket{baskets.length > 1 ? 's' : ''})
+              </span>
+              <span className="font-sans text-sm font-bold text-neutral-700">
+                + {fmt(deliveryFee)}
+              </span>
+            </div>
+          )}
+
+          {(autoPromo || luckyDiscount > 0 || deliveryFee > 0) && (
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-blue-200">
               <span className="font-sans text-xs uppercase tracking-widest text-blue-700 font-bold">Final Estimated Total</span>
               <span className="font-sans font-black text-blue-700 text-xl" style={{ letterSpacing: '-0.02em' }}>

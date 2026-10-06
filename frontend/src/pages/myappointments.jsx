@@ -135,8 +135,9 @@ const AmountDisplay = ({ item, currencySymbol }) => {
 
   return (
     <div className='text-right shrink-0'>
-      {hasDiscount && <p className='font-sans text-sm line-through text-neutral-300'>{fmt(item.totalAmount, sym)}</p>}
-      {vatPercent > 0 && <p className='font-sans text-xs text-neutral-400'>VAT {vatPercent}% incl.</p>}
+          {hasDiscount && <p className='font-sans text-sm line-through text-neutral-300'>{fmt(amount + item.discountAmount, sym)}</p>}
+            {vatPercent > 0 && <p className='font-sans text-xs text-neutral-400'>VAT {vatPercent}% incl.</p>}
+      {item.deliveryFee > 0 && <p className='font-sans text-xs text-neutral-400'>incl. delivery fee {fmt(item.deliveryFee, sym)}</p>}
       <p className='font-bold text-blue-900' style={{ fontSize: '18px', letterSpacing: '-0.02em' }}>{fmt(amount, sym)}</p>
     </div>
   )

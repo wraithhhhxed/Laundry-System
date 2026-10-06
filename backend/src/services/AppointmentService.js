@@ -21,6 +21,9 @@ const isTaguigAddress = (addr) => {
   return /taguig/i.test(text);
 };
 
+const computeDeliveryFee = (basketCount) =>
+  basketCount > 0 ? 30 + 20 * (basketCount - 1) : 0;
+
 class AppointmentService {
 
   async bookAppointment(userId, branchId, slotDate, slotTime, servicesInput, extraDetails = {}, promoCode = null, addOns = [], actor = null) {
@@ -36,6 +39,8 @@ class AppointmentService {
     const slotDateTime = new Date(`${slotDate}T${slotTime}`);
     if (isNaN(slotDateTime.getTime()))
       throw new ApiError(400, 'Invalid slot date or time format');
+
+    const deliveryFee = computeDeliveryFee(servicesInput?.length || 0);
 
     if (!servicesInput || servicesInput.length === 0)
       throw new ApiError(400, 'At least one service is required');
@@ -64,7 +69,6 @@ class AppointmentService {
       servicesTotal += service.price;
     }
 
-    // Each add-on must belong to a valid basket (0-based) or be null
     addOns = addOns.map((a) => {
       const idx = a.basketIndex;
       if (idx === undefined || idx === null) return { ...a, basketIndex: null };
@@ -122,7 +126,7 @@ class AppointmentService {
     let finalAmount;
 
     try {
-      const discountedBase = subtotal - discountAmount;
+      const discountedBase = subtotal + deliveryFee - discountAmount;
       vatRate = await SettingService.getVatRate();
       finalAmount = parseFloat(discountedBase.toFixed(2));
       vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
@@ -166,7 +170,8 @@ class AppointmentService {
           addOns,
           servicesTotal,
           addOnsTotal,
-          totalAmount: subtotal - discountAmount,
+          deliveryFee,
+          totalAmount: subtotal + deliveryFee - discountAmount,
           vatRate,
           vatAmount,
           promoCodeId,
@@ -232,9 +237,21 @@ class AppointmentService {
         throw new ApiError(400, `Basket ${serviceIndex + 1}: actual weight must be a valid number`);
       if (parsed <= 0)
         throw new ApiError(400, `Basket ${serviceIndex + 1}: actual weight must be greater than 0`);
-      if (parsed > 50)
-        throw new ApiError(400, `Basket ${serviceIndex + 1}: actual weight of ${parsed}kg seems unrealistic (max 50kg per basket)`);
+      if (parsed > 70)
+        throw new ApiError(400, `Basket ${serviceIndex + 1}: actual weight of ${parsed}kg seems unrealistic (max 70kg per basket)`);
     }
+
+    const kgByIndex = new Map();
+    appointment.services.forEach((s, i) => kgByIndex.set(i, Number(s.actualKg ?? s.kg ?? 0)));
+    for (const { serviceIndex, actualKg } of actualServices) {
+      kgByIndex.set(serviceIndex, Number(actualKg));
+    }
+    let basketsAfterSplit = 0;
+    for (const kg of kgByIndex.values()) {
+      basketsAfterSplit += Math.max(1, Math.ceil(parseFloat(kg.toFixed(2)) / 7));
+    }
+    if (basketsAfterSplit > 10)
+      throw new ApiError(400, `Total would be ${basketsAfterSplit} baskets after splitting (max 10). Please reduce the weight.`);
 
     const beforeSnapshot = appointment.services.map((s) => ({
       serviceId: s.serviceId,
@@ -323,6 +340,7 @@ class AppointmentService {
       }
     } else {
       let addedPriceTotal = 0;
+      let addedBaskets = 0;
       for (const svc of appointment.services) {
         if (svc.actualKg != null && svc.actualKg > 7) {
           const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
@@ -330,6 +348,7 @@ class AppointmentService {
           let remainingKg = excessKg;
           while (remainingKg > 0) {
             const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
+            addedBaskets += 1;
             await AppointmentRepository.addSplitLoad(appointmentId, {
               serviceId: svc.serviceId,
               name: svc.name,
@@ -337,7 +356,7 @@ class AppointmentService {
               kg: basketKg,
             });
             addedPriceTotal += svc.price ?? 0;
-            remainingKg -= basketKg;
+            remainingKg = parseFloat((remainingKg - basketKg).toFixed(2));
           }
 
           await AppointmentRepository.updateServiceActualKg(svc.id, 7);
@@ -346,12 +365,16 @@ class AppointmentService {
 
       if (addedPriceTotal > 0) {
         const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
-        const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
+        const newDeliveryFee = (appointment.deliveryFee ?? 0) > 0
+          ? computeDeliveryFee(appointment.services.length + addedBaskets)
+          : 0;
+        const newSubtotal = newServicesTotal + appointment.addOnsTotal + newDeliveryFee - appointment.discountAmount;
         const newFinalAmount = parseFloat(newSubtotal.toFixed(2));
         const newVatAmount = parseFloat((newFinalAmount - newFinalAmount / (1 + appointment.vatRate)).toFixed(2));
 
         await AppointmentRepository.updateById(appointmentId, {
           servicesTotal: newServicesTotal,
+          deliveryFee: newDeliveryFee,
           totalAmount: newSubtotal,
           vatAmount: newVatAmount,
           finalAmount: newFinalAmount,
@@ -599,7 +622,6 @@ class AppointmentService {
     const userEmail = appointment.userData?.email;
     if (!userEmail) return { sent: false, reason: 'no_email' };
 
-    // Claim first so a double-click cannot send twice
     const claim = await prisma.appointment.updateMany({
       where: { id: appointmentId, receiptEmailSentAt: null },
       data: { receiptEmailSentAt: new Date() },
@@ -610,7 +632,6 @@ class AppointmentService {
       await EmailService.sendReceiptEmail(userEmail, appointment);
       return { sent: true };
     } catch (err) {
-      // release the claim so staff can try again
       await prisma.appointment.update({
         where: { id: appointmentId },
         data: { receiptEmailSentAt: null },
@@ -709,7 +730,7 @@ class AppointmentService {
             'Reward Unlocked!',
             'You now have 9 stamps — your 10th order gets 50% OFF!'
           );
-          } else if (newStampCount === 20) {
+        } else if (newStampCount === 20) {
           await NotificationService.create(
             appointment.userId,
             'stamp_milestone_20',
@@ -760,6 +781,8 @@ class AppointmentService {
 
     const slotDate = new Date().toISOString().split('T')[0];
 
+    const deliveryFee = fulfillmentMethod === 'DELIVERY' ? computeDeliveryFee(servicesInput?.length || 0) : 0;
+
     if (!servicesInput || servicesInput.length === 0)
       throw new ApiError(400, 'At least one service is required');
     if (servicesInput.length > 10)
@@ -770,8 +793,8 @@ class AppointmentService {
 
     for (const item of servicesInput) {
       const { serviceId, actualKg } = item;
-      if (!actualKg || actualKg < 1 || actualKg > 50)
-        throw new ApiError(400, `Actual weight must be between 1 and 50kg (got ${actualKg})`);
+      if (!actualKg || actualKg < 1 || actualKg > 70)
+        throw new ApiError(400, `Actual weight must be between 1 and 70kg (got ${actualKg})`);
 
       const service = await ServiceRepository.findById(serviceId);
       if (!service) throw new ApiError(400, `Service not found: ${serviceId}`);
@@ -787,7 +810,16 @@ class AppointmentService {
       servicesTotal += service.price;
     }
 
-    // Each add-on must belong to a valid basket (0-based) or be null
+    // Max 10 baskets AFTER split (trim does not add baskets)
+    if (overweightResolution !== 'trim') {
+      let basketsAfterSplit = 0;
+      for (const s of enrichedServices) {
+        basketsAfterSplit += Math.max(1, Math.ceil(parseFloat(Number(s.actualKg).toFixed(2)) / 7));
+      }
+      if (basketsAfterSplit > 10)
+        throw new ApiError(400, `Total would be ${basketsAfterSplit} baskets after splitting (max 10). Please reduce the weight or choose Trim.`);
+    }
+
     addOns = addOns.map((a) => {
       const idx = a.basketIndex;
       if (idx === undefined || idx === null) return { ...a, basketIndex: null };
@@ -855,7 +887,7 @@ class AppointmentService {
     let finalAmount;
 
     try {
-      const discountedBase = subtotal - discountAmount;
+      const discountedBase = subtotal + deliveryFee - discountAmount;
       vatRate = await SettingService.getVatRate();
       finalAmount = parseFloat(discountedBase.toFixed(2));
       vatAmount = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2));
@@ -905,7 +937,8 @@ class AppointmentService {
           addOns,
           servicesTotal,
           addOnsTotal,
-          totalAmount: subtotal - discountAmount,
+          deliveryFee,
+          totalAmount: subtotal + deliveryFee - discountAmount,
           vatRate,
           vatAmount,
           promoCodeId,
@@ -950,6 +983,7 @@ class AppointmentService {
 
         if (overweightResolution === 'split') {
           let addedPriceTotal = 0;
+          let addedBaskets = 0;
           for (const svc of appointment.services) {
             if (svc.actualKg != null && svc.actualKg > 7) {
               const excessKg = parseFloat((svc.actualKg - 7).toFixed(2));
@@ -957,6 +991,7 @@ class AppointmentService {
               let remainingKg = excessKg;
               while (remainingKg > 0) {
                 const basketKg = parseFloat(Math.min(7, remainingKg).toFixed(2));
+                addedBaskets += 1;
                 await AppointmentRepository.addSplitLoad(appointment.id, {
                   serviceId: svc.serviceId,
                   name: svc.name,
@@ -964,7 +999,7 @@ class AppointmentService {
                   kg: basketKg,
                 });
                 addedPriceTotal += svc.price ?? 0;
-                remainingKg -= basketKg;
+                remainingKg = parseFloat((remainingKg - basketKg).toFixed(2));
               }
 
               await AppointmentRepository.updateServiceActualKg(svc.id, 7);
@@ -973,12 +1008,16 @@ class AppointmentService {
 
           if (addedPriceTotal > 0) {
             const newServicesTotal = appointment.servicesTotal + addedPriceTotal;
-            const newSubtotal = newServicesTotal + appointment.addOnsTotal - appointment.discountAmount;
+            const newDeliveryFee = fulfillmentMethod === 'DELIVERY'
+              ? computeDeliveryFee(appointment.services.length + addedBaskets)
+              : 0;
+            const newSubtotal = newServicesTotal + appointment.addOnsTotal + newDeliveryFee - appointment.discountAmount;
             const newFinalAmount = parseFloat(newSubtotal.toFixed(2));
             const newVatAmount = parseFloat((newFinalAmount - newFinalAmount / (1 + appointment.vatRate)).toFixed(2));
 
             await AppointmentRepository.updateById(appointment.id, {
               servicesTotal: newServicesTotal,
+              deliveryFee: newDeliveryFee,
               totalAmount: newSubtotal,
               vatAmount: newVatAmount,
               finalAmount: newFinalAmount,
@@ -1175,4 +1214,3 @@ class AppointmentService {
 }
 
 export default new AppointmentService();
-

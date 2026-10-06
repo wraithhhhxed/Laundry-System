@@ -105,6 +105,7 @@ model Appointment {
   discountValue          Float                     @default(0)
   discountAmount         Float                     @default(0)
   finalAmount            Float
+  deliveryFee Float @default(0)
   weightConfirmedAt      DateTime?
   weightConfirmedBy      String?
   preferredPaymentMethod String                    @default("cash")

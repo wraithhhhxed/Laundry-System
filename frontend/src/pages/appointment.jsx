@@ -9,6 +9,9 @@ const STEPS = ['Service', 'Weight & Details', 'Add-ons', 'Schedule & Confirm']
 
 const KG_OPTIONS = [1, 2, 3, 4, 5, 6, 7]
 
+// Maximum advance booking window (days from today)
+const MAX_ADVANCE_DAYS = 7
+
 const PAYMENT_METHODS = [
   { value: 'cash',   label: 'Cash on Delivery', desc: 'Pay in cash when your laundry is delivered.' },
   { value: 'online', label: 'Online Payment',   desc: 'Pay via GCash, card, or bank transfer through a secure payment link sent once your laundry is weighed.' },
@@ -393,6 +396,7 @@ const Appointment = () => {
   const basketsTotal = baskets.reduce((sum, b) => sum + (b.service?.price || 0), 0)
   const addOnsTotal   = selectedAddOns.reduce((sum, a) => sum + a.price * a.quantity, 0)
   const totalAmount   = basketsTotal + addOnsTotal
+  const deliveryFee   = baskets.length > 0 ? 30 + 20 * (baskets.length - 1) : 0
 
   const autoPromo = (() => {
     if (!loyaltyStatus) return null
@@ -416,7 +420,7 @@ const Appointment = () => {
 
   const luckyDiscount = luckySpin ? Math.min(50, Math.max(0, totalAmount - (autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)))) : 0
   const discountAmount = (autoPromo ? autoPromoDiscount : (promoResult?.discountAmount ?? 0)) + luckyDiscount
-  const discountedBase = totalAmount - discountAmount
+  const discountedBase = totalAmount - discountAmount + deliveryFee
 
   const finalAmount    = parseFloat(discountedBase.toFixed(2))
   const vatAmount      = parseFloat((finalAmount - finalAmount / (1 + vatRate)).toFixed(2))
@@ -428,7 +432,7 @@ const Appointment = () => {
 
   const getMinDate = () => new Date().toISOString().split('T')[0]
   const getMaxDate = () => {
-    const d = new Date(); d.setDate(d.getDate() + 30)
+    const d = new Date(); d.setDate(d.getDate() + MAX_ADVANCE_DAYS)
     return d.toISOString().split('T')[0]
   }
 
@@ -496,6 +500,9 @@ const Appointment = () => {
     if (selectedDate === todayStr) {
       const available = getAvailableTimeSlots(selectedDate)
       if (!available.includes(selectedTime)) return toast.error('That time slot has already passed.')
+    }
+    if (selectedDate > getMaxDate()) {
+      return toast.error(`Bookings can only be made up to ${MAX_ADVANCE_DAYS} days in advance.`)
     }
     if (isSlotFull(selectedDate, selectedTime))
       return toast.warning('This time slot is already full. Please choose another time.')
@@ -589,9 +596,16 @@ const Appointment = () => {
             <span>−₱{luckyDiscount.toFixed(2)}</span>
           </div>
         )}
+                {deliveryFee > 0 && (
+          <div className='flex justify-between text-neutral-600'>
+            <span>Delivery fee ({baskets.length} {baskets.length === 1 ? 'basket' : 'baskets'})</span>
+            <span>₱{deliveryFee.toFixed(2)}</span>
+          </div>
+        )}
         <div className='h-px bg-blue-200 my-1' />
         <div className='flex justify-between text-blue-700 font-bold text-base'>
-          <span>Estimated Total</span><span>₱{finalAmount.toFixed(2)}</span>
+          <span>Estimated Total</span>
+          <span>₱{finalAmount.toFixed(2)}</span>
         </div>
         {vatAmount > 0 && (
           <p className='font-sans text-[10px] text-neutral-400 text-right'>
@@ -1001,10 +1015,16 @@ const Appointment = () => {
                   onChange={e => {
                     const val = e.target.value
                     if (isPastDate(val)) { toast.error('That date has already passed.'); return }
+                    if (val > getMaxDate()) {
+                      toast.error(`Bookings can only be made up to ${MAX_ADVANCE_DAYS} days in advance.`)
+                      return
+                    }
                     setSelectedDate(val)
                   }}
                   min={getMinDate()} max={getMaxDate()} className={inputCls} />
-                <p className='font-sans text-xs text-neutral-400 mt-1'>Available within 30 days from today.</p>
+                <p className='font-sans text-xs text-neutral-400 mt-1'>
+                  Available within {MAX_ADVANCE_DAYS} days from today.
+                </p>
               </div>
               <div>
                 <SectionLabel>Pickup Time <span className='text-red-400'>*</span> — 8:00 AM to 4:00 PM</SectionLabel>

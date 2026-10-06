@@ -206,7 +206,7 @@ class EmailService {
       const html = `
         <div style="font-family:'Courier New',monospace;max-width:360px;margin:0 auto;padding:20px;background:#fff;color:#111;font-size:13px;border:1px solid #ddd;">
           <div style="text-align:center;">
-            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;">Client Copy</div>
+            <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888;">Customer's Copy</div>
             <div style="font-size:20px;font-weight:900;">SELFIE WASH</div>
             <div style="font-size:10px;color:#555;">Official Service Receipt</div>
             <div style="font-size:10px;color:#555;margin-top:6px;">${receiptDate} · ${receiptTime}</div>
@@ -226,7 +226,8 @@ class EmailService {
           <table width="100%" style="font-size:13px;">
             ${hasActual ? row('Estimated', `<s style="color:#999;">${fmt(estimated)}</s>`) : ''}
             ${hasActual && a.overweightChargeTotal > 0 ? row('Overweight total', `+${fmt(a.overweightChargeTotal)}`) : ''}
-            ${a.discountAmount > 0 ? row(`Discount (${a.promoCode || ''})`, `-${fmt(a.discountAmount)}`) : ''}
+                        ${a.discountAmount > 0 ? row(`Discount (${a.promoCode || ''})`, `-${fmt(a.discountAmount)}`) : ''}
+            ${a.deliveryFee > 0 ? row('Delivery fee', `+${fmt(a.deliveryFee)}`) : ''}
             <tr><td colspan="2"><hr style="border:none;border-top:1px dashed #999;margin:6px 0;"></td></tr>
             ${row('TOTAL', fmt(finalAmt), 'font-size:15px;font-weight:900;color:#111;')}
             ${vatPercent > 0 ? row('VATable Sales', fmt(vatableSales), 'font-size:11px;') : ''}
