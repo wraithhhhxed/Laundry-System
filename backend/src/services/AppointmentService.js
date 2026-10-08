@@ -24,6 +24,8 @@ const isTaguigAddress = (addr) => {
 const computeDeliveryFee = (basketCount) =>
   basketCount > 0 ? 30 + 20 * (basketCount - 1) : 0;
 
+const toUserSnapshot = (u) => u ? { id: u.id, name: u.name, email: u.email, phone: u.phone, image: u.image } : null;
+
 const APPROVE_WINDOW_HOURS = 24;
 
 export const assertApprovable = (appointment) => {
@@ -58,6 +60,7 @@ class AppointmentService {
     maxBookingDate.setDate(maxBookingDate.getDate() + MAX_ADVANCE_DAYS + 1);
     if (slotDate > maxBookingDate.toISOString().split('T')[0])
       throw new ApiError(400, `Bookings can only be made up to ${MAX_ADVANCE_DAYS} days in advance`);
+
 
     const deliveryFee = computeDeliveryFee(servicesInput?.length || 0);
 
@@ -183,7 +186,7 @@ class AppointmentService {
           luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
           luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
           branchData: branch,
-          userData: user,
+          userData: toUserSnapshot(user),
           services: enrichedServices,
           clothingTypes: [],
           addOns,
@@ -1076,7 +1079,7 @@ class AppointmentService {
           luckyWheelPrizeType: luckySpin ? luckyPrizeType : null,
           luckyWheelPrizeLabel: luckySpin ? luckyPrizeLabel : null,
           branchData: branch,
-          userData: user,
+          userData: toUserSnapshot(user),
           services: enrichedServices,
           clothingTypes: [],
           addOns,
