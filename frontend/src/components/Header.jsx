@@ -115,7 +115,7 @@ function Header() {
   className="group relative overflow-hidden bg-orange-500 text-white px-6 md:px-8 py-3 md:py-3.5 font-sans text-[10px] md:text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2"
   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}
 >
-  <span className="relative z-10">Book Now</span>
+  <span className="relative z-10">See our services.</span>
   <img src={assets.arrow_icon} className="w-2 md:w-3 invert" alt="" />
   <div className="absolute inset-0 bg-orange-600 translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
 </a>

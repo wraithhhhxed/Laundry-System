@@ -1,7 +1,7 @@
 import React from 'react'
 import Header from '../components/Header'
 import SpecialityMenu from '../components/SpecialityMenu'
-import FeaturedBranches from '../components/FeaturedBranches'
+// import FeaturedBranches from '../components/FeaturedBranches'
 import Banner from '../components/Banner'
 import HomeFaqs from '../components/HomeFaqs'
 
@@ -10,7 +10,7 @@ const Home = () => {
     <div>
       <Header />
       <SpecialityMenu />
-      <FeaturedBranches />
+      {/* <FeaturedBranches /> */}
       <HomeFaqs />
       <Banner />
     </div>

@@ -231,17 +231,31 @@ const BranchesContextProvider = (props) => {
     }
   }
 
-  const updateDeliveryStatus = async (appointmentId, status) => {
+  const updateDeliveryStatus = async (appointmentId, status, machineNumber) => {
     try {
       const { data } = await axios.post(
         backendUrl + '/api/branch/update-delivery-status',
-        { appointmentId, status },
+        { appointmentId, status, machineNumber },
         { headers: authHeader(bToken) }
       )
       if (data.success) { toast.success('Status updated'); debouncedRefresh() }
       else toast.error(data.message)
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.response?.data?.message || error.message)
+    }
+  }
+
+  const releaseMachine = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/branch/release-machine',
+        { appointmentId },
+        { headers: authHeader(bToken) }
+      )
+      if (data.success) { toast.success('Machine released'); debouncedRefresh() }
+      else toast.error(data.message)
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
     }
   }
 
@@ -424,6 +438,7 @@ const BranchesContextProvider = (props) => {
     completeAppointment, cancelAppointment,
     dashData, getBranchDashboard,
     updateDeliveryStatus,
+    releaseMachine,
     emailReceipt,
     confirmActualWeight,
     archiveAppointment,

@@ -4,9 +4,9 @@ import { AdminContext } from '../../context/AdminContext'
 import { toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
 import {
-  Search, UserCheck, UserX, Trash2, Pencil,
-  X, Check, ChevronLeft, ChevronRight, Building2,
-  AlertTriangle, KeyRound, Eye, EyeOff, UserPlus, Users
+  UserCheck, UserX, Trash2, Pencil,
+  X, Check, Building2,
+  AlertTriangle, KeyRound, Eye, EyeOff, Users, Plus
 } from 'lucide-react'
 
 const DEFAULT_IMG = 'https://ui-avatars.com/api/?background=2563eb&color=fff&name='
@@ -140,29 +140,25 @@ const makePasteHandler = (sanitize, setter) => (e) => {
 // ── Service name shortener ────────────────────────────────────────────────────
 const shortenServiceName = (name) => {
   if (!name) return 'Unknown'
-  
+
   const shortMap = {
-    'DIY Self-Service': 'DIY Self',
-    'Drop-off (2Sabon 2Downy +Booster)': 'Drop-off (2S+2D+B)',
-    'Full Service(1 Sabon 1DownyWash-Dry-Fold)': 'Full Svc (1S+1D)',
-    'Full Service(2 Sabon 2Downy +Booster)': 'Full Svc (2S+2D+B)',
-    'Drop-off (1Sabon 1Downy)': 'Drop-off (1S+1D)',
-    'Drop-off (2Detergent, 2FabricConditioner+ Booste': 'Drop-off (2D+2FC+B)',
-    'Full Service Wash-Dry-Fold (1 Detergent, 1 Fabric Conditioner)': 'Full Svc (1D+1FC)',
-    'Drop-off (2 Detergent, 2 Fabric Conditioner + Booster)': 'Drop-off (2D+2FC+B)',
-    'Full Service (1 Detergent, 1 Fabric Conditioner)': 'Full Svc (1D+1FC)',
+    'DIY Self-Service': 'DIY Self-Service',
+    'Drop-off (2Sabon 2Downy +Booster)': 'Drop-off (2 Sabon, 2 Downy + Booster)',
+    'Full Service(1 Sabon 1DownyWash-Dry-Fold)': 'Full Service (1 Sabon, 1 Downy)',
+    'Full Service(2 Sabon 2Downy +Booster)': 'Full Service (2 Sabon, 2 Downy + Booster)',
+    'Drop-off (1Sabon 1Downy)': 'Drop-off (1 Sabon, 1 Downy)',
+    'Drop-off (2Detergent, 2FabricConditioner+ Booste': 'Drop-off (2 Detergent, 2 Fabric Conditioner + Booster)',
+    'Full Service Wash-Dry-Fold (1 Detergent, 1 Fabric Conditioner)': 'Full Service Wash-Dry-Fold (1 Detergent, 1 Fabric Conditioner)',
+    'Drop-off (2 Detergent, 2 Fabric Conditioner + Booster)': 'Drop-off (2 Detergent, 2 Fabric Conditioner + Booster)',
+    'Full Service (1 Detergent, 1 Fabric Conditioner)': 'Full Service (1 Detergent, 1 Fabric Conditioner)',
   }
-  
+
   if (shortMap[name]) return shortMap[name]
-  
+
   for (const [key, value] of Object.entries(shortMap)) {
     if (name.includes(key) || key.includes(name)) return value
   }
-  
-  if (name.length > 25) {
-    return name.substring(0, 22) + '…'
-  }
-  
+
   return name
 }
 
@@ -204,8 +200,6 @@ const BranchMaintenance = () => {
   const [staffListLoading, setStaffListLoading] = useState(false)
   const [deletingStaffId, setDeletingStaffId]   = useState(null)
 
-  const [selectBranchForStaff, setSelectBranchForStaff] = useState(false)
-
   useEffect(() => { if (!services.length) getAllServices() }, [])
   const activeServices = services.filter(s => s.isActive)
 
@@ -224,15 +218,17 @@ const BranchMaintenance = () => {
       if (search)            params.search    = search
       if (filterStatus !== '') params.available = filterStatus
       const { data } = await axios.get(backendUrl + '/api/admin/branches', { headers: { token: aToken }, params })
-      if (data.success) { setBranches(data.data.branches); setTotal(data.data.total); setPages(data.data.pages) }
+      if (data.success) {
+        const all = data.data.branches
+        const main = all.find(b => b.name.trim().toLowerCase() === 'hagonoy') || all[0]
+        setBranches(main ? [main] : []); setTotal(main ? 1 : 0); setPages(1)
+      }
       else toast.error(data.message)
     } catch { toast.error('Failed to load branches') }
     finally { setLoading(false) }
   }
 
   useEffect(() => { fetchBranches() }, [page, filterStatus])
-
-  const handleSearch = (e) => { e.preventDefault(); setPage(1); fetchBranches() }
 
   const handleToggleStatus = async (branch) => {
     setTogglingId(branch.id)
@@ -403,14 +399,11 @@ const BranchMaintenance = () => {
     }
   }
 
-  const activeCount   = branches.filter(b =>  b.available).length
-  const inactiveCount = branches.filter(b => !b.available).length
   const passInvalid   = newPassword.length > 0 && !pwIsValid(newPassword)
   const passMismatch  = confirmPass.length > 0 && confirmPass !== newPassword
   const passMatch     = confirmPass.length > 0 && confirmPass === newPassword
 
-  // ─── Grid template — FIXED pixel width para sa No. column ──────────────
-  const GRID = 'grid grid-cols-[50px_2fr_1fr_1.8fr_1fr_1fr_1.8fr]'
+  const mainBranch = branches[0] || null
 
   return (
     <div className='bg-neutral-50 min-h-screen' style={{ fontFamily: "'Georgia', serif" }}>
@@ -418,177 +411,189 @@ const BranchMaintenance = () => {
       {/* Header */}
       <div className='bg-blue-600 px-7 py-6 mb-8'
         style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
-        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>Branches & Users</p>
+        <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-1'>Branch Maintenance</p>
         <div className='flex items-center justify-between'>
-          <h1 className='font-sans font-black text-white' style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.03em' }}>Branch Maintenance</h1>
+          <h1 className='font-sans font-black text-white' style={{ fontSize: 'clamp(1.4rem, 3vw, 2rem)', letterSpacing: '-0.03em' }}>Maintenance</h1>
           <div className='flex items-center gap-3'>
-            <button onClick={() => setSelectBranchForStaff(true)}
-              className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
-              style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-              <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
-              <span className='relative z-10'>+ Add Staff</span>
-            </button>
-            <button onClick={() => navigate('/admin/add-branch')}
-              className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
-              style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-              <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
-              <span className='relative z-10'>+ Add Branch</span>
-            </button>
+            {mainBranch && (
+              <button onClick={() => openAddStaff(mainBranch)}
+                className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <span className='relative z-10'>+ Add Staff</span>
+              </button>
+            )}
+            {!loading && branches.length === 0 && (
+              <button onClick={() => navigate('/admin/add-branch')}
+                className='group relative overflow-hidden bg-white/10 border border-white/30 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className='absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
+                <span className='relative z-10'>+ Add Branch</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       <div className='px-7 pb-10'>
 
-        {/* Stat Cards */}
-        <div className='grid grid-cols-3 gap-3 mb-8'>
-          {[{ label: 'Total Branches', value: total }, { label: 'Active', value: activeCount }, { label: 'Inactive', value: inactiveCount }].map(({ label, value }) => (
-            <div key={label} className='px-7 py-6'
-              style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.10) 0%, transparent 60%), #2563eb' }}>
-              <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-2'>{label}</p>
-              <p className='font-sans font-black text-white' style={{ fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', letterSpacing: '-0.03em' }}>{value}</p>
+        {loading ? (
+          <div className='bg-white border border-neutral-200 flex justify-center items-center py-20 font-sans text-sm text-neutral-400'>Loading...</div>
+        ) : !mainBranch ? (
+          /* ── EMPTY STATE: No branch yet ── */
+          <div className='bg-white border border-neutral-200 flex flex-col items-center justify-center py-24 px-6 text-center'>
+            <div className='w-16 h-16 mb-5 flex items-center justify-center bg-blue-50 border border-blue-100'>
+              <Building2 size={28} className='text-blue-400' />
             </div>
-          ))}
-        </div>
-
-        {/* Filter Bar */}
-        <div className='bg-white border border-blue-100 px-5 py-4 mb-5 flex flex-wrap gap-3 items-center'>
-          <form onSubmit={handleSearch} className='flex items-center gap-2 flex-1 min-w-[200px]'>
-            <div className='relative flex-1'>
-              <Search size={14} className='absolute left-3 top-1/2 -translate-y-1/2 text-neutral-300' />
-              <input type='text' placeholder='Search by name or email...' value={search}
-                onChange={(e) => setSearch(sanitizeAddress(e.target.value))}
-                onKeyDown={makeAddressKeyDown(search)}
-                onBeforeInput={makeAddressBeforeInput(search)}
-                onPaste={makePasteHandler(sanitizeAddress, setSearch)}
-                onDrop={e => e.preventDefault()}
-                autoComplete='off'
-                className='w-full pl-9 pr-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white' />
-            </div>
-            <button type='submit'
-              className='group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5'
+            <h2 className='font-sans font-black text-blue-900 text-xl mb-2' style={{ letterSpacing: '-0.02em' }}>No Branch Yet</h2>
+            <p className='font-sans text-sm text-neutral-500 max-w-sm mb-6'>
+              You haven't set up a branch. Add your first branch to start managing staff and services.
+            </p>
+            <button onClick={() => navigate('/admin/add-branch')}
+              className='group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-7 py-3'
               style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
               <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
-              <span className='relative z-10'>Search</span>
+              <Plus size={14} className='relative z-10' />
+              <span className='relative z-10'>Add Branch</span>
             </button>
-          </form>
-          <select value={filterStatus} onChange={(e) => { setFilter(e.target.value); setPage(1) }}
-            className='px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white'>
-            <option value=''>All Status</option>
-            <option value='true'>Active</option>
-            <option value='false'>Inactive</option>
-          </select>
-          <span className='font-sans text-xs text-neutral-400 ml-auto'>
-            <span className='font-sans font-black text-neutral-700'>{total}</span> branches
-          </span>
-        </div>
+          </div>
+        ) : (
+          /* ── SINGLE BRANCH VIEW ── */
+          <div className='bg-white border border-neutral-200'>
 
-        {/* Table */}
-        <div className='bg-white border border-neutral-200 overflow-hidden'>
-          {loading ? (
-            <div className='flex justify-center items-center py-20 font-sans text-sm text-neutral-400'>Loading...</div>
-          ) : branches.length === 0 ? (
-            <div className='flex flex-col items-center justify-center py-20 text-neutral-300'>
-              <Building2 size={32} className='mb-2 opacity-40' />
-              <p className='font-sans text-sm'>No branches found</p>
-            </div>
-          ) : (
-            <div>
-              {/* Header */}
-              <div className={`${GRID} bg-blue-50 border-b border-neutral-200`}>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 py-3 border-r border-neutral-200 text-center'>No.</span>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-left'>Branch</span>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Contact</span>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Services</span>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Starting At</span>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 border-r border-neutral-200 text-center'>Status</span>
-                <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-semibold text-blue-500 px-4 py-3 text-center'>Actions</span>
+            {/* Branch hero */}
+            <div className='flex flex-col md:flex-row items-stretch'>
+
+              {/* Image */}
+              <div className='w-full md:w-80 flex-shrink-0 overflow-hidden bg-blue-50'>
+                <img
+                  src={mainBranch.image || `${DEFAULT_IMG}${encodeURIComponent(mainBranch.name)}`}
+                  alt={mainBranch.name}
+                  className='w-full h-full object-cover'
+                  style={{ minHeight: '240px', maxHeight: '300px' }}
+                  onError={e => { e.target.src = `${DEFAULT_IMG}${encodeURIComponent(mainBranch.name)}` }}
+                />
               </div>
-              <div className='divide-y divide-neutral-200'>
-                {branches.map((branch, index) => {
-                  const shortNames = (branch.speciality || []).map(shortenServiceName)
-                  return (
-                    <div key={branch.id} className={`${GRID} items-stretch hover:bg-blue-50 transition-colors`}>
 
-                      {/* Number */}
-                      <div className='flex items-center justify-center py-5 border-r border-neutral-200'>
-                        <span className='font-sans font-bold text-sm text-neutral-500'>{index + 1}</span>
-                      </div>
+              {/* Info */}
+              <div className='flex-1 px-8 py-7 flex flex-col justify-between gap-6'>
 
-                      {/* Branch */}
-                      <div className='flex items-center gap-3 px-4 py-5 border-r border-neutral-200'>
-                        <img src={branch.image || `${DEFAULT_IMG}${encodeURIComponent(branch.name)}`} alt={branch.name}
-                          className='w-9 h-9 object-cover flex-shrink-0'
-                          onError={e => { e.target.src = `${DEFAULT_IMG}${encodeURIComponent(branch.name)}` }} />
-                        <div className='min-w-0'>
-                          <div className='font-sans font-semibold text-sm text-neutral-700 truncate'>{branch.name}</div>
-                          <div className='font-sans text-xs text-neutral-400 truncate'>{branch.email}</div>
-                        </div>
-                      </div>
+                {/* Title row */}
+                <div>
+                  <div className='flex items-center gap-3 mb-3'>
+                    <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans font-semibold'>
+                      Branch
+                    </span>
+                    <span className='w-8 h-px bg-blue-200' />
+                    {mainBranch.available ? (
+                      <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-green-200 text-green-600 px-2 py-0.5 inline-flex items-center gap-1 whitespace-nowrap'>
+                        <Check size={9} /> Active
+                      </span>
+                    ) : (
+                      <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-red-200 text-red-500 px-2 py-0.5 inline-flex items-center gap-1 whitespace-nowrap'>
+                        <X size={9} /> Inactive
+                      </span>
+                    )}
+                  </div>
 
-                      {/* Contact */}
-                      <div className='flex items-center justify-center px-4 py-5 border-r border-neutral-200'>
-                        <span className='font-sans text-xs text-neutral-500'>{branch.phone || '—'}</span>
-                      </div>
+                  <h2 className='font-sans font-black text-blue-900 mb-1.5'
+                    style={{ fontSize: 'clamp(1.5rem, 3vw, 2.1rem)', letterSpacing: '-0.03em' }}>
+                    {mainBranch.name}
+                  </h2>
+                  <p className='font-sans text-sm text-neutral-400'>{mainBranch.email}</p>
+                </div>
 
-                      {/* Services */}
-                      <div className='flex flex-wrap gap-1 items-center justify-center px-4 py-5 border-r border-neutral-200'>
-                        {shortNames.slice(0, 2).map(s => (
-                          <span key={s} className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-blue-200 text-blue-500 px-2 py-0.5 whitespace-nowrap' title={branch.speciality?.[shortNames.indexOf(s)] || s}>{s}</span>
-                        ))}
-                        {shortNames.length > 2 && <span className='font-sans text-xs text-neutral-400'>+{shortNames.length - 2}</span>}
-                      </div>
+                {/* Info grid */}
+                <div className='grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-5'>
 
-                      {/* Starting At */}
-                      <div className='flex items-center justify-center px-4 py-5 border-r border-neutral-200'>
-                        <span className='font-sans font-black text-sm text-blue-700'>₱{branch.fees?.toLocaleString() || '—'}</span>
-                      </div>
+                  <div>
+                    <p className='uppercase tracking-[0.2em] text-[9px] text-blue-400 font-sans font-semibold mb-1.5'>Contact</p>
+                    <p className='font-sans text-sm text-neutral-700'>{mainBranch.phone || '—'}</p>
+                  </div>
 
-                      {/* Status */}
-                      <div className='flex items-center justify-center px-4 py-5 border-r border-neutral-200'>
-                        {branch.available ? (
-                          <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-green-200 text-green-600 px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap'><Check size={9} /> Active</span>
-                        ) : (
-                          <span className='uppercase tracking-[0.2em] text-[10px] font-sans font-bold border border-red-200 text-red-500 px-2 py-1 inline-flex items-center gap-1 whitespace-nowrap'><X size={9} /> Inactive</span>
-                        )}
-                      </div>
+                  <div className='col-span-1'>
+                    <p className='uppercase tracking-[0.2em] text-[9px] text-blue-400 font-sans font-semibold mb-1.5'>Address</p>
+                    <p className='font-sans text-sm text-neutral-700 leading-snug'>
+                      {[mainBranch.address?.line1, mainBranch.address?.line2].filter(Boolean).join(', ') || '—'}
+                    </p>
+                  </div>
 
-                      {/* Actions */}
-                      <div className='flex items-center justify-center gap-1 px-4 py-5'>
-                        <button onClick={() => openEdit(branch)} title='Edit' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><Pencil size={14} /></button>
-                        <button onClick={() => handleToggleStatus(branch)} disabled={togglingId === branch.id} title={branch.available ? 'Deactivate' : 'Activate'} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40'>{branch.available ? <UserX size={14} /> : <UserCheck size={14} />}</button>
-                        <button onClick={() => openReset(branch)} title='Reset Password' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><KeyRound size={14} /></button>
-                        <button onClick={() => openViewStaff(branch)} title='View Staff' className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors'><Users size={14} /></button>
-                        <button onClick={() => setDeleteTarget(branch)} title='Delete' className='p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 transition-colors'><Trash2 size={14} /></button>
-                      </div>
-                    </div>
-                  )
-                })}
+                  <div>
+                    <p className='uppercase tracking-[0.2em] text-[9px] text-blue-400 font-sans font-semibold mb-1.5'>Starting At</p>
+                    <p className='font-sans font-black text-blue-700 text-lg' style={{ letterSpacing: '-0.02em' }}>
+                      ₱{mainBranch.fees?.toLocaleString() || '—'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className='uppercase tracking-[0.2em] text-[9px] text-blue-400 font-sans font-semibold mb-1.5'>Services</p>
+                    <p className='font-sans text-sm text-neutral-700'>
+                      {mainBranch.speciality?.length || 0} offered
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-          {pages > 1 && (
-            <div className='flex items-center justify-between px-7 py-4 border-t border-neutral-200'>
-              <span className='font-sans text-xs text-neutral-400'>
-                Page <span className='font-sans font-black text-neutral-700'>{page}</span> of <span className='font-sans font-black text-neutral-700'>{pages}</span> · {total} branches
-              </span>
-              <div className='flex gap-1'>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 transition-colors'><ChevronLeft size={16} /></button>
-                {Array.from({ length: Math.min(pages, 5) }, (_, i) => {
-                  const p = page <= 3 ? i + 1 : page - 2 + i
-                  if (p < 1 || p > pages) return null
-                  return (
-                    <button key={p} onClick={() => setPage(p)}
-                      className={`w-8 h-8 font-sans text-xs font-bold transition-colors ${p === page ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:bg-blue-50 hover:text-blue-600'}`}>
-                      {p}
-                    </button>
-                  )
-                })}
-                <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages} className='p-1.5 text-neutral-400 hover:text-blue-600 hover:bg-blue-50 disabled:opacity-30 transition-colors'><ChevronRight size={16} /></button>
+
+            {/* Services list */}
+            {mainBranch.speciality?.length > 0 && (
+              <div className='px-8 py-6 border-t border-neutral-200 bg-blue-50/40'>
+                <p className='uppercase tracking-[0.25em] text-[10px] text-blue-500 font-sans font-semibold mb-4'>Services Offered</p>
+                <div className='flex flex-wrap gap-2'>
+                  {mainBranch.speciality.map((s, i) => (
+                    <span key={`${s}-${i}`}
+                      className='inline-block text-[11px] font-sans font-semibold border border-blue-200 text-blue-600 bg-white px-3 py-1.5 leading-snug'
+                      title={s}>
+                      {shortenServiceName(s)}
+                    </span>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* About */}
+            {mainBranch.about && (
+              <div className='px-8 py-6 border-t border-neutral-200'>
+                <p className='uppercase tracking-[0.25em] text-[10px] text-blue-500 font-sans font-semibold mb-3'>About</p>
+                <p className='font-sans text-sm text-neutral-600 leading-relaxed max-w-3xl'>{mainBranch.about}</p>
+              </div>
+            )}
+
+            {/* Actions bar */}
+            <div className='px-8 py-5 border-t border-neutral-200 bg-neutral-50 flex flex-wrap gap-2 justify-end'>
+              <button onClick={() => openEdit(mainBranch)}
+                className='group relative overflow-hidden border border-blue-200 bg-white text-blue-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5 hover:border-blue-400 hover:text-blue-700 transition-colors'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <Pencil size={13} /> Edit Branch
+              </button>
+
+              <button onClick={() => handleToggleStatus(mainBranch)} disabled={togglingId === mainBranch.id}
+                className='group relative overflow-hidden border border-blue-200 bg-white text-blue-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5 hover:border-blue-400 hover:text-blue-700 transition-colors disabled:opacity-40'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                {mainBranch.available ? <UserX size={13} /> : <UserCheck size={13} />}
+                {mainBranch.available ? 'Deactivate' : 'Activate'}
+              </button>
+
+              <button onClick={() => openReset(mainBranch)}
+                className='group relative overflow-hidden border border-blue-200 bg-white text-blue-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5 hover:border-blue-400 hover:text-blue-700 transition-colors'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <KeyRound size={13} /> Reset Password
+              </button>
+
+              <button onClick={() => openViewStaff(mainBranch)}
+                className='group relative overflow-hidden border border-blue-200 bg-white text-blue-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5 hover:border-blue-400 hover:text-blue-700 transition-colors'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <Users size={13} /> View Staff
+              </button>
+
+              <button onClick={() => setDeleteTarget(mainBranch)}
+                className='group relative overflow-hidden border border-red-200 bg-white text-red-500 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-2 px-5 py-2.5 hover:border-red-400 hover:text-red-700 transition-colors'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <Trash2 size={13} /> Delete Branch
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ── Edit Modal ── */}
@@ -608,7 +613,6 @@ const BranchMaintenance = () => {
             </div>
 
             <div className='px-6 py-6 space-y-4'>
-              {/* Branch Name */}
               <div>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Branch Name</label>
                 <input type='text' value={editForm.name || ''}
@@ -622,7 +626,6 @@ const BranchMaintenance = () => {
                 {editNameInvalid && <p className={errorCls}>Letters, numbers, spaces, hyphens only</p>}
               </div>
 
-              {/* Phone */}
               <div>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>Phone</label>
                 <input type='text' value={editForm.phone || ''}
@@ -672,7 +675,6 @@ const BranchMaintenance = () => {
                   className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400 transition-colors bg-white resize-none' />
               </div>
 
-              {/* Services toggle */}
               <div>
                 <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-2'>
                   Services Offered
@@ -783,65 +785,6 @@ const BranchMaintenance = () => {
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                 <div className='absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
                 <span className='relative z-10'>{resetLoading ? 'Resetting...' : 'Reset Password'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Branch Selection Modal for Add Staff ── */}
-      {selectBranchForStaff && (
-        <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4'>
-          <div className='bg-white w-full max-w-md max-h-[80vh] overflow-y-auto' style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-            <div className='px-6 py-5' style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <p className='uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans font-semibold mb-0.5'>Staff Management</p>
-                  <h2 className='font-sans font-black text-white text-lg' style={{ letterSpacing: '-0.02em' }}>Select Branch</h2>
-                </div>
-                <button onClick={() => setSelectBranchForStaff(false)} className='text-blue-200 hover:text-white transition-colors'><X size={18} /></button>
-              </div>
-            </div>
-
-            <div className='px-6 py-6'>
-              <p className='font-sans text-sm text-neutral-500 mb-5'>Choose which branch to add staff to:</p>
-
-              {loading ? (
-                <div className='flex justify-center py-10 font-sans text-sm text-neutral-400'>Loading...</div>
-              ) : branches.length === 0 ? (
-                <div className='flex flex-col items-center justify-center py-10 text-neutral-300'>
-                  <Building2 size={28} className='mb-2 opacity-40' />
-                  <p className='font-sans text-sm'>No branches available</p>
-                </div>
-              ) : (
-                <div className='divide-y divide-blue-50'>
-                  {branches.map(branch => (
-                    <button key={branch.id}
-                      onClick={() => {
-                        setSelectBranchForStaff(false)
-                        openAddStaff(branch)
-                      }}
-                      className='w-full flex items-center gap-3 py-3 px-2 hover:bg-blue-50 transition-colors text-left'>
-                      <img src={branch.image || `${DEFAULT_IMG}${encodeURIComponent(branch.name)}`} alt={branch.name}
-                        className='w-8 h-8 object-cover flex-shrink-0'
-                        onError={e => { e.target.src = `${DEFAULT_IMG}${encodeURIComponent(branch.name)}` }} />
-                      <div className='min-w-0 flex-1'>
-                        <p className='font-sans text-sm font-bold text-neutral-800 truncate'>{branch.name}</p>
-                        <p className='font-sans text-xs text-neutral-400 truncate'>{branch.email}</p>
-                      </div>
-                      <ChevronRight size={16} className='text-neutral-300 flex-shrink-0' />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className='px-6 pb-6'>
-              <button onClick={() => setSelectBranchForStaff(false)}
-                className='group relative overflow-hidden w-full border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center justify-center py-2.5'
-                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
-                <div className='absolute inset-0 bg-blue-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out' />
-                <span className='relative z-10'>Cancel</span>
               </button>
             </div>
           </div>
@@ -1052,13 +995,5 @@ const BranchMaintenance = () => {
     </div>
   )
 }
-
-const ModalField = ({ label, value, onChange, type = 'text', disabled = false }) => (
-  <div>
-    <label className='font-sans text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500 block mb-1.5'>{label}</label>
-    <input type={type} value={value || ''} onChange={onChange} disabled={disabled}
-      className='w-full px-4 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white disabled:bg-neutral-50 disabled:text-neutral-400' />
-  </div>
-)
 
 export default BranchMaintenance

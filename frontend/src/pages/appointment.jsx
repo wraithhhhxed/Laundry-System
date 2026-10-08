@@ -29,11 +29,7 @@ const inputCls =
   'w-full px-4 py-3 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white'
 
 const TIME_SLOTS = [
-  '08:00', '08:30', '09:00', '09:30',
-  '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30',
-  '14:00', '14:30', '15:00', '15:30',
-  '16:00',
+  '08:00', '10:00', '12:00', '14:00', '16:00',
 ]
 
 const getTodayManila = () =>
@@ -100,7 +96,7 @@ const loadGoogleMaps = () => {
   return mapsPromise
 }
 
-const AddressPicker = ({ value, onSelect }) => {
+export const AddressPicker = ({ value, onSelect }) => {
   const boxRef = useRef(null)
   const mapDivRef = useRef(null)
   const onSelectRef = useRef(onSelect)
@@ -660,8 +656,7 @@ const Appointment = () => {
           <div className='flex-1 bg-blue-600 px-8 md:px-12 py-10 flex flex-col justify-center gap-4 relative overflow-hidden'>
             <div className='absolute top-0 left-0 w-full h-full pointer-events-none'
               style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%)' }} />
-            <span className='uppercase tracking-[0.35em] text-[10px] text-white/40 font-sans relative z-10'>Branch</span>
-            <h1 className='leading-none text-white relative z-10'
+            <span className='uppercase tracking-[0.35em] text-[10px] text-white/40 font-sans relative z-10'>Selfie Wash</span>            <h1 className='leading-none text-white relative z-10'
               style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 700, letterSpacing: '-0.03em' }}>
               {branchInfo.name}
             </h1>
@@ -1211,7 +1206,10 @@ const Appointment = () => {
         )}
       </div>
 
+                  {/* Single-branch: related branches hidden
       <RelatedBranches branchid={branchid} speciality={branchInfo.speciality?.[0]} />
+      */}
+
     </div>
   )
 }

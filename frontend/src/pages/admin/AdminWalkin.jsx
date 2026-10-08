@@ -8,8 +8,7 @@ const SectionLabel = ({ children }) => (
 )
 const Divider = () => <div className="h-px bg-blue-100 mb-6" />
 
-const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
-
+const fmt = (n) => `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const validatePhone = (phone) => {
   const digits = phone.replace(/\D/g, '')
   return digits.length >= 10 && digits.length <= 11 && digits.startsWith('09')
@@ -216,8 +215,6 @@ const AdminWalkIn = () => {
     branches, getAllBranches,
     walkInServices, getWalkInServices,
     lookupPhone, createWalkInAppointment,
-    generateQrPayment, getQrPaymentStatus,
-    confirmPayment,
     spinWheelForCustomer,
   } = useContext(AdminContext)
 
@@ -225,6 +222,12 @@ const AdminWalkIn = () => {
 
   const [branchId, setBranchId] = useState('')
   const branchLocked = !branchId
+
+  useEffect(() => {
+    if (branchId || !branches?.length) return
+    const main = branches.find(b => b.name.trim().toLowerCase() === 'hagonoy') || branches[0]
+    if (main) setBranchId(main.id)
+  }, [branches, branchId])
 
   const [productsList, setProductsList] = useState([])
   const [addOnQty, setAddOnQty] = useState({})
@@ -450,14 +453,6 @@ const AdminWalkIn = () => {
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
 
-  const [showQrModal, setShowQrModal] = useState(false)
-  const [qrImageUrl, setQrImageUrl] = useState('')
-  const [isPolling, setIsPolling] = useState(false)
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false)
-  const [createdAppointmentId, setCreatedAppointmentId] = useState('')
-  const [qrError, setQrError] = useState('')
-  const pollTimer = useRef(null)
-
   const resetForm = () => {
     setBranchId('')
     setPhone(''); setPhoneError(''); setGuestName(''); setNameError(''); setFoundUser(null); setLookupState('idle')
@@ -557,69 +552,6 @@ const AdminWalkIn = () => {
     }, 3600)
   }
 
-  const openQrFlow = async (appointmentId) => {
-    setShowQrModal(true)
-    setQrError('')
-    setPaymentConfirmed(false)
-    setQrImageUrl('')
-
-    const res = await generateQrPayment(appointmentId)
-    if (!res || !res.qrImageUrl) {
-      setQrError('Could not generate QR code. Please try again.')
-      return
-    }
-    setQrImageUrl(res.qrImageUrl)
-    setIsPolling(true)
-  }
-
-  useEffect(() => {
-    if (!isPolling || !createdAppointmentId) return
-
-    const poll = async () => {
-      const status = await getQrPaymentStatus(createdAppointmentId)
-      const paid = status?.paid === true || status?.payment === true
-      if (paid) {
-        await confirmPayment(createdAppointmentId, 'online')
-
-        setPaymentConfirmed(true)
-        setIsPolling(false)
-        setSuccessMsg('Payment confirmed. Walk-in appointment is fully paid.')
-        setTimeout(() => {
-          setShowQrModal(false)
-          resetForm()
-          setCreatedAppointmentId('')
-          setQrImageUrl('')
-          setPaymentConfirmed(false)
-        }, 2500)
-      }
-    }
-
-    poll()
-    pollTimer.current = setInterval(poll, 4000)
-
-    return () => {
-      if (pollTimer.current) clearInterval(pollTimer.current)
-    }
-  }, [isPolling, createdAppointmentId, confirmPayment])
-
-  useEffect(() => {
-    return () => {
-      if (pollTimer.current) clearInterval(pollTimer.current)
-    }
-  }, [])
-
-  const closeQrModal = () => {
-    if (pollTimer.current) clearInterval(pollTimer.current)
-    setIsPolling(false)
-    setShowQrModal(false)
-    setQrImageUrl('')
-    setQrError('')
-    setPaymentConfirmed(false)
-    setCreatedAppointmentId('')
-    resetForm()
-    setSuccessMsg('Walk-in appointment created. QR payment pending — client can still pay later.')
-  }
-
   useEffect(() => {
     if (fulfillmentMethod === 'DELIVERY' && foundUser?.address && /taguig/i.test(foundUser.address)) {
       setDeliveryAddress({ line1: foundUser.address, line2: '' })
@@ -649,7 +581,7 @@ const AdminWalkIn = () => {
       services: baskets.map(b => ({ serviceId: b.serviceId, actualKg: Number(b.actualKg) })),
       overweightResolution: anyOverweight ? overweightResolution : null,
       fulfillmentMethod,
-      paymentMethod,
+      paymentMethod, // always 'CASH' now
       promoCode: promoCodeToApply,
       address: deliveryAddress.line1
         ? {
@@ -667,14 +599,8 @@ const AdminWalkIn = () => {
     setSubmitting(false)
 
     if (ok) {
-      if (paymentMethod === 'ONLINE') {
-        const appointmentId = ok.id || ok.appointmentId || ok._id
-        setCreatedAppointmentId(appointmentId)
-        openQrFlow(appointmentId)
-      } else {
-        setSuccessMsg('Walk-in appointment created. Client will now appear under All Appointments.')
-        resetForm()
-      }
+      setSuccessMsg('Walk-in appointment created. Client will now appear under All Appointments.')
+      resetForm()
     }
   }
 
@@ -691,7 +617,7 @@ const AdminWalkIn = () => {
       <div className="px-10 pt-10 pb-12" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
         <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3">Super Admin</p>
         <h1 className="text-white" style={{ fontWeight: 700, letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}>Walk-In</h1>
-        <p className="font-sans text-sm text-blue-300 mt-2">Create an appointment for a client at any branch</p>
+                <p className="font-sans text-sm text-blue-300 mt-2">Create an appointment for a walk-in customer for Selfie Wash Hagonoy</p>
       </div>
 
       <div className="px-10 py-10 max-w-3xl mx-auto">
@@ -703,6 +629,7 @@ const AdminWalkIn = () => {
           </div>
         )}
 
+        {/* Single-branch: branch selector hidden
         <SectionLabel>Branch</SectionLabel>
         <Divider />
         <div className="mb-10">
@@ -715,6 +642,7 @@ const AdminWalkIn = () => {
             <p className="font-sans text-xs text-amber-600 mt-1.5">Please select a branch before continuing.</p>
           )}
         </div>
+        */}
 
         <SectionLabel>Client Info</SectionLabel>
         <Divider />
@@ -1240,20 +1168,8 @@ const AdminWalkIn = () => {
           </div>
         )}
 
-        <SectionLabel>How will the client pay?</SectionLabel>
-        <Divider />
-        <div className="flex gap-3 mb-10">
-          <button onClick={() => setPaymentMethod('CASH')}
-            disabled={locked}
-            className={`flex-1 py-2.5 font-sans text-xs uppercase tracking-widest font-bold border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentMethod === 'CASH' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}>
-            Cash
-          </button>
-          <button onClick={() => setPaymentMethod('ONLINE')}
-            disabled={locked}
-            className={`flex-1 py-2.5 font-sans text-xs uppercase tracking-widest font-bold border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${paymentMethod === 'ONLINE' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200'}`}>
-            Online Payment (QR)
-          </button>
-        </div>
+        {/* ── Payment method selector hidden — QR/Xendit disabled.
+             Only Cash is available. New appointments default to CASH. ── */}
 
         <SectionLabel>Estimated Total</SectionLabel>
         <Divider />
@@ -1465,61 +1381,6 @@ const AdminWalkIn = () => {
                 </button>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── QR PAYMENT MODAL ─────────────────────────────────── */}
-      {showQrModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white max-w-md w-full p-8 relative"
-               style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
-
-            {!paymentConfirmed && (
-              <button onClick={closeQrModal}
-                className="absolute top-3 right-3 text-neutral-300 hover:text-neutral-500 text-2xl leading-none">
-                ×
-              </button>
-            )}
-
-            <p className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans mb-2">
-              Online Payment
-            </p>
-            <h2 className="text-neutral-800 mb-1" style={{ fontWeight: 700, letterSpacing: '-0.02em', fontSize: '1.5rem' }}>
-              Scan to Pay
-            </h2>
-
-
-            <div className="flex items-center justify-center mb-6 min-h-[220px]">
-              {qrError ? (
-                <div className="text-center">
-                  <p className="font-sans text-sm text-red-500 mb-2">{qrError}</p>
-                  <button
-                    onClick={() => openQrFlow(createdAppointmentId)}
-                    className="font-sans text-xs uppercase tracking-widest text-blue-600 hover:text-blue-800 font-bold">
-                    Retry
-                  </button>
-                </div>
-              ) : qrImageUrl ? (
-                <img src={qrImageUrl} alt="Payment QR Code" className="w-56 h-56 object-contain" />
-              ) : (
-                <p className="font-sans text-sm text-neutral-400">Generating QR code...</p>
-              )}
-            </div>
-
-            {paymentConfirmed ? (
-              <div className="bg-green-50 border border-green-200 px-4 py-3 flex items-center gap-3">
-                <span className="text-green-600 text-lg">✓</span>
-                <p className="font-sans text-sm text-green-700">Payment confirmed. Closing...</p>
-              </div>
-            ) : (
-              <div className="bg-blue-50 border border-blue-100 px-4 py-3 flex items-center gap-3">
-                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                <p className="font-sans text-xs text-blue-600">
-                  Waiting for payment confirmation...
-                </p>
-              </div>
-            )}
           </div>
         </div>
       )}

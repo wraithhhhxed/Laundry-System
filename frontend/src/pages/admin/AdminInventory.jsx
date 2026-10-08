@@ -50,7 +50,10 @@ const AdminInventory = () => {
   }, [aToken])
 
   useEffect(() => {
-    if (!selectedBranch && branches?.length > 0) setSelectedBranch(branches[0].id)
+    if (!selectedBranch && branches?.length > 0) {
+      const main = branches.find(b => b.name.trim().toLowerCase() === 'hagonoy') || branches[0]
+      setSelectedBranch(main.id)
+    }
   }, [branches])
 
   useEffect(() => {
@@ -295,6 +298,7 @@ const AdminInventory = () => {
 
         {/* Branch selector + search */}
         <div className='bg-white border border-blue-100 px-5 py-4 mb-4 flex flex-wrap gap-3 items-center'>
+          {/* Single-branch: branch dropdown hidden
           <select
             value={selectedBranch}
             onChange={e => setSelectedBranch(e.target.value)}
@@ -305,6 +309,7 @@ const AdminInventory = () => {
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
+          */}
 
           <div className='relative flex-1 min-w-[200px]'>
             <svg className='absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-300 pointer-events-none'

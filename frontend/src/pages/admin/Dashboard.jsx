@@ -179,11 +179,11 @@ const Dashboard = () => {
             {/* Quick KPI strip */}
             <div className="flex items-center gap-0 border border-white/10">
               {[
-                { label: 'Completion Rate', value: `${completionRate}%`,  color: 'text-emerald-300' },
-                { label: 'Branches',        value: totalBranches,         color: 'text-blue-200'  },
+                                { label: 'Completion Rate', value: `${completionRate}%`,  color: 'text-emerald-300' },
+                // { label: 'Branches',        value: totalBranches,         color: 'text-blue-200'  },
                 { label: 'Customers',       value: totalCustomers,        color: 'text-sky-300'     },
               ].map((kpi, i) => (
-                <div key={i} className={`px-6 py-4 ${i < 2 ? 'border-r border-white/10' : ''}`}>
+                <div key={i} className={`px-6 py-4 ${i < 1 ? 'border-r border-white/10' : ''}`}>
                   <p className="font-sans text-[9px] uppercase tracking-[0.25em] text-blue-300 font-bold mb-1">{kpi.label}</p>
                   <p className={`font-sans font-black text-xl ${kpi.color}`} style={{ letterSpacing: '-0.03em' }}>{kpi.value}</p>
                 </div>
@@ -203,10 +203,10 @@ const Dashboard = () => {
         <div>
           <SectionLabel>Overview</SectionLabel>
           <Divider />
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-            <StatCard label="Total Earnings"     value={`₱${totalEarnings.toLocaleString()}`} sub="All-time revenue"  />
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <StatCard label="Total Earnings"     value={`â‚±${totalEarnings.toLocaleString()}`} sub="All-time revenue"  />
             <StatCard label="Total Appointments" value={totalAppointments}                     sub="All bookings"      />
-            <StatCard label="Branches"           value={totalBranches}                         sub="Active locations"  />
+            {/* <StatCard label="Branches"           value={totalBranches}                         sub="Active locations"  /> */}
             <StatCard label="Customers"          value={totalCustomers}                        sub="Registered users"  />
           </div>
         </div>
@@ -342,8 +342,8 @@ const Dashboard = () => {
               ) : (
                 <div className="divide-y divide-blue-50">
                   {/* Header row */}
-                  <div className="grid grid-cols-5 pb-3 border-b border-blue-100">
-                    {['Customer', 'Branch', 'Date & Time', 'Amount', 'Status'].map(h => (
+                                    <div className="grid grid-cols-4 pb-3 border-b border-blue-100">
+                    {['Customer', 'Date & Time', 'Amount', 'Status'].map(h => (
                       <p key={h} className="font-sans text-[9px] uppercase tracking-[0.3em] text-blue-300 font-bold">{h}</p>
                     ))}
                   </div>
@@ -351,8 +351,7 @@ const Dashboard = () => {
                   {latestAppointments.map((appt) => (
                     <div
                       key={appt.id}
-                      className="grid grid-cols-5 items-center py-3.5 hover:bg-blue-50/60 -mx-7 px-7 transition-colors cursor-default group"
-                    >
+                      className="grid grid-cols-4 items-center py-3.5 hover:bg-blue-50/60 -mx-7 px-7 transition-colors cursor-default group"                    >
                       {/* Customer */}
                       <div className="flex items-center gap-2.5">
                         {appt.userData?.image ? (
@@ -370,10 +369,11 @@ const Dashboard = () => {
                         </span>
                       </div>
 
-                      {/* Branch */}
+                                            {/* Single-branch: branch cell hidden
                       <div className="font-sans text-xs text-neutral-500 truncate max-w-[80px]">
                         {appt.branchData?.name || '—'}
                       </div>
+                      */}
 
                       {/* Date & Time */}
                       <div>

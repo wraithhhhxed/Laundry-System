@@ -116,7 +116,7 @@ const About = () => {
   }
 
   const defaultBranch = BRANCHES.find(b => b.id === 'hagonoy') || BRANCHES[0]
-  const mapBranch = selectedBranch || defaultBranch
+    const mapBranch = defaultBranch
 
   return (
     <div style={{ fontFamily: "'Georgia', serif" }} className="bg-white overflow-x-hidden">
@@ -252,7 +252,7 @@ const About = () => {
 
           <div className="max-w-xs md:text-right">
             <p className="font-sans text-sm leading-relaxed text-neutral-600">
-              Visit us at any of our branches or get in touch anytime.
+                            Visit us or get in touch anytime.
             </p>
           </div>
         </div>
@@ -275,9 +275,10 @@ const About = () => {
 
           {/* Right Side - Branch List or Details */}
           <div className="flex-1 bg-white border border-blue-100 px-8 py-10 flex flex-col min-h-[480px]">
-            {selectedBranch ? (
-              // ─── BRANCH DETAILS VIEW ───
+                                    {true ? (
+              // ─── BRANCH DETAILS VIEW (single branch) ───
               <>
+                {/* "Back to branches" hidden: single branch
                 <div className="flex items-center justify-between mb-4">
                   <button
                     onClick={handleBackClick}
@@ -287,17 +288,14 @@ const About = () => {
                     Back to branches
                   </button>
                 </div>
-
-                <div className="h-px bg-blue-100 mb-6" />
+                */}
 
                 <div className="flex-1 flex flex-col gap-5">
                   <div>
-                    <span className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-1">
-                      Branch
-                    </span>
+                    
 
                     <h3 className="font-bold text-xl text-blue-900">
-                      {selectedBranch.name}
+                      {mapBranch.name}
                     </h3>
                   </div>
 
@@ -305,7 +303,7 @@ const About = () => {
                     <span className="uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-1">Address</span>
 
                     <p className="font-sans text-sm text-neutral-600 leading-relaxed">
-                      {selectedBranch.address}
+                      {mapBranch.address}
                     </p>
                   </div>
 
@@ -329,7 +327,7 @@ const About = () => {
                   <div className="h-px bg-blue-100" />
 
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedBranch.lat},${selectedBranch.lng}`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${mapBranch.lat},${mapBranch.lng}`}
                     target="_blank"
                     rel="noreferrer"
                     className="group relative overflow-hidden bg-blue-600 text-white px-8 py-3.5 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center gap-3 w-fit"

@@ -96,7 +96,7 @@ const sanitizeWeight = (v) => {
 }
 
 const fmt = (n) =>
-  `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+  `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const resolvePaymentStatus = (appt) => {
   if (appt.paymentStatus) return appt.paymentStatus
@@ -115,6 +115,12 @@ const getUnlockAt = (appt) => {
   return isNaN(d.getTime()) ? null : d
 }
 
+const APPROVE_WINDOW_HOURS = 24
+
+const getApproveUnlockAt = (appt) => {
+  const d = getUnlockAt(appt)
+  return d ? new Date(d.getTime() - APPROVE_WINDOW_HOURS * 60 * 60 * 1000) : null
+}
 const formatUnlockLabel = (d) =>
   d.toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 
@@ -842,9 +848,11 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
             <p className="font-sans text-sm font-semibold text-neutral-700">{appt.userData?.name || '—'}</p>
             <p className="font-sans text-xs text-neutral-400 mt-1">{appt.slotDate} · {appt.slotTime}</p>
             <p className="font-sans text-xs text-neutral-400">{renderServices(appt)}</p>
+{/* Single-branch: branch line hidden
             {appt.branchData?.name && (
               <p className="font-sans text-xs text-neutral-400 mt-1">Branch: {appt.branchData.name}</p>
             )}
+            */}
           </div>
         </div>
         <div className="px-6 pb-6 flex gap-3">
@@ -886,7 +894,7 @@ const DeleteAllModal = ({ onClose, onConfirm, loading, count }) => {
             <p className="font-sans text-xs text-neutral-500">What will happen:</p>
             <ul className="font-sans text-xs text-neutral-600 mt-1.5 list-disc pl-4 space-y-0.5">
               <li>All appointment records will be permanently removed</li>
-              <li>This affects all branches and all statuses</li>
+                            <li>This affects all statuses</li>
               <li>Audit logs will still retain a record of this action</li>
             </ul>
           </div>
@@ -907,6 +915,73 @@ const DeleteAllModal = ({ onClose, onConfirm, loading, count }) => {
 }
 
 /* ─────────────────────────────  APPOINTMENT CARD  ───────────────────────────── */
+const MACHINE_COUNT = 10
+
+// Machines currently in use: assigned, not released, still active
+const getBusyMachines = (appointments) => {
+  const map = {}
+  for (const a of appointments) {
+    if (a.cancelled || a.archived) continue
+    if (a.machineNumber == null || a.machineReleasedAt) continue
+    if (!['in_progress', 'out_for_delivery'].includes(a.deliveryStatus)) continue
+    map[a.machineNumber] = a.userData?.name || 'Customer'
+  }
+  return map
+}
+
+const MachinePickerModal = ({ appt, busyMachines, onClose, onSubmit, loading }) => {
+  const [selected, setSelected] = useState(null)
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white w-full max-w-md" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Super Admin</p>
+              <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Choose a Machine</h2>
+            </div>
+            <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
+          </div>
+        </div>
+        <div className="px-6 py-6 space-y-4">
+          <p className="font-sans text-xs text-neutral-500">
+            Put {appt.userData?.name || 'this order'} on which machine?
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {Array.from({ length: MACHINE_COUNT }, (_, i) => i + 1).map(n => {
+              const busy = busyMachines[n]
+              const isSel = selected === n
+              return (
+                <button key={n} disabled={!!busy} onClick={() => setSelected(n)}
+                  title={busy ? `In use: ${busy}` : `Machine ${n}`}
+                  className={`py-3 border font-sans text-sm font-bold transition-colors disabled:cursor-not-allowed ${
+                    busy ? 'bg-neutral-100 text-neutral-300 border-neutral-200'
+                      : isSel ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
+                  }`}>
+                  {n}
+                </button>
+              )
+            })}
+          </div>
+          {Object.keys(busyMachines).length > 0 && (
+            <p className="font-sans text-[11px] text-neutral-400">Greyed out machines are in use.</p>
+          )}
+        </div>
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => onSubmit(selected)} disabled={!selected || loading}
+            className="flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-700 transition-colors disabled:opacity-50">
+            {loading ? 'Saving...' : selected ? `Start on Machine ${selected}` : 'Pick a machine'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+} 
 
 const CARD_HEIGHT = 'h-[560px]'
 
@@ -920,6 +995,9 @@ const AppointmentCard = ({
   onReceipt,
   onApprove,
   onCancel,
+  busyMachines,
+  onPickMachine,
+  onReleaseMachine,
 }) => {
   const isCancelled    = appt.cancelled
   const isCompleted    = appt.isCompleted
@@ -937,8 +1015,9 @@ const AppointmentCard = ({
   const isOnlineMethod = appt.preferredPaymentMethod === 'online'
   const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
   const isSelfPickup   = appt.fulfillmentMethod === 'SELF_PICKUP'
+  const isWalkIn       = appt.bookingSource === 'WALK_IN'
 
-  const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid && appt.bookingSource !== 'WALK_IN' && !isWeighed
+  const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid && !isWalkIn && !isWeighed
   const canConfirmCash = !isCancelled && !isPaid && isCashMethod && !isArchived && (
         isSelfPickup
       ? ['approved', 'in_progress'].includes(appt.deliveryStatus)
@@ -951,27 +1030,65 @@ const AppointmentCard = ({
   const blockedByCashPayment = isCashMethod && !isPaid
     && nextStatus?.status === 'delivered'
 
+  // ── Walk-in cash gate ──────────────────────────────────────────────
+  // Walk-in appointments must be paid before the branch can start them.
+  const blockedByWalkInUnpaid = isWalkIn && !isPaid
+    && nextStatus?.status === 'in_progress'
+
   // For ONLINE bookings, the "Out for Delivery" transition must wait
   // until the actual weight has been confirmed.
   const blockedByWeightConfirmation =
-    appt.bookingSource === 'ONLINE' &&
+    !isWalkIn &&
     !isSelfPickup &&
         appt.deliveryStatus === 'in_progress' &&
     !isWeighed
 
+  // ── Machine must be released before the next step ──────────────────
+  const blockedByMachineRelease =
+    appt.deliveryStatus === 'in_progress' &&
+    appt.machineNumber != null &&
+    !appt.machineReleasedAt
+
   const unlockAt = getUnlockAt(appt)
   const blockedByPickupTime =
-    appt.bookingSource === 'ONLINE' &&
+    !isWalkIn &&
     !isSelfPickup &&
     nextStatus?.status === 'rider_dispatched' &&
     unlockAt !== null &&
     Date.now() < unlockAt.getTime()
 
+    const approveUnlockAt = getApproveUnlockAt(appt)
+  const blockedByApproveTime =
+    !isWalkIn &&
+    appt.deliveryStatus === 'pending_approval' &&
+    approveUnlockAt !== null &&
+    Date.now() < approveUnlockAt.getTime()
+
+  const handleApprove = () => {
+    if (blockedByApproveTime) return
+    onApprove(appt.id)
+  }
+
   const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
+
+  const needsMachine = nextStatus?.status === 'in_progress'
+  const allMachinesBusy = Object.keys(busyMachines).length >= MACHINE_COUNT
+  const blockedByMachines = needsMachine && allMachinesBusy
+  const hasMachine = appt.machineNumber != null && !appt.machineReleasedAt && !isCancelled && !isArchived
 
   const handleNextStatus = () => {
     if (!nextStatus) return
-        if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision || blockedByWeightConfirmation || blockedByPickupTime) return 
+    if (
+      blockedByOnlinePayment ||
+      blockedByCashPayment ||
+      hasOverweightDecision ||
+      blockedByWeightConfirmation ||
+      blockedByPickupTime ||
+      blockedByMachines ||
+      blockedByWalkInUnpaid ||
+      blockedByMachineRelease
+    ) return
+    if (needsMachine) { onPickMachine(appt); return }
     const needsReceipt = isSelfPickup ? nextStatus.status === 'delivered' : nextStatus.status === 'out_for_delivery'
     if (needsReceipt) onReceipt({ ...appt, __targetStatus: nextStatus.status })
     else onNextStatus(appt.id, nextStatus.status)
@@ -979,8 +1096,14 @@ const AppointmentCard = ({
 
   const hasActions = showButtons && (
     appt.deliveryStatus === 'pending_approval' ||
-    (nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && !blockedByWeightConfirmation) ||
-    canWeigh || canConfirmCash
+    (nextStatus
+      && !blockedByOnlinePayment
+      && !blockedByCashPayment
+      && !hasOverweightDecision
+      && !blockedByWeightConfirmation
+      && !blockedByWalkInUnpaid
+      && !blockedByMachineRelease) ||
+    canWeigh || canConfirmCash || hasMachine
   )
 
   return (
@@ -1023,11 +1146,13 @@ const AppointmentCard = ({
             <span className="font-sans text-[10px] text-neutral-400">
               {isOnlineMethod ? 'Online' : 'Cash'}
             </span>
+{/* Single-branch: branch chip hidden
             {appt.branchData?.name && (
               <span className="inline-block border border-blue-200 bg-blue-50 text-blue-500 px-2 py-0.5 uppercase tracking-[0.2em] text-[10px] font-sans font-semibold mt-0.5">
                 {appt.branchData.name}
               </span>
             )}
+            */}
           </div>
         </div>
       </div>
@@ -1205,8 +1330,8 @@ const AppointmentCard = ({
           <div className="flex flex-wrap gap-2 mt-3">
             {appt.deliveryStatus === 'pending_approval' && (
               <>
-                <button onClick={() => onApprove(appt.id)}
-                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                                <button onClick={handleApprove} disabled={blockedByApproveTime}
+                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                   <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                   <span className="relative">Approve</span>
@@ -1220,13 +1345,46 @@ const AppointmentCard = ({
               </>
             )}
 
-                        {blockedByPickupTime && (
+             {blockedByApproveTime && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Approval available on {formatUnlockLabel(approveUnlockAt)}
+              </p>
+            )}
+
+            {blockedByPickupTime && (
               <p className="font-sans text-xs text-amber-600 w-full">
                 Dispatch Rider available on {formatUnlockLabel(unlockAt)}
               </p>
             )}
 
-            {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && !blockedByWeightConfirmation && !blockedByPickupTime && (
+            {blockedByWalkInUnpaid && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Confirm cash payment before starting this walk-in order.
+              </p>
+            )}
+
+            {blockedByMachineRelease && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Machine {appt.machineNumber} is still running. Click "Machine {appt.machineNumber} done" to release it before proceeding.
+              </p>
+            )}
+
+            {blockedByMachines && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Waitlisted: all machines are in use
+              </p>
+            )}
+
+            {appt.deliveryStatus !== 'pending_approval'
+              && nextStatus
+              && !blockedByOnlinePayment
+              && !blockedByCashPayment
+              && !hasOverweightDecision
+              && !blockedByWeightConfirmation
+              && !blockedByPickupTime
+              && !blockedByMachines
+              && !blockedByWalkInUnpaid
+              && !blockedByMachineRelease && (
               <button onClick={handleNextStatus}
                 className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
@@ -1234,6 +1392,15 @@ const AppointmentCard = ({
                 <span className="relative">
                   {(nextStatus.status === 'out_for_delivery' || (isSelfPickup && nextStatus.status === 'delivered')) ? 'Print & ' : ''}{nextStatus.label}
                 </span>
+              </button>
+            )}
+
+            {hasMachine && (
+              <button onClick={() => onReleaseMachine(appt.id)}
+                className="group relative overflow-hidden border border-green-500 text-green-700 font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-green-50 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">Machine {appt.machineNumber} done</span>
               </button>
             )}
 
@@ -1291,6 +1458,7 @@ const AllAppointments = () => {
     cancelAppointment,
     approveBooking,
     updateDeliveryStatus,
+    releaseMachine,
     emailReceipt,
     confirmActualWeight,
     confirmPayment,
@@ -1309,6 +1477,8 @@ const AllAppointments = () => {
   const [receiptModal,   setReceiptModal]   = useState(null)
   const [archiveModal,   setArchiveModal]   = useState(null)
   const [deleteAllModal, setDeleteAllModal] = useState(false)
+  const [machineModal,   setMachineModal]   = useState(null)
+  const busyMachines = useMemo(() => getBusyMachines(appointments), [appointments])
   const [modalLoading,   setModalLoading]   = useState(false)
   const [lastUpdated,    setLastUpdated]    = useState(null)
   const [secondsAgo,     setSecondsAgo]     = useState(0)
@@ -1355,6 +1525,13 @@ const AllAppointments = () => {
     await updateDeliveryStatus(receiptModal.id, receiptModal.__targetStatus || 'out_for_delivery')
     setModalLoading(false)
     setReceiptModal(null)
+  }
+
+  const handleMachineConfirm = async (machineNumber) => {
+    setModalLoading(true)
+    const ok = await updateDeliveryStatus(machineModal.id, 'in_progress', machineNumber)
+    setModalLoading(false)
+    if (ok) setMachineModal(null)
   }
 
   const handleArchiveConfirm = async () => {
@@ -1442,6 +1619,7 @@ const AllAppointments = () => {
       {weightModal    && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal   && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
       {receiptModal   && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} onEmailReceipt={emailReceipt} />}
+              {machineModal   && <MachinePickerModal appt={machineModal} busyMachines={busyMachines} onClose={() => setMachineModal(null)} onSubmit={handleMachineConfirm} loading={modalLoading} />}
       {archiveModal   && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
       {deleteAllModal && <DeleteAllModal    onClose={() => setDeleteAllModal(false)} onConfirm={handleDeleteAllConfirm} loading={modalLoading} count={appointments.length} />}
 
@@ -1455,7 +1633,7 @@ const AllAppointments = () => {
               style={{ fontWeight: 700, letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}>
               All Appointments
             </h1>
-            <p className="font-sans text-sm text-blue-300 mt-2">Manage and update all branch appointments</p>
+                        <p className="font-sans text-sm text-blue-300 mt-2">Manage and update all appointments</p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-right">
@@ -1508,7 +1686,7 @@ const AllAppointments = () => {
                 d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
             </svg>
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Name, email, branch, service, promo, date..."
+                            placeholder="Name, email, service, promo, date..."
               className="w-full pl-10 pr-8 py-2.5 border border-blue-100 font-sans text-sm text-neutral-700 placeholder-neutral-300 focus:outline-none focus:border-blue-400 transition-colors bg-white" />
             {search && (
               <button onClick={() => setSearch('')}
@@ -1528,10 +1706,12 @@ const AllAppointments = () => {
             <option value="paid_online">Paid (Online)</option>
           </select>
 
+          {/* Single-branch: branch dropdown hidden
           <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className={`${selectClass} sm:w-48`}>
             <option value="all">All Branches</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
+          */}
         </div>
 
         {/* ─── Count + Delete All ─── */}
@@ -1598,6 +1778,9 @@ const AllAppointments = () => {
                 onApprove={approveBooking}
                 onCancel={cancelAppointment}
                 onNextStatus={updateDeliveryStatus}
+                busyMachines={busyMachines}
+                onPickMachine={setMachineModal}
+                onReleaseMachine={releaseMachine}
               />
             )
           })}

@@ -17,13 +17,11 @@ const Sidebar = () => {
     { to: '/admin/extra-services',  label: 'Extra Services' },
     { to: '/admin/promo-codes',     label: 'Promos' },
     { to: '/admin/products',        label: 'Products' },
-    { to: '/admin/inventory',       label: 'Inventory' },  // <-- BAGONG ITEM
+        { to: '/admin/inventory',       label: 'Inventory' },
+    { to: '/admin/branch-maintenance', label: 'Branch' },
+    { to: '/admin/users',              label: 'Customers' },
   ]
 
-  const branchesUsersItems = [
-    { to: '/admin/branch-maintenance', label: 'Branch Maintenance' },
-    { to: '/admin/users',              label: 'User Management' },
-  ]
 
   const settingsItems = [
     { to: '/admin/vat-settings', label: 'VAT Settings' },
@@ -60,15 +58,7 @@ const Sidebar = () => {
           <div className='h-px bg-gray-200 mb-2' />
           {maintenanceItems.map(item => <NavItem key={item.to} {...item} />)}
 
-          {/* BRANCHES & USERS Section */}
-          <li className='px-3 pt-4 pb-1'>
-            <span className='uppercase tracking-[0.3em] text-[11px] text-gray-400 font-semibold'>
-              Branches & Users
-            </span>
-          </li>
-          <div className='h-px bg-gray-200 mb-2' />
-          {branchesUsersItems.map(item => <NavItem key={item.to} {...item} />)}
-
+        
           {/* SETTINGS Section */}
           <li className='px-3 pt-4 pb-1'>
             <span className='uppercase tracking-[0.3em] text-[11px] text-gray-400 font-semibold'>

@@ -101,7 +101,7 @@ const sanitizeWeight = (v) => {
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
 const fmt = (n) =>
-  `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+  `₱${Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const resolvePaymentStatus = (appt) => {
   if (appt.paymentStatus) return appt.paymentStatus
@@ -118,6 +118,13 @@ const getNextStatus = (current, steps) => {
 const getUnlockAt = (appt) => {
   const d = new Date(`${appt.slotDate}T${appt.slotTime}:00+08:00`)
   return isNaN(d.getTime()) ? null : d
+}
+
+const APPROVE_WINDOW_HOURS = 24
+
+const getApproveUnlockAt = (appt) => {
+  const d = getUnlockAt(appt)
+  return d ? new Date(d.getTime() - APPROVE_WINDOW_HOURS * 60 * 60 * 1000) : null
 }
 
 const formatUnlockLabel = (d) =>
@@ -906,6 +913,85 @@ const ArchiveModal = ({ appt, onClose, onConfirm, loading }) => {
 }
 
 // ─── APPOINTMENT CARD ─────────────────────────────────────────────────────────
+// ─── MACHINES ─────────────────────────────────────────────────────────────────
+
+const MACHINE_COUNT = 10
+
+const getBusyMachines = (appointments) => {
+  const busy = {}
+  for (const a of appointments || []) {
+    if (
+      a.machineNumber != null &&
+      !a.machineReleasedAt &&
+      !a.cancelled &&
+      ['in_progress', 'out_for_delivery'].includes(a.deliveryStatus)
+    ) {
+      busy[a.machineNumber] = a.userData?.name || 'Customer'
+    }
+  }
+  return busy
+}
+
+const MachinePickerModal = ({ appt, busyMachines, onClose, onSubmit, loading }) => {
+  const [selected, setSelected] = useState(null)
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white w-full max-w-md" style={{ clipPath: 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)' }}>
+        <div className="px-6 py-5" style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-0.5">Branch Portal</p>
+              <h2 className="font-sans font-black text-white text-lg" style={{ letterSpacing: '-0.02em' }}>Choose a Machine</h2>
+            </div>
+            <button onClick={onClose} className="text-blue-200 hover:text-white transition-colors text-xl leading-none">×</button>
+          </div>
+        </div>
+        <div className="px-6 py-6 space-y-5">
+          <p className="font-sans text-xs text-neutral-500">
+            Put {appt.userData?.name || 'this order'} on which machine?
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {Array.from({ length: MACHINE_COUNT }, (_, i) => i + 1).map(n => {
+              const busyWith = busyMachines[n]
+              const isBusy = busyWith !== undefined
+              const isSelected = selected === n
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  disabled={isBusy}
+                  title={isBusy ? `In use by ${busyWith}` : `Machine ${n}`}
+                  onClick={() => setSelected(n)}
+                  className={`py-3 border font-sans text-sm font-bold transition-colors ${
+                    isBusy
+                      ? 'bg-neutral-100 border-neutral-200 text-neutral-300 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div className="px-6 pb-6 flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 border border-blue-200 text-blue-400 font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => onSubmit(selected)} disabled={!selected || loading}
+            className="flex-1 bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold py-2.5 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? 'Starting...' : selected ? `Start on Machine ${selected}` : 'Pick a Machine'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── APPOINTMENT CARD ─────────────────────────────────────────────────────────
 
 const AppointmentCard = ({
   appt,
@@ -917,6 +1003,9 @@ const AppointmentCard = ({
   onReceipt,
   onApprove,
   onCancel,
+  busyMachines,
+  onPickMachine,
+  onReleaseMachine,
 }) => {
   const isCancelled    = appt.cancelled
   const isCompleted    = appt.isCompleted
@@ -934,7 +1023,9 @@ const AppointmentCard = ({
   const isOnlineMethod = appt.preferredPaymentMethod === 'online'
   const hasOverweightDecision = appt.overweightStatus === 'pending_decision'
   const isSelfPickup   = appt.fulfillmentMethod === 'SELF_PICKUP'
-  const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid && appt.bookingSource !== 'WALK_IN' && !isWeighed
+  const isWalkIn       = appt.bookingSource === 'WALK_IN'
+
+  const canWeigh       = !isCancelled && !isCompleted && !isArchived && appt.deliveryStatus === 'in_progress' && !isPaid && !isWalkIn && !isWeighed
   const canConfirmCash = !isCancelled && !isPaid && isCashMethod && !isArchived && (
     isSelfPickup
       ? ['approved', 'in_progress'].includes(appt.deliveryStatus)
@@ -947,27 +1038,72 @@ const AppointmentCard = ({
   const blockedByCashPayment = isCashMethod && !isPaid
     && nextStatus?.status === 'delivered'
 
+  // ── NEW: Walk-in cash gate ──────────────────────────────────────────
+  // Walk-in appointments must be paid before the branch can start them.
+  // Otherwise the client could walk away without ever paying.
+  const blockedByWalkInUnpaid = isWalkIn && !isPaid
+    && nextStatus?.status === 'in_progress'
+
   // For ONLINE bookings, the "Out for Delivery" transition must wait
   // until the actual weight has been confirmed.
   const blockedByWeightConfirmation =
-    appt.bookingSource === 'ONLINE' &&
+    !isWalkIn &&
     !isSelfPickup &&
     appt.deliveryStatus === 'in_progress' &&
     !isWeighed
 
+  // ── NEW: Machine must be released before the next step ──────────────
+  // Once laundry is in the machine (in_progress), the branch cannot move
+  // to out_for_delivery / delivered until the machine is released.
+  const blockedByMachineRelease =
+    appt.deliveryStatus === 'in_progress' &&
+    appt.machineNumber != null &&
+    !appt.machineReleasedAt
+
   const unlockAt = getUnlockAt(appt)
   const blockedByPickupTime =
-    appt.bookingSource === 'ONLINE' &&
+    !isWalkIn &&
     !isSelfPickup &&
     nextStatus?.status === 'rider_dispatched' &&
     unlockAt !== null &&
     Date.now() < unlockAt.getTime()
 
+    const approveUnlockAt = getApproveUnlockAt(appt)
+  const blockedByApproveTime =
+    !isWalkIn &&
+    appt.deliveryStatus === 'pending_approval' &&
+    approveUnlockAt !== null &&
+    Date.now() < approveUnlockAt.getTime()
+
+  const handleApprove = () => {
+    if (blockedByApproveTime) return
+    onApprove(appt.id)
+  }
+
   const canArchive = !isArchived && (appt.deliveryStatus === 'delivered' || isCancelled)
 
+  const needsMachine = nextStatus?.status === 'in_progress'
+  const allMachinesBusy = Object.keys(busyMachines || {}).length >= MACHINE_COUNT
+  const blockedByMachines = needsMachine && allMachinesBusy
+  const hasMachine =
+    appt.machineNumber != null &&
+    !appt.machineReleasedAt &&
+    !isCancelled &&
+    ['in_progress', 'out_for_delivery'].includes(appt.deliveryStatus)
+
   const handleNextStatus = () => {
-    if (!nextStatus) return
-        if (blockedByOnlinePayment || blockedByCashPayment || hasOverweightDecision || blockedByWeightConfirmation || blockedByPickupTime) return
+      if (!nextStatus) return
+    if (
+      blockedByOnlinePayment ||
+      blockedByCashPayment ||
+      hasOverweightDecision ||
+      blockedByWeightConfirmation ||
+      blockedByPickupTime ||
+      blockedByMachines ||
+      blockedByWalkInUnpaid ||
+      blockedByMachineRelease
+    ) return
+    if (needsMachine) { onPickMachine(appt); return }
     const needsReceipt = isSelfPickup ? nextStatus.status === 'delivered' : nextStatus.status === 'out_for_delivery'
     if (needsReceipt) onReceipt({ ...appt, __targetStatus: nextStatus.status })
     else onNextStatus(appt.id, nextStatus.status)
@@ -975,8 +1111,14 @@ const AppointmentCard = ({
 
   const hasActions = showButtons && (
     appt.deliveryStatus === 'pending_approval' ||
-    (nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && !blockedByWeightConfirmation) ||
-    canWeigh || canConfirmCash
+    (nextStatus
+      && !blockedByOnlinePayment
+      && !blockedByCashPayment
+      && !hasOverweightDecision
+      && !blockedByWeightConfirmation
+      && !blockedByWalkInUnpaid
+      && !blockedByMachineRelease) ||
+    canWeigh || canConfirmCash || hasMachine
   )
 
   return (
@@ -1198,8 +1340,8 @@ const AppointmentCard = ({
           <div className="flex flex-wrap gap-2 mt-3">
             {appt.deliveryStatus === 'pending_approval' && (
               <>
-                <button onClick={() => onApprove(appt.id)}
-                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                                <button onClick={handleApprove} disabled={blockedByApproveTime}
+                  className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
                   <div className="absolute inset-0 bg-blue-800 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
                   <span className="relative">Approve</span>
@@ -1213,13 +1355,54 @@ const AppointmentCard = ({
               </>
             )}
 
-                        {blockedByPickupTime && (
+            {blockedByApproveTime && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Approval available on {formatUnlockLabel(approveUnlockAt)}
+              </p>
+            )}
+
+            {blockedByPickupTime && (
               <p className="font-sans text-xs text-amber-600 w-full">
                 Dispatch Rider available on {formatUnlockLabel(unlockAt)}
               </p>
             )}
 
-            {appt.deliveryStatus !== 'pending_approval' && nextStatus && !blockedByOnlinePayment && !blockedByCashPayment && !hasOverweightDecision && !blockedByWeightConfirmation && !blockedByPickupTime && (
+            {blockedByWalkInUnpaid && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Confirm cash payment before starting this walk-in order.
+              </p>
+            )}
+
+            {blockedByMachineRelease && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Machine {appt.machineNumber} is still running. Click "Machine {appt.machineNumber} done" to release it before proceeding.
+              </p>
+            )}
+
+            {blockedByMachines && appt.deliveryStatus !== 'pending_approval' && (
+              <p className="font-sans text-xs text-amber-600 w-full">
+                Waitlisted: all machines are in use
+              </p>
+            )}
+            {hasMachine && (
+              <button onClick={() => onReleaseMachine(appt.id)}
+                className="group relative overflow-hidden bg-green-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
+                style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
+                <div className="absolute inset-0 bg-green-700 translate-x-full group-hover:translate-x-0 transition-transform duration-300 ease-out" />
+                <span className="relative">Machine {appt.machineNumber} done</span>
+              </button>
+            )}
+
+            {appt.deliveryStatus !== 'pending_approval'
+              && nextStatus
+              && !blockedByOnlinePayment
+              && !blockedByCashPayment
+              && !hasOverweightDecision
+              && !blockedByWeightConfirmation
+              && !blockedByPickupTime
+              && !blockedByMachines
+              && !blockedByWalkInUnpaid
+              && !blockedByMachineRelease && (
               <button onClick={handleNextStatus}
                 className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-5 py-2.5"
                 style={{ clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)' }}>
@@ -1282,6 +1465,7 @@ const AllAppointments = () => {
     appointments,      getBranchAppointments,
     cancelAppointment,
     updateDeliveryStatus,
+    releaseMachine,
     emailReceipt,
     confirmActualWeight,
     confirmPayment,
@@ -1297,6 +1481,7 @@ const AllAppointments = () => {
   const [paymentModal,   setPaymentModal]   = useState(null)
   const [receiptModal,   setReceiptModal]   = useState(null)
   const [archiveModal,   setArchiveModal]   = useState(null)
+  const [machineModal,   setMachineModal]   = useState(null)
   const [modalLoading,   setModalLoading]   = useState(false)
   const [lastUpdated,    setLastUpdated]    = useState(null)
   const [secondsAgo,     setSecondsAgo]     = useState(0)
@@ -1342,6 +1527,16 @@ const AllAppointments = () => {
     await updateDeliveryStatus(receiptModal.id, receiptModal.__targetStatus || 'out_for_delivery')
     setModalLoading(false)
     setReceiptModal(null)
+  }
+
+  const busyMachines = useMemo(() => getBusyMachines(appointments), [appointments])
+
+  const handleMachineConfirm = async (machineNumber) => {
+    if (!machineNumber) return
+    setModalLoading(true)
+    await updateDeliveryStatus(machineModal.id, 'in_progress', machineNumber)
+    setModalLoading(false)
+    setMachineModal(null)
   }
 
   const handleArchiveConfirm = async () => {
@@ -1417,7 +1612,8 @@ const AllAppointments = () => {
       {weightModal  && <ActualWeightModal appt={weightModal}  onClose={() => setWeightModal(null)}  onSubmit={handleConfirmWeight}  loading={modalLoading} />}
       {paymentModal && <CashPaymentModal  appt={paymentModal} onClose={() => setPaymentModal(null)} onSubmit={handleConfirmPayment} loading={modalLoading} />}
       {receiptModal && <ReceiptModal      appt={receiptModal} onClose={() => setReceiptModal(null)} onConfirm={handleReceiptConfirm} loading={modalLoading} onEmailReceipt={emailReceipt} />}
-      {archiveModal && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
+            {archiveModal && <ArchiveModal      appt={archiveModal} onClose={() => setArchiveModal(null)} onConfirm={handleArchiveConfirm} loading={modalLoading} />}
+      {machineModal && <MachinePickerModal appt={machineModal} busyMachines={busyMachines} onClose={() => setMachineModal(null)} onSubmit={handleMachineConfirm} loading={modalLoading} />}
 
       {/* ── Header ── */}
       <div className="px-10 pt-10 pb-12"
@@ -1429,8 +1625,8 @@ const AllAppointments = () => {
               style={{ fontWeight: 700, letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}>
               All Appointments
             </h1>
-            <p className="font-sans text-sm text-blue-300 mt-2">Manage and update all branch appointments</p>
-          </div>
+            <p className="font-sans text-sm text-blue-300 mt-2">Manage and update all appointments</p>
+                      </div>
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-right">
               <p className="font-sans text-[10px] uppercase tracking-widest text-blue-300">Last updated</p>
@@ -1549,6 +1745,9 @@ const AllAppointments = () => {
                 onApprove={(id) => updateDeliveryStatus(id, 'approved')}
                 onCancel={cancelAppointment}
                 onNextStatus={updateDeliveryStatus}
+                busyMachines={busyMachines}
+                onPickMachine={setMachineModal}
+                onReleaseMachine={releaseMachine}
               />
             )
           })}

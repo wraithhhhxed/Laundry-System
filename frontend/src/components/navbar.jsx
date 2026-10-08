@@ -7,7 +7,8 @@ import NotificationBell from './NotificationBell'
 const Navbar = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { token, userData, logoutUser, branches } = useContext(AppContext)
+    const { token, userData, logoutUser, branches } = useContext(AppContext)
+  const mainBranch = branches?.find((b) => b.name.trim().toLowerCase() === 'hagonoy') || branches?.[0]
 
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showDropdown, setShowDropdown]     = useState(false)
@@ -124,7 +125,15 @@ const Navbar = () => {
           <ul className='hidden md:flex items-center gap-10 lg:gap-14'>
             <NavLink to='/' className={({ isActive }) => navLinkClass(isActive)}>Home</NavLink>
 
-            {/* Branch Dropdown */}
+                        {/* Branch Dropdown (hidden: single branch) */}
+            <li className='list-none flex items-center'>
+              <button
+                onClick={() => { if (mainBranch) { navigate(`/appointment/${mainBranch.id}`); window.scrollTo(0, 0) } }}
+                className={navLinkClass(location.pathname.startsWith('/appointment'))}>
+                Book Now
+              </button>
+            </li>
+            {/*
             <li
               ref={branchMenuRef}
               className='relative list-none flex items-center'
@@ -153,8 +162,9 @@ const Navbar = () => {
                     </div>
                   </div>
                 </div>
-              )}
+                            )}
             </li>
+            */}
 
             {/* FAQs — smooth scroll to #faqs on homepage */}
             <li className='list-none flex items-center'>
@@ -211,12 +221,15 @@ const Navbar = () => {
           <img className='w-7 cursor-pointer' onClick={() => setShowMobileMenu(false)} src={assets.cross_icon} alt='' />
         </div>
         <ul className='flex flex-col mt-10 px-8 gap-6'>
-          {['Home', 'Branches', 'About', 'Contact'].map((label) => (
+                    {['Home', 'About', 'Contact'].map((label) => (
             <NavLink key={label} to={label === 'Home' ? '/' : `/${label.toLowerCase()}`} onClick={() => setShowMobileMenu(false)}
                      className={({ isActive }) => `text-2xl font-sans uppercase tracking-[0.2em] font-bold ${isActive ? 'text-blue-600' : 'text-neutral-400'}`}>
               {label}
             </NavLink>
           ))}
+                    <span onClick={() => { setShowMobileMenu(false); if (mainBranch) navigate(`/appointment/${mainBranch.id}`) }} className='text-2xl font-sans uppercase tracking-[0.2em] font-bold text-neutral-400 cursor-pointer'>
+            Book Now
+          </span>
           <span onClick={() => scrollToSection('faqs')} className='text-2xl font-sans uppercase tracking-[0.2em] font-bold text-neutral-400 cursor-pointer'>
             FAQs
           </span>

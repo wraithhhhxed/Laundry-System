@@ -9,6 +9,8 @@ import {
   bookAppointment,
   listAppointments,
   cancelAppointment,
+   rescheduleAppointment,
+  updateAppointmentAddress,
   requestRefund,
   resolveOverweight,
   createPaymentLink,
@@ -54,6 +56,8 @@ userRouter.post('/update-profile',     protect('user'), upload.single('image'), 
 userRouter.post('/book-appointment',   protect('user'), bookAppointment)
 userRouter.get('/appointments',        protect('user'), listAppointments)
 userRouter.post('/cancel-appointment', protect('user'), cancelAppointment)
+userRouter.post('/reschedule-appointment', protect('user'), rescheduleAppointment)
+userRouter.post('/update-appointment-address', protect('user'), updateAppointmentAddress)
 userRouter.post('/request-refund',     protect('user'), requestRefund)
 userRouter.post('/resolve-overweight', protect('user'), resolveOverweight)
 userRouter.post('/create-payment',     protect('user'), createPaymentLink)

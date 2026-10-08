@@ -151,7 +151,7 @@ const HomePrices = () => {
           </div>
 
           <p className="font-sans text-xs text-neutral-400 mt-10">
-            Prices may vary per branch. Final amount is shown at checkout.
+            Final amount is shown at checkout.
           </p>
         </>
       )}

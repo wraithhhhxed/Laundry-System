@@ -1,6 +1,8 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react'
 import { AppContext } from '../context/AppContext'
 import { toast } from 'react-toastify'
+import axios from 'axios'
+import { AddressPicker } from './appointment'
 
 const DELIVERY_STATUS_MAP = {
   pending_approval: { label: 'Waiting for Approval', color: 'text-amber-600 bg-amber-50 border-amber-200' },
@@ -144,7 +146,158 @@ const AmountDisplay = ({ item, currencySymbol }) => {
   )
 }
 
-const AppointmentCard = ({ 
+const RESCHEDULE_SLOTS = ['08:00', '10:00', '12:00', '14:00', '16:00']
+const RESCHEDULE_MAX_DAYS = 7
+
+const getTodayManila = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+
+const getMaxRescheduleDate = () => {
+  const [y, m, d] = getTodayManila().split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d + RESCHEDULE_MAX_DAYS)).toISOString().split('T')[0]
+}
+
+const slotLabel = (slot) => {
+  const h = Number(slot.split(':')[0])
+  return `${h > 12 ? h - 12 : h}:00 ${h >= 12 ? 'PM' : 'AM'}`
+}
+
+const getAvailableSlots = (date) => {
+  if (date !== getTodayManila()) return RESCHEDULE_SLOTS
+  return RESCHEDULE_SLOTS.filter(
+    s => new Date(`${date}T${s}:00+08:00`).getTime() >= Date.now() + 30 * 60 * 1000
+  )
+}
+
+const RescheduleModal = ({ item, onConfirm, onClose, loading }) => {
+  const [date, setDate] = useState(item.slotDate)
+  const [time, setTime] = useState(item.slotTime)
+  const slots = getAvailableSlots(date)
+  const unchanged = date === item.slotDate && time === item.slotTime
+  const canSubmit = !loading && date && slots.includes(time) && !unchanged
+
+  return (
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm'>
+      <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white w-full max-w-md overflow-hidden'>
+        <div className='bg-blue-600 px-8 py-7'>
+          <span className='uppercase tracking-[0.35em] text-[10px] text-white/40 font-sans block mb-2'>Reschedule</span>
+          <h2 className='text-white font-bold leading-none' style={{ fontSize: '24px', letterSpacing: '-0.02em' }}>
+            Pick a new schedule
+          </h2>
+        </div>
+        <div className='px-8 py-8 flex flex-col gap-5'>
+          <p className='font-sans text-sm text-neutral-500'>
+            Current: <span className='font-semibold text-neutral-700'>{item.slotDate} · {item.slotTime}</span>
+          </p>
+          <div>
+            <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-2'>New Date</span>
+            <input type='date' value={date}
+              min={getTodayManila()} max={getMaxRescheduleDate()}
+              onChange={e => { setDate(e.target.value); setTime('') }}
+              className='w-full px-4 py-3 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400' />
+          </div>
+          <div>
+            <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-2'>New Time</span>
+            {slots.length === 0 ? (
+              <p className='font-sans text-xs text-amber-600'>No more slots today. Pick another date.</p>
+            ) : (
+              <div className='flex flex-wrap gap-2'>
+                {slots.map(s => (
+                  <button key={s} onClick={() => setTime(s)}
+                    className={`px-4 py-2 font-sans text-xs border transition-colors ${
+                      time === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-neutral-600 border-blue-100 hover:border-blue-400'
+                    }`}>
+                    {slotLabel(s)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className='flex gap-4 pt-2'>
+            <button onClick={onClose}
+              className='flex-1 py-3.5 font-sans text-xs tracking-widest uppercase font-bold border border-blue-200 text-blue-400 hover:border-blue-400 hover:text-blue-600 transition-colors'>
+              Close
+            </button>
+            <button onClick={() => onConfirm(date, time)} disabled={!canSubmit}
+              className='flex-1 py-3.5 font-sans text-xs tracking-widest uppercase font-bold bg-blue-600 text-white disabled:opacity-40 disabled:cursor-not-allowed'>
+              {loading ? 'Saving...' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const addrSig = (a) => [a?.line1 || '', a?.line2 || '', a?.lat ?? '', a?.lng ?? ''].join('|')
+
+const AddressModal = ({ item, onConfirm, onClose, loading }) => {
+  const [pickup, setPickup] = useState(item.pickupAddress || { line1: '', line2: '' })
+  const [delivery, setDelivery] = useState(item.deliveryAddress || { line1: '', line2: '' })
+  const [same, setSame] = useState(
+    !item.deliveryAddress?.line1 || item.deliveryAddress.line1 === item.pickupAddress?.line1
+  )
+
+  const finalDelivery = same ? pickup : delivery
+  const changed =
+    addrSig(pickup) !== addrSig(item.pickupAddress) ||
+    addrSig(finalDelivery) !== addrSig(item.deliveryAddress || item.pickupAddress)
+  const canSubmit = !loading && changed && !!pickup.line1 && !!finalDelivery.line1
+
+  return (
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm'>
+      <div style={{ fontFamily: "'Georgia', serif" }} className='bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto'>
+        <div className='bg-blue-600 px-8 py-7'>
+          <span className='uppercase tracking-[0.35em] text-[10px] text-white/40 font-sans block mb-2'>Confirm Address</span>
+          <h2 className='text-white font-bold leading-none' style={{ fontSize: '24px', letterSpacing: '-0.02em' }}>
+            Update your addresses
+          </h2>
+        </div>
+        <div className='px-8 py-8 flex flex-col gap-6'>
+          <div>
+            <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-2'>Pickup Address</span>
+            <p className='font-sans text-sm text-neutral-700 mb-3'>{pickup.line1 || 'No address selected'}</p>
+            <AddressPicker value={pickup} onSelect={loc => setPickup(p => ({ ...p, ...loc }))} />
+            <input type='text' value={pickup.line2 || ''} placeholder='Unit / floor / landmark (optional)'
+              onChange={e => setPickup(p => ({ ...p, line2: e.target.value }))}
+              className='w-full mt-3 px-4 py-3 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400' />
+          </div>
+
+          <label className='flex items-center gap-2 font-sans text-sm text-neutral-600 cursor-pointer'>
+            <input type='checkbox' checked={same} onChange={e => setSame(e.target.checked)} />
+            Delivery address is the same as pickup
+          </label>
+
+          {!same && (
+            <div>
+              <span className='uppercase tracking-[0.35em] text-[10px] text-blue-400 font-sans block mb-2'>Delivery Address</span>
+              <p className='font-sans text-sm text-neutral-700 mb-3'>{delivery.line1 || 'No address selected'}</p>
+              <AddressPicker value={delivery} onSelect={loc => setDelivery(d => ({ ...d, ...loc }))} />
+              <input type='text' value={delivery.line2 || ''} placeholder='Unit / floor / landmark (optional)'
+                onChange={e => setDelivery(d => ({ ...d, line2: e.target.value }))}
+                className='w-full mt-3 px-4 py-3 border border-blue-100 font-sans text-sm text-neutral-700 focus:outline-none focus:border-blue-400' />
+            </div>
+          )}
+
+          <p className='font-sans text-xs text-neutral-400'>Only addresses within Taguig City are accepted.</p>
+
+          <div className='flex gap-4 pt-2'>
+            <button onClick={onClose}
+              className='flex-1 py-3.5 font-sans text-xs tracking-widest uppercase font-bold border border-blue-200 text-blue-400 hover:border-blue-400 hover:text-blue-600 transition-colors'>
+              Close
+            </button>
+            <button onClick={() => onConfirm(pickup, finalDelivery)} disabled={!canSubmit}
+              className='flex-1 py-3.5 font-sans text-xs tracking-widest uppercase font-bold bg-blue-600 text-white disabled:opacity-40 disabled:cursor-not-allowed'>
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const AppointmentCard = ({
   item, 
   currencySymbol, 
   onCancel, 
@@ -154,6 +307,8 @@ const AppointmentCard = ({
   onResolveOverweight,
   payingId,
   resolvingId,
+    onReschedule,
+  onEditAddress,
   isArchivedView = false
 }) => {
   const payStatus  = resolvePaymentStatus(item)
@@ -348,7 +503,24 @@ const AppointmentCard = ({
       )}
 
       {canCancel && (
-        <div className='border-t border-blue-50 px-5 md:px-6 py-4 flex gap-3 justify-end bg-blue-50/30'>
+        <div className='border-t border-blue-50 px-5 md:px-6 py-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-end bg-blue-50/30'>
+          {item.bookingSource !== 'WALK_IN' && (
+            <>
+              <p className='font-sans text-xs text-neutral-400 sm:mr-auto'>
+                Awaiting approval. You can reschedule until it is approved.
+              </p>
+                            <button onClick={onEditAddress}
+                className='font-sans text-sm px-6 py-2.5 border border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors uppercase tracking-widest font-bold w-full sm:w-auto'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
+                Confirm Address
+              </button>
+              <button onClick={onReschedule}
+                className='font-sans text-sm px-6 py-2.5 border border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors uppercase tracking-widest font-bold w-full sm:w-auto'
+                style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
+                Reschedule
+              </button>
+            </>
+          )}
           <button onClick={onCancel}
             className='font-sans text-sm px-6 py-2.5 border border-red-200 text-red-400 hover:bg-red-50 transition-colors uppercase tracking-widest font-bold w-full sm:w-auto'
             style={{ clipPath: 'polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)' }}>
@@ -366,7 +538,7 @@ const MyAppointments = () => {
     appointments, getUserAppointments,
     cancelAppointment, createPayment,
     resolveOverweight,
-    currencySymbol, token,
+     currencySymbol, token, backendUrl,
   } = useContext(AppContext)
 
   const [activeTab,    setActiveTab]    = useState('active')
@@ -376,6 +548,10 @@ const MyAppointments = () => {
   const [secondsAgo,   setSecondsAgo]   = useState(0)
   const [payingId,     setPayingId]     = useState(null)
   const [resolvingId,  setResolvingId]  = useState(null)
+   const [rescheduleModal, setRescheduleModal] = useState(null)
+  const [addressModal, setAddressModal] = useState(null)
+  const [savingAddress, setSavingAddress] = useState(false)
+  const [reschedulingId,  setReschedulingId]  = useState(null)
   const [archived,     setArchived]     = useState(() => {
     try { return JSON.parse(localStorage.getItem('archivedAppointments') || '[]') } catch { return [] }
   })
@@ -446,6 +622,52 @@ const MyAppointments = () => {
     }
   }
 
+    const handleSaveAddress = async (pickupAddress, deliveryAddress) => {
+    if (savingAddress || !addressModal) return
+    setSavingAddress(true)
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/user/update-appointment-address',
+        { appointmentId: addressModal.id, pickupAddress, deliveryAddress },
+        { headers: { token } }
+      )
+      if (data.success) {
+        toast.success(data.message)
+        setAddressModal(null)
+        await refresh()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+    } finally {
+      setSavingAddress(false)
+    }
+  }
+
+  const handleReschedule = async (date, time) => {
+    if (reschedulingId || !rescheduleModal) return
+    setReschedulingId(rescheduleModal.id)
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/user/reschedule-appointment',
+        { appointmentId: rescheduleModal.id, slotDate: date, slotTime: time },
+        { headers: { token } }
+      )
+      if (data.success) {
+        toast.success(data.message)
+        setRescheduleModal(null)
+        await refresh()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message)
+    } finally {
+      setReschedulingId(null)
+    }
+  }
+
   const lastUpdatedLabel = lastUpdated
     ? secondsAgo < 5  ? 'Just now'
     : secondsAgo < 60 ? `${secondsAgo}s ago`
@@ -497,6 +719,24 @@ const MyAppointments = () => {
         <DeleteModal
           onConfirm={() => handleDelete(deleteModal)}
           onClose={() => setDeleteModal(null)}
+        />
+      )}
+
+           {addressModal && (
+        <AddressModal
+          item={addressModal}
+          onConfirm={handleSaveAddress}
+          onClose={() => setAddressModal(null)}
+          loading={savingAddress}
+        />
+      )}
+
+      {rescheduleModal && (
+        <RescheduleModal
+          item={rescheduleModal}
+          onConfirm={handleReschedule}
+          onClose={() => setRescheduleModal(null)}
+          loading={!!reschedulingId}
         />
       )}
 
@@ -562,7 +802,9 @@ const MyAppointments = () => {
               key={item.id}
               item={item}
               currencySymbol={currencySymbol}
-              onCancel={() => cancelAppointment(item.id)}
+                            onCancel={() => cancelAppointment(item.id)}
+onReschedule={() => setRescheduleModal(item)}
+onEditAddress={() => setAddressModal(item)}
               onArchive={() => setArchiveModal(item.id)}
               onDelete={() => setDeleteModal(item.id)}
               onPayOnline={() => handlePayOnline(item.id)}

@@ -83,11 +83,11 @@ const AdminContextProvider = (props) => {
     } catch (error) { toast.error(error.response?.data?.message || error.message) }
   }
 
-  const updateDeliveryStatus = async (appointmentId, status) => {
-    try {
-      const { data } = await axios.post(
-        backendUrl + '/api/admin/update-delivery-status',
-        { appointmentId, status },
+  const updateDeliveryStatus = async (appointmentId, status, machineNumber) => {
+      try {
+        const { data } = await axios.post(
+          backendUrl + '/api/admin/update-delivery-status',
+          { appointmentId, status, machineNumber },
         { headers: authHeader(aToken) }
       )
       if (data.success) {
@@ -103,6 +103,27 @@ const AdminContextProvider = (props) => {
       return false
     }
   }
+
+    const releaseMachine = async (appointmentId) => {
+      try {
+        const { data } = await axios.post(
+          backendUrl + '/api/admin/release-machine',
+          { appointmentId },
+          { headers: authHeader(aToken) }
+        )
+        if (data.success) {
+          toast.success('Machine released')
+          debouncedRefresh()
+          return true
+        } else {
+          toast.error(data.message)
+          return false
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || error.message)
+        return false
+      }
+    }
 
   const emailReceipt = async (appointmentId) => {
     try {
@@ -634,6 +655,7 @@ const AdminContextProvider = (props) => {
     appointments, getAllAppointments, cancelAppointment,
     approveBooking,
     updateDeliveryStatus,
+    releaseMachine,
     emailReceipt,
     archiveAppointment,
     confirmActualWeight,

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import branchService from '../services/BranchService.js'
 import appointmentService from '../services/AppointmentService.js'
+import { assertApprovable } from '../services/AppointmentService.js'
 import serviceService from '../services/ServiceService.js'
 import clothingTypeService from '../services/ClothingTypeService.js'
 import kgRateService from '../services/KgRateService.js'
@@ -18,6 +19,7 @@ import AuditRepository from '../repositories/AuditRepository.js'
 import AdminRepository from '../repositories/AdminRepository.js'
 import branchStaffService from '../services/BranchStaffService.js'
 import BranchStaffRepository from '../repositories/BranchStaffRepository.js'
+
 
 // ─── HELPERS ──────────────────────────────────────────────────────
 
@@ -101,6 +103,8 @@ const approveBooking = asyncHandler(async (req, res) => {
   if (appointment.deliveryStatus !== 'pending_approval')
     throw new ApiError(400, 'Appointment is not pending approval')
 
+  assertApprovable(appointment)
+
   await AppointmentRepository.updateById(appointmentId, { deliveryStatus: 'approved' })
 
   await AuditService.logStatusChange(
@@ -140,13 +144,25 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
     appointmentId,
     appointment.branchId,
     status,
-    adminActor(req)
+    adminActor(req),
+    req.body.machineNumber
   )
 
   res.json(new ApiResponse(200, { appointment: updated }, 'Delivery status updated'))
 })
 
 // ─── EMAIL RECEIPT (admin override) ──────────────────────────────
+
+const releaseMachine = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.body
+  if (!appointmentId) throw new ApiError(400, 'appointmentId is required')
+
+  const appointment = await AppointmentRepository.findById(appointmentId)
+  if (!appointment) throw new ApiError(404, 'Appointment not found')
+
+  const updated = await appointmentService.releaseMachine(appointmentId, appointment.branchId)
+  res.json(new ApiResponse(200, { appointment: updated }, 'Machine released'))
+}) 
 const emailReceipt = asyncHandler(async (req, res) => {
   const { appointmentId } = req.body
   if (!appointmentId) throw new ApiError(400, 'appointmentId is required')
@@ -590,7 +606,8 @@ export {
   addBranch, allBranches, changeBranchAvailability,
 
   allAppointments, cancelAppointment, adminDashboard, approveBooking, approvePayment,
-  updateDeliveryStatus,
+    updateDeliveryStatus,
+  releaseMachine,
   emailReceipt,confirmActualWeight, confirmPayment,
   archiveAppointment,
   createWalkInAppointment,

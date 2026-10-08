@@ -24,6 +24,19 @@ const isTaguigAddress = (addr) => {
 const computeDeliveryFee = (basketCount) =>
   basketCount > 0 ? 30 + 20 * (basketCount - 1) : 0;
 
+const APPROVE_WINDOW_HOURS = 24;
+
+export const assertApprovable = (appointment) => {
+  if (appointment.bookingSource === 'WALK_IN') return;
+  const pickupAt = new Date(`${appointment.slotDate}T${appointment.slotTime}:00+08:00`);
+  if (isNaN(pickupAt.getTime())) return;
+  const unlockAt = pickupAt.getTime() - APPROVE_WINDOW_HOURS * 60 * 60 * 1000;
+  if (Date.now() < unlockAt)
+    throw new ApiError(400, 'This booking can only be approved within 24 hours of its pickup time');
+};
+
+const RESCHEDULE_SLOTS = ['08:00', '10:00', '12:00', '14:00', '16:00'];
+
 class AppointmentService {
 
   async bookAppointment(userId, branchId, slotDate, slotTime, servicesInput, extraDetails = {}, promoCode = null, addOns = [], actor = null) {
@@ -604,6 +617,79 @@ class AppointmentService {
     return true;
   }
 
+    async rescheduleAppointment(appointmentId, userId, newDate, newTime) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.userId !== userId) throw new ApiError(403, 'Unauthorized');
+    if (appointment.bookingSource === 'WALK_IN')
+      throw new ApiError(400, 'Walk-in appointments cannot be changed');
+    if (appointment.cancelled)
+      throw new ApiError(400, 'Cannot change a cancelled appointment');
+    if (appointment.deliveryStatus !== 'pending_approval')
+      throw new ApiError(400, 'Rescheduling is only allowed while your booking is pending approval');
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate || '') || !RESCHEDULE_SLOTS.includes(newTime))
+      throw new ApiError(400, 'Invalid date or time. Pick 8:00, 10:00, 12:00, 2:00 or 4:00.');
+    if (newDate === appointment.slotDate && newTime === appointment.slotTime)
+      throw new ApiError(400, 'That is already your current schedule');
+
+    const newPickupAt = new Date(`${newDate}T${newTime}:00+08:00`);
+    if (isNaN(newPickupAt.getTime()))
+      throw new ApiError(400, 'Invalid slot date or time format');
+    if (newPickupAt.getTime() < Date.now() + 30 * 60 * 1000)
+      throw new ApiError(400, 'Please pick a time at least 30 minutes from now');
+
+    const MAX_ADVANCE_DAYS = 7;
+    const maxBookingDate = new Date();
+    maxBookingDate.setDate(maxBookingDate.getDate() + MAX_ADVANCE_DAYS + 1);
+    if (newDate > maxBookingDate.toISOString().split('T')[0])
+      throw new ApiError(400, `Bookings can only be made up to ${MAX_ADVANCE_DAYS} days in advance`);
+
+    return await AppointmentRepository.rescheduleAtomic({
+      appointmentId,
+      branchId: appointment.branchId,
+      oldDate: appointment.slotDate,
+      oldTime: appointment.slotTime,
+      newDate,
+      newTime,
+    });
+  }
+
+   async updateAddress(appointmentId, userId, pickupAddress, deliveryAddress) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.userId !== userId) throw new ApiError(403, 'Unauthorized');
+    if (appointment.bookingSource === 'WALK_IN')
+      throw new ApiError(400, 'Walk-in appointments cannot be changed');
+    if (appointment.cancelled)
+      throw new ApiError(400, 'Cannot change a cancelled appointment');
+    if (appointment.deliveryStatus !== 'pending_approval')
+      throw new ApiError(400, 'Address can only be changed while your booking is pending approval');
+
+    const data = {};
+    if (pickupAddress) {
+      if (!isTaguigAddress(pickupAddress))
+        throw new ApiError(400, 'Pickup address must be within Taguig City');
+      data.pickupAddress = pickupAddress;
+    }
+    if (deliveryAddress) {
+      if (!isTaguigAddress(deliveryAddress))
+        throw new ApiError(400, 'Delivery address must be within Taguig City');
+      data.deliveryAddress = deliveryAddress;
+    }
+    if (Object.keys(data).length === 0)
+      throw new ApiError(400, 'Please provide an address to update');
+
+    const result = await prisma.appointment.updateMany({
+      where: { id: appointmentId, deliveryStatus: 'pending_approval', cancelled: false },
+      data,
+    });
+    if (result.count === 0)
+      throw new ApiError(400, 'This appointment can no longer be changed');
+
+    return await AppointmentRepository.findById(appointmentId);
+  }
+
   async completeAppointment(appointmentId, branchId, actor = null) {
     const appointment = await AppointmentRepository.findById(appointmentId);
     if (!appointment) throw new ApiError(404, 'Appointment not found');
@@ -647,7 +733,7 @@ class AppointmentService {
     }
   }
 
-  async updateDeliveryStatus(appointmentId, branchId, newStatus, actor = null) {
+   async updateDeliveryStatus(appointmentId, branchId, newStatus, actor = null, machineNumber = null) {
     if (!VALID_STATUSES.includes(newStatus)) throw new ApiError(400, 'Invalid status');
 
     const appointment = await AppointmentRepository.findById(appointmentId);
@@ -656,6 +742,10 @@ class AppointmentService {
       throw new ApiError(403, 'Unauthorized');
 
         const fromStatus = appointment.deliveryStatus;
+
+        if (newStatus === 'approved' && fromStatus === 'pending_approval') {
+      assertApprovable(appointment);
+    }
 
     if (newStatus === 'rider_dispatched' && appointment.bookingSource !== 'WALK_IN') {
       const unlockAt = new Date(`${appointment.slotDate}T${appointment.slotTime}:00+08:00`);
@@ -699,15 +789,6 @@ class AppointmentService {
         'picked_up',
         'Order Picked Up',
         'Your laundry has been picked up and is on its way to the branch.'
-      );
-    }
-
-    if (newStatus === 'in_progress') {
-      await NotificationService.create(
-        appointment.userId,
-        'in_progress',
-        'Laundry in Progress',
-        'Your laundry is currently being processed.'
       );
     }
 
@@ -778,7 +859,34 @@ class AppointmentService {
       }
     }
 
-    const updated = await AppointmentRepository.updateById(appointmentId, updates);
+    let updated;
+    if (newStatus === 'in_progress') {
+      const machineCount = appointment.branchData?.machineCount ?? 10;
+      const m = Number(machineNumber);
+      if (!Number.isInteger(m) || m < 1 || m > machineCount)
+        throw new ApiError(400, `Please choose a machine from 1 to ${machineCount}`);
+      updated = await AppointmentRepository.claimMachineAtomic({
+        appointmentId,
+        branchId,
+        machineNumber: m,
+        machineCount,
+        fromStatus,
+        extraUpdates: updates,
+      });
+    } else {
+      updated = await AppointmentRepository.updateById(appointmentId, updates);
+    }
+
+    // ── Notification moved here so it only fires AFTER the status is actually saved.
+    //    This prevents "Laundry in Progress" being sent when the machine claim fails.
+    if (newStatus === 'in_progress') {
+      await NotificationService.create(
+        appointment.userId,
+        'in_progress',
+        'Laundry in Progress',
+        'Your laundry is currently being processed.'
+      );
+    }
 
     await AuditService.logStatusChange(
       actor ?? { name: 'Branch', role: 'branchadmin', userId: branchId },
@@ -788,6 +896,13 @@ class AppointmentService {
     );
 
     return updated;
+  }
+
+  async releaseMachine(appointmentId, branchId) {
+    const appointment = await AppointmentRepository.findById(appointmentId);
+    if (!appointment) throw new ApiError(404, 'Appointment not found');
+    if (appointment.branchId !== branchId) throw new ApiError(403, 'Unauthorized');
+    return await AppointmentRepository.releaseMachine(appointmentId, branchId);
   }
 
   async createWalkInAppointment(phone, guestName, branchId, slotTime, servicesInput, overweightResolution = null, extraDetails = {}, addOns = [], actor = null, fulfillmentMethod = 'SELF_PICKUP') {

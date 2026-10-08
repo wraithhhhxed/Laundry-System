@@ -72,7 +72,7 @@ const SalesReport = () => {
       const { data } = await axios.get(`${backendUrl}/api/sales/report`, {
         params, headers: { token: aToken },
       })
-      if (data.success) setReport(data.data)
+            if (data.success) setReport({ ...data.data, perBranch: [] })
       else toast.error(data.message)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to fetch report')
@@ -330,8 +330,8 @@ const SalesReport = () => {
       {/* Blue panel header */}
       <div className="px-10 pt-10 pb-12"
         style={{ background: 'radial-gradient(ellipse at top right, rgba(255,255,255,0.12) 0%, transparent 60%), #2563eb' }}>
-        <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3 font-semibold">All Branches</p>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <p className="uppercase tracking-[0.35em] text-[10px] text-blue-200 font-sans mb-3 font-semibold">Reports</p>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-white font-sans font-black"
               style={{ letterSpacing: '-0.03em', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', lineHeight: 1 }}>
@@ -384,12 +384,14 @@ const SalesReport = () => {
               </>
             )}
 
+                       {/* Single-branch: branch ID filter hidden
             {isAdmin && (
               <div>
                 <SectionLabel>Branch ID</SectionLabel>
                 <input type="text" placeholder="Optional" value={branchId} onChange={e => setBranchId(e.target.value)} className={inputClass} />
               </div>
             )}
+            */}
 
             <button onClick={fetchReport} disabled={loading}
               className="group relative overflow-hidden bg-blue-600 text-white font-sans text-xs tracking-widest uppercase font-bold inline-flex items-center px-7 py-2.5 disabled:opacity-50"

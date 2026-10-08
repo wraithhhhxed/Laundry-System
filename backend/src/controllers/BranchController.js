@@ -74,10 +74,19 @@ const updateDeliveryStatus = asyncHandler(async (req, res) => {
   await appointmentService.updateDeliveryStatus(
     req.body.appointmentId,
     req.user.branchId,
-    req.body.status,
-    actor
+     req.body.status,
+    actor,
+    req.body.machineNumber
   )
   res.json(new ApiResponse(200, {}, 'Status updated'))
+})
+
+const releaseMachine = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.body
+  if (!appointmentId) throw new ApiError(400, 'appointmentId is required')
+
+  const updated = await appointmentService.releaseMachine(appointmentId, req.user.branchId)
+  res.json(new ApiResponse(200, { appointment: updated }, 'Machine released'))
 })
 
 const emailReceipt = asyncHandler(async (req, res) => {
@@ -274,6 +283,7 @@ export {
   branchList,
   changeBranchAvailability,
   updateDeliveryStatus,
+  releaseMachine,
   emailReceipt,
 
   confirmActualWeight,

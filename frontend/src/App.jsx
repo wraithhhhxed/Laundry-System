@@ -134,8 +134,9 @@ return (
       {/* Main Routes - WITH Navbar and Footer, WITH margins */}
       <Route element={<div className='mx-4 sm:mx-[10%]'><UserLayout /></div>}>
         <Route path='/' element={<Home />} />
-        <Route path='/branches' element={<Branches />} />
-        <Route path='/branches/:speciality' element={<Branches />} />
+           {/* Branch list hidden: single branch, redirect to home */}
+        <Route path='/branches' element={<Navigate to='/' replace />} />
+        <Route path='/branches/:speciality' element={<Navigate to='/' replace />} />
         <Route path='/about' element={<About />} />
         <Route path='/contact' element={<Contact />} />
         <Route path='/my-profile' element={<MyProfile />} />

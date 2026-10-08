@@ -38,7 +38,7 @@ const Footer = () => {
               { label: 'Home',         path: '/' },
               { label: 'About Us',     path: '/about' },
               { label: 'Contact',      path: '/contact' },
-              { label: 'All Branches', path: '/branches' },
+              // { label: 'All Branches', path: '/branches' },
             ].map(({ label, path }) => (
               <li
                 key={label}

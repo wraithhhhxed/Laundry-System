@@ -96,6 +96,28 @@ const cancelAppointment = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, {}, 'Appointment cancelled'))
 })
 
+const rescheduleAppointment = asyncHandler(async (req, res) => {
+  const { appointmentId, slotDate, slotTime } = req.body
+  if (!appointmentId || !slotDate || !slotTime)
+    throw new ApiError(400, 'appointmentId, slotDate and slotTime are required')
+
+  const appointment = await appointmentService.rescheduleAppointment(
+    appointmentId, req.user.id, slotDate, slotTime
+  )
+  res.json(new ApiResponse(200, { appointment }, 'Appointment rescheduled successfully'))
+})
+
+const updateAppointmentAddress = asyncHandler(async (req, res) => {
+  const { appointmentId, pickupAddress, deliveryAddress } = req.body
+  if (!appointmentId)
+    throw new ApiError(400, 'appointmentId is required')
+
+  const appointment = await appointmentService.updateAddress(
+    appointmentId, req.user.id, pickupAddress, deliveryAddress
+  )
+  res.json(new ApiResponse(200, { appointment }, 'Address updated successfully'))
+})
+
 const requestRefund = asyncHandler(async (req, res) => {
   const { appointmentId, reason, note } = req.body
   await appointmentService.requestRefund(appointmentId, req.user.id, reason, note)
@@ -206,7 +228,7 @@ export {
   registerUser, loginUser, logoutUser,
   getUserProfile, updateUserProfile,
   bookAppointment, listAppointments,
-  cancelAppointment, requestRefund, resolveOverweight,
+    cancelAppointment, rescheduleAppointment, updateAppointmentAddress, requestRefund, resolveOverweight,
   createPaymentLink, verifyPayment,
   getActiveServices, getActiveClothingTypes, getActiveKgRates,
   googleAuthUser,

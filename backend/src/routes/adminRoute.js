@@ -5,7 +5,7 @@ import {
   loginAdmin, logoutAdmin,
   addBranch, allBranches, changeBranchAvailability,
   allAppointments, cancelAppointment, adminDashboard, approveBooking, approvePayment,
-  updateDeliveryStatus, emailReceipt, confirmActualWeight, confirmPayment, archiveAppointment,
+  updateDeliveryStatus, releaseMachine, emailReceipt, confirmActualWeight, confirmPayment, archiveAppointment,
   createWalkInAppointment, lookupPhone,
   generateQrPayment, getQrPaymentStatus,
   deleteAllAppointments,
@@ -55,6 +55,7 @@ adminRouter.get('/all-appointments',          protect('admin'), allAppointments)
 adminRouter.post('/cancel-appointment',       protect('admin'), cancelAppointment)
 adminRouter.post('/approve-booking',          protect('admin'), approveBooking)
 adminRouter.post('/approve-payment',          protect('admin'), approvePayment)
+adminRouter.post('/release-machine',         protect('admin'), releaseMachine)
 adminRouter.post('/update-delivery-status',   protect('admin'), updateDeliveryStatus)
 adminRouter.post('/email-receipt',            protect('admin'), emailReceipt)
 adminRouter.post('/confirm-actual-weight',    protect('admin'), confirmActualWeight)

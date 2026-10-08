@@ -18,7 +18,8 @@ const SUBTEXT = "Professional laundry services tailored to meet your needs."
 const EYEBROW_RIGHT = "Professional · Reliable · Fast"
 
 const SpecialityMenu = () => {
-  const { backendUrl } = useContext(AppContext)
+    const { backendUrl, branches } = useContext(AppContext)
+  const mainBranch = branches?.find((b) => b.name.trim().toLowerCase() === 'hagonoy') || branches?.[0]
   const [services, setServices] = useState([])
   const [loading, setLoading]   = useState(true)
 
@@ -164,7 +165,7 @@ const SpecialityMenu = () => {
           {services.map((service) => (
             <Link
               key={service.id}
-              to={`/branches/${service.name}`}
+                            to={mainBranch ? `/appointment/${mainBranch.id}` : '/'}
               onClick={() => scrollTo(0, 0)}
               className="group flex flex-col items-center gap-3 flex-shrink-0"
               style={{ textDecoration: 'none' }}

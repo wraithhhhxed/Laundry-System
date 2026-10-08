@@ -113,6 +113,8 @@ model Appointment {
   paymentMethod          String?
   paymentPaidAt          DateTime?
   receiptEmailSentAt     DateTime?
+  machineNumber          Int?
+  machineReleasedAt      DateTime?
   payment                Boolean                   @default(false)
   slotDate               String
   slotTime               String
